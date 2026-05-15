@@ -42,14 +42,14 @@
 ## Phase 2: 用户认证与权限模块 (P0)
 
 ### 2.1 后端 - 用户认证
-- [ ] 2.1.1 创建 User 实体类和 UserMapper
-- [ ] 2.1.2 实现 UserService（注册、登录、获取用户信息）
-- [ ] 2.1.3 实现密码加密（BCryptPasswordEncoder）
-- [ ] 2.1.4 实现 JWT 工具类（生成Token、解析Token、刷新Token）
-- [ ] 2.1.5 实现 JwtAuthenticationFilter
-- [ ] 2.1.6 配置 Spring Security（SecurityFilterChain, 请求授权规则）
-- [ ] 2.1.7 实现 AuthController（register, login, refresh, logout, me）
-- [ ] 2.1.8 实现参数校验（@Valid, 自定义校验注解）
+- [x] 2.1.1 创建 User 实体类和 UserMapper
+- [x] 2.1.2 实现 UserService（注册、登录、获取用户信息）
+- [x] 2.1.3 实现密码加密（BCryptPasswordEncoder）
+- [x] 2.1.4 实现 JWT 工具类（生成Token、解析Token、刷新Token）
+- [x] 2.1.5 实现 JwtAuthenticationFilter
+- [x] 2.1.6 配置 Spring Security（SecurityFilterChain, 请求授权规则）
+- [x] 2.1.7 实现 AuthController（register, login, refresh, logout, me）
+- [x] 2.1.8 实现参数校验（@Valid, 自定义校验注解）
 
 ### 2.2 后端 - RBAC 权限控制
 - [ ] 2.2.1 实现角色注解 @RequireRole
@@ -57,66 +57,66 @@
 - [ ] 2.2.3 配置不同角色的 API 访问权限
 
 ### 2.3 前端 - 认证模块
-- [ ] 2.3.1 创建 AuthStore（登录状态、Token 管理）
-- [ ] 2.3.2 实现 API 调用层（authApi: register, login, refresh, logout）
-- [ ] 2.3.3 实现登录页面（表单验证、错误处理）
-- [ ] 2.3.4 实现注册页面
-- [ ] 2.3.5 实现路由守卫（未登录跳转登录页）
-- [ ] 2.3.6 实现 Token 自动刷新机制（Axios 响应拦截器）
-- [ ] 2.3.7 实现导航栏用户菜单（登录状态切换）
+- [x] 2.3.1 创建 AuthStore（登录状态、Token 管理）
+- [x] 2.3.2 实现 API 调用层（authApi: register, login, refresh, logout）
+- [x] 2.3.3 实现登录页面（表单验证、错误处理）
+- [x] 2.3.4 实现注册页面
+- [x] 2.3.5 实现路由守卫（未登录跳转登录页）
+- [x] 2.3.6 实现 Token 自动刷新机制（Axios 响应拦截器）
+- [x] 2.3.7 实现导航栏用户菜单（登录状态切换）
 
 ---
 
 ## Phase 3: 资源管理模块 (P0)
 
 ### 3.1 后端 - 分类与标签
-- [ ] 3.1.1 创建 Category 实体、Mapper、Service、Controller
-- [ ] 3.1.2 实现分类树查询（递归构建）
-- [ ] 3.1.3 创建 Tag 实体、Mapper、Service、Controller
-- [ ] 3.1.4 实现标签搜索（自动补全）
-- [ ] 3.1.5 实现热门标签查询
+- [x] 3.1.1 创建 Category 实体、Mapper、Service、Controller
+- [x] 3.1.2 实现分类树查询（递归构建）
+- [x] 3.1.3 创建 Tag 实体、Mapper、Service、Controller
+- [x] 3.1.4 实现标签搜索（自动补全）
+- [x] 3.1.5 实现热门标签查询
 
 ### 3.2 后端 - 资源 CRUD
-- [ ] 3.2.1 创建 Resource 实体、ResourceTag 实体、ResourceFile 实体
-- [ ] 3.2.2 创建 ResourceMapper（含关联查询）
-- [ ] 3.2.3 实现 ResourceService（发布、更新、删除、查询详情、列表分页）
-- [ ] 3.2.4 实现文件上传服务（FileService: 本地存储 / MinIO）
-- [ ] 3.2.5 实现 ResourceController（完整 CRUD 接口）
-- [ ] 3.2.6 实现资源筛选（分类、标签、评分、时间、排序）
-- [ ] 3.2.7 实现全文搜索（MySQL FULLTEXT）
-- [ ] 3.2.8 实现资源热度计算（HotScore 定时任务）
+- [x] 3.2.1 创建 Resource 实体、ResourceTag 实体、ResourceFile 实体
+- [x] 3.2.2 创建 ResourceMapper（含关联查询）
+- [x] 3.2.3 实现 ResourceService（发布、更新、删除、查询详情、列表分页）
+- [x] 3.2.4 实现文件上传服务（FileService: 本地存储 / MinIO）
+- [x] 3.2.5 实现 ResourceController（完整 CRUD 接口）
+- [x] 3.2.6 实现资源筛选（分类、标签、评分、时间、排序）
+- [x] 3.2.7 实现全文搜索（MySQL FULLTEXT）
+- [x] 3.2.8 实现资源热度计算（HotScore 定时任务）
 
 ### 3.3 前端 - 资源模块
-- [ ] 3.3.1 实现 resourceApi（CRUD + 搜索 + 筛选）
-- [ ] 3.3.2 实现首页布局（分类导航 + 推荐区域 + 资源列表）
-- [ ] 3.3.3 实现资源卡片组件（封面、标题、摘要、标签、评分、热度）
-- [ ] 3.3.4 实现资源列表页（分页、排序切换）
-- [ ] 3.3.5 实现资源详情页（Markdown 渲染、文件下载）
-- [ ] 3.3.6 实现发布资源页（表单、文件上传、标签选择）
-- [ ] 3.3.7 实现搜索结果页（搜索框 + 筛选面板 + 结果列表）
+- [x] 3.3.1 实现 resourceApi（CRUD + 搜索 + 筛选）
+- [x] 3.3.2 实现首页布局（分类导航 + 推荐区域 + 资源列表）
+- [x] 3.3.3 实现资源卡片组件（封面、标题、摘要、标签、评分、热度）
+- [x] 3.3.4 实现资源列表页（分页、排序切换）
+- [x] 3.3.5 实现资源详情页（Markdown 渲染、文件下载）
+- [x] 3.3.6 实现发布资源页（表单、文件上传、标签选择）
+- [x] 3.3.7 实现搜索结果页（搜索框 + 筛选面板 + 结果列表）
 
 ---
 
 ## Phase 4: 社区互动模块 (P1)
 
 ### 4.1 后端 - 互动功能
-- [ ] 4.1.1 创建 LikeRecord 实体、Mapper、Service
-- [ ] 4.1.2 实现点赞/取消点赞（资源 + 评论，幂等操作）
-- [ ] 4.1.3 创建 Favorite 实体、Mapper、Service
-- [ ] 4.1.4 实现收藏/取消收藏
-- [ ] 4.1.5 创建 Rating 实体、Mapper、Service
-- [ ] 4.1.6 实现评分功能（更新平均分和评分人数）
-- [ ] 4.1.7 创建 Comment 实体、Mapper、Service
-- [ ] 4.1.8 实现评论 CRUD（支持多级回复）
-- [ ] 4.1.9 实现评论列表查询（一级评论 + 回复分页）
-- [ ] 4.1.10 实现 InteractionController（统一互动接口）
+- [x] 4.1.1 创建 LikeRecord 实体、Mapper、Service
+- [x] 4.1.2 实现点赞/取消点赞（资源 + 评论，幂等操作）
+- [x] 4.1.3 创建 Favorite 实体、Mapper、Service
+- [x] 4.1.4 实现收藏/取消收藏
+- [x] 4.1.5 创建 Rating 实体、Mapper、Service
+- [x] 4.1.6 实现评分功能（更新平均分和评分人数）
+- [x] 4.1.7 创建 Comment 实体、Mapper、Service
+- [x] 4.1.8 实现评论 CRUD（支持多级回复）
+- [x] 4.1.9 实现评论列表查询（一级评论 + 回复分页）
+- [x] 4.1.10 实现 InteractionController（统一互动接口）
 
 ### 4.2 前端 - 互动功能
-- [ ] 4.2.1 实现点赞按钮组件（动画反馈、计数显示）
-- [ ] 4.2.2 实现收藏按钮组件
-- [ ] 4.2.3 实现星级评分组件
-- [ ] 4.2.4 实现评论区组件（评论列表、回复、发表）
-- [ ] 4.2.5 集成到资源详情页
+- [x] 4.2.1 实现点赞按钮组件（动画反馈、计数显示）
+- [x] 4.2.2 实现收藏按钮组件
+- [x] 4.2.3 实现星级评分组件
+- [x] 4.2.4 实现评论区组件（评论列表、回复、发表）
+- [x] 4.2.5 集成到资源详情页
 
 ---
 
