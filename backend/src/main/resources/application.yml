@@ -4,6 +4,8 @@ server:
     context-path: /
 
 spring:
+  profiles:
+    active: local
   application:
     name: ai-learning-platform
 

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 个性化学习资源分享平台 - 资源详情</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwindcss.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#EFF6FF', 100: '#DBEAFE', 200: '#BFDBFE', 300: '#93C5FD', 400: '#60A5FA', 500: '#3B82F6', 600: '#2563EB', 700: '#1D4ED8' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+          </div>
+          <span class="text-lg font-bold text-slate-800">LearnShare AI</span>
+        </div>
+        <div class="flex-1 max-w-xl mx-8">
+          <div class="relative">
+            <input type="text" placeholder="搜索学习资源..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <svg class="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+            <span class="text-sm font-medium text-primary-600">张</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Breadcrumb -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+    <nav class="flex items-center gap-2 text-sm text-slate-500">
+      <a href="#" class="hover:text-primary-500">首页</a>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      <a href="#" class="hover:text-primary-500">计算机科学</a>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      <span class="text-slate-800">Java 并发编程实战笔记</span>
+    </nav>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+    <div class="flex gap-8">
+      <!-- Main Content -->
+      <div class="flex-1">
+        <!-- Resource Header -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-4">
+          <div class="flex items-start justify-between">
+            <div>
+              <h1 class="text-2xl font-bold">Java 并发编程实战笔记</h1>
+              <div class="flex items-center gap-3 mt-3">
+                <span class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">计算机科学</span>
+                <span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">Java</span>
+                <span class="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded">并发</span>
+                <span class="text-xs bg-amber-100 text-amber-600 px-2 py-0.5 rounded">多线程</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1 bg-amber-50 px-3 py-1.5 rounded-lg">
+              <svg class="w-5 h-5 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <span class="text-lg font-bold text-amber-600">4.8</span>
+              <span class="text-xs text-amber-500">(128 评分)</span>
+            </div>
+          </div>
+
+          <!-- Publisher Info -->
+          <div class="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
+            <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+              <span class="text-sm font-medium text-primary-600">张</span>
+            </div>
+            <div>
+              <p class="text-sm font-medium">张三</p>
+              <p class="text-xs text-slate-400">发布于 2024-03-15</p>
+            </div>
+            <div class="flex items-center gap-4 ml-auto text-sm text-slate-500">
+              <span class="flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                1200 浏览
+              </span>
+              <span class="flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                89 收藏
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Summary -->
+        <div class="bg-gradient-to-r from-purple-50 to-primary-50 border border-purple-200 rounded-xl p-4 mb-4">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-5 h-5 bg-purple-500 rounded flex items-center justify-center">
+              <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-semibold text-purple-700">AI 智能摘要</span>
+          </div>
+          <p class="text-sm text-slate-700 leading-relaxed">本笔记系统讲解了 Java 并发编程的核心知识点，涵盖 synchronized 和 ReentrantLock 的原理与对比、线程池的配置与调优、ConcurrentHashMap 等并发容器的实现机制、以及 CompletableFuture 的异步编程模式。适合有一定 Java 基础、希望深入理解并发编程的开发者。</p>
+        </div>
+
+        <!-- Description -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-4">
+          <h2 class="text-lg font-semibold mb-4">资源描述</h2>
+          <div class="prose prose-sm max-w-none text-slate-600 leading-relaxed">
+            <p>这份笔记整理自《Java 并发编程实战》和《Java 并发编程的艺术》两本经典书籍，结合实际项目经验编写。</p>
+            <h3 class="text-base font-semibold text-slate-800 mt-4 mb-2">目录结构</h3>
+            <ol class="list-decimal list-inside space-y-1">
+              <li>Java 内存模型 (JMM) 与 happens-before 原则</li>
+              <li>synchronized 关键字深度解析</li>
+              <li>ReentrantLock 与 Condition</li>
+              <li>volatile 关键字与内存语义</li>
+              <li>线程池原理与调优 (ThreadPoolExecutor)</li>
+              <li>并发容器 (ConcurrentHashMap, CopyOnWriteArrayList)</li>
+              <li>并发工具类 (CountDownLatch, CyclicBarrier, Semaphore)</li>
+              <li>CompletableFuture 异步编程</li>
+              <li>原子操作类 (AtomicInteger, LongAdder)</li>
+              <li>实战案例：生产者-消费者、读写锁缓存</li>
+            </ol>
+            <h3 class="text-base font-semibold text-slate-800 mt-4 mb-2">适合人群</h3>
+            <ul class="list-disc list-inside space-y-1">
+              <li>有 Java 基础，想深入学习并发编程的开发者</li>
+              <li>准备 Java 后端面试的求职者</li>
+              <li>需要在项目中使用多线程的工程师</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- File Download -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-4">
+          <h2 class="text-lg font-semibold mb-4">资源文件</h2>
+          <div class="flex items-center gap-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
+            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+              <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <p class="text-sm font-medium">Java并发编程实战笔记.pdf</p>
+              <p class="text-xs text-slate-400">PDF 文件 &middot; 15.6 MB</p>
+            </div>
+            <button class="bg-primary-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-600 flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              下载
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <!-- Like -->
+              <button class="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 hover:border-red-300 hover:bg-red-50 transition-colors group">
+                <svg class="w-5 h-5 text-slate-400 group-hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                <span class="text-sm text-slate-600 group-hover:text-red-500">89</span>
+              </button>
+              <!-- Favorite -->
+              <button class="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 hover:border-amber-300 hover:bg-amber-50 transition-colors group">
+                <svg class="w-5 h-5 text-slate-400 group-hover:text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                <span class="text-sm text-slate-600 group-hover:text-amber-500">收藏</span>
+              </button>
+              <!-- Share -->
+              <button class="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 hover:border-primary-300 hover:bg-primary-50 transition-colors group">
+                <svg class="w-5 h-5 text-slate-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                <span class="text-sm text-slate-600 group-hover:text-primary-500">分享</span>
+              </button>
+            </div>
+            <!-- Rating -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-slate-500">我的评分：</span>
+              <div class="flex items-center gap-0.5">
+                <svg class="w-5 h-5 text-amber-400 cursor-pointer" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-5 h-5 text-amber-400 cursor-pointer" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-5 h-5 text-amber-400 cursor-pointer" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-5 h-5 text-amber-400 cursor-pointer" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-5 h-5 text-slate-200 cursor-pointer" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comments -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 class="text-lg font-semibold mb-4">评论 <span class="text-sm font-normal text-slate-400">(12)</span></h2>
+
+          <!-- Comment Input -->
+          <div class="flex gap-3 mb-6">
+            <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <span class="text-xs font-medium text-primary-600">张</span>
+            </div>
+            <div class="flex-1">
+              <textarea placeholder="写下你的评论..." rows="2" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"></textarea>
+              <div class="flex justify-end mt-2">
+                <button class="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-primary-600">发表评论</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comment List -->
+          <div class="space-y-4">
+            <!-- Comment 1 -->
+            <div class="flex gap-3">
+              <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span class="text-xs font-medium text-green-600">李</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium">李明</span>
+                  <span class="text-xs text-slate-400">3 天前</span>
+                </div>
+                <p class="text-sm text-slate-600 mt-1">这份笔记写得很详细，特别是锁机制那部分，配合源码讲解很容易理解。强烈推荐！</p>
+                <div class="flex items-center gap-3 mt-2">
+                  <button class="flex items-center gap-1 text-xs text-slate-400 hover:text-primary-500">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"/></svg>
+                    12
+                  </button>
+                  <button class="text-xs text-slate-400 hover:text-primary-500">回复</button>
+                </div>
+                <!-- Reply -->
+                <div class="flex gap-3 mt-3 ml-4 pt-3 border-t border-slate-100">
+                  <div class="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-[10px] font-medium text-primary-600">张</span>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-medium">张三</span>
+                      <span class="text-xs bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded">作者</span>
+                      <span class="text-xs text-slate-400">2 天前</span>
+                    </div>
+                    <p class="text-sm text-slate-600 mt-1">谢谢支持！后续会补充 AQS 源码解析部分。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Comment 2 -->
+            <div class="flex gap-3">
+              <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span class="text-xs font-medium text-purple-600">王</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium">王五</span>
+                  <span class="text-xs text-slate-400">5 天前</span>
+                </div>
+                <p class="text-sm text-slate-600 mt-1">正好在准备面试，并发这块一直是薄弱环节，看完这份笔记收获很大。线程池那章的参数调优建议很实用。</p>
+                <div class="flex items-center gap-3 mt-2">
+                  <button class="flex items-center gap-1 text-xs text-slate-400 hover:text-primary-500">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"/></svg>
+                    8
+                  </button>
+                  <button class="text-xs text-slate-400 hover:text-primary-500">回复</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="w-80 flex-shrink-0 hidden lg:block">
+        <!-- Related Recommendations -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 sticky top-24">
+          <div class="flex items-center gap-2 mb-4">
+            <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+            <h3 class="text-sm font-semibold">相关推荐</h3>
+          </div>
+          <div class="space-y-3">
+            <a href="#" class="block p-2 rounded-lg hover:bg-slate-50">
+              <h4 class="text-sm font-medium truncate">Java 高并发程序设计入门</h4>
+              <p class="text-xs text-slate-400 mt-0.5">4.7 分 &middot; 890 浏览</p>
+            </a>
+            <a href="#" class="block p-2 rounded-lg hover:bg-slate-50">
+              <h4 class="text-sm font-medium truncate">JUC 并发包源码解析</h4>
+              <p class="text-xs text-slate-400 mt-0.5">4.9 分 &middot; 567 浏览</p>
+            </a>
+            <a href="#" class="block p-2 rounded-lg hover:bg-slate-50">
+              <h4 class="text-sm font-medium truncate">并发编程面试题精选 100 道</h4>
+              <p class="text-xs text-slate-400 mt-0.5">4.5 分 &middot; 2340 浏览</p>
+            </a>
+            <a href="#" class="block p-2 rounded-lg hover:bg-slate-50">
+              <h4 class="text-sm font-medium truncate">《Java 并发编程的艺术》读书笔记</h4>
+              <p class="text-xs text-slate-400 mt-0.5">4.6 分 &middot; 654 浏览</p>
+            </a>
+          </div>
+        </div>
+
+        <!-- Hot Tags -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <h3 class="text-sm font-semibold mb-3">热门标签</h3>
+          <div class="flex flex-wrap gap-2">
+            <a href="#" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600">Java</a>
+            <a href="#" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600">Python</a>
+            <a href="#" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600">算法</a>
+            <a href="#" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600">考研</a>
+            <a href="#" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600">机器学习</a>
+            <a href="#" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600">操作系统</a>
+            <a href="#" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600">数据库</a>
+            <a href="#" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600">英语</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+</body>
+</html>

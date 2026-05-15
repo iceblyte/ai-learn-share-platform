@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 个性化学习资源分享平台 - 发布资源</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwindcss.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#EFF6FF', 100: '#DBEAFE', 200: '#BFDBFE', 300: '#93C5FD', 400: '#60A5FA', 500: '#3B82F6', 600: '#2563EB', 700: '#1D4ED8' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+          </div>
+          <span class="text-lg font-bold text-slate-800">LearnShare AI</span>
+        </div>
+        <div class="flex-1 max-w-xl mx-8">
+          <div class="relative">
+            <input type="text" placeholder="搜索学习资源..." class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <svg class="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+            <span class="text-sm font-medium text-primary-600">张</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-2xl font-bold mb-6">发布资源</h1>
+
+    <form class="space-y-6">
+      <!-- Title -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <label class="block text-sm font-medium text-slate-700 mb-2">资源标题 <span class="text-red-500">*</span></label>
+        <input type="text" placeholder="请输入资源标题，最多 100 字符" maxlength="100" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+        <p class="text-xs text-slate-400 mt-1">0/100</p>
+      </div>
+
+      <!-- Category -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <label class="block text-sm font-medium text-slate-700 mb-2">资源分类 <span class="text-red-500">*</span></label>
+        <select class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white">
+          <option value="">请选择分类</option>
+          <option value="cs">计算机科学</option>
+          <option value="cs-pl">&nbsp;&nbsp;├ 编程语言</option>
+          <option value="cs-algo">&nbsp;&nbsp;├ 数据结构与算法</option>
+          <option value="cs-os">&nbsp;&nbsp;├ 操作系统</option>
+          <option value="cs-net">&nbsp;&nbsp;├ 计算机网络</option>
+          <option value="cs-db">&nbsp;&nbsp;├ 数据库</option>
+          <option value="cs-ai">&nbsp;&nbsp;└ 人工智能/机器学习</option>
+          <option value="math">数学</option>
+          <option value="math-calc">&nbsp;&nbsp;├ 高等数学</option>
+          <option value="math-linal">&nbsp;&nbsp;├ 线性代数</option>
+          <option value="math-prob">&nbsp;&nbsp;└ 概率论与数理统计</option>
+          <option value="lang">语言学习</option>
+          <option value="major">专业课</option>
+          <option value="exam">考试资料</option>
+        </select>
+      </div>
+
+      <!-- Tags -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <label class="block text-sm font-medium text-slate-700 mb-2">标签 <span class="text-slate-400 font-normal">(最多 10 个)</span></label>
+        <div class="flex flex-wrap items-center gap-2 p-3 border border-slate-300 rounded-lg min-h-[44px]">
+          <span class="inline-flex items-center gap-1 text-sm bg-primary-100 text-primary-700 px-2.5 py-1 rounded-md">
+            Java
+            <svg class="w-3.5 h-3.5 cursor-pointer hover:text-primary-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </span>
+          <span class="inline-flex items-center gap-1 text-sm bg-primary-100 text-primary-700 px-2.5 py-1 rounded-md">
+            并发
+            <svg class="w-3.5 h-3.5 cursor-pointer hover:text-primary-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </span>
+          <input type="text" placeholder="输入标签名称，回车添加..." class="flex-1 min-w-[120px] border-none outline-none text-sm py-1">
+        </div>
+        <div class="flex flex-wrap gap-1.5 mt-2">
+          <span class="text-xs text-slate-400">推荐：</span>
+          <button type="button" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded hover:bg-primary-100 hover:text-primary-600">+ 多线程</button>
+          <button type="button" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded hover:bg-primary-100 hover:text-primary-600">+ 锁机制</button>
+          <button type="button" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded hover:bg-primary-100 hover:text-primary-600">+ 线程池</button>
+          <button type="button" class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded hover:bg-primary-100 hover:text-primary-600">+ JUC</button>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <label class="block text-sm font-medium text-slate-700 mb-2">详细描述 <span class="text-red-500">*</span> <span class="text-slate-400 font-normal">(支持 Markdown)</span></label>
+        <div class="border border-slate-300 rounded-lg overflow-hidden">
+          <!-- Toolbar -->
+          <div class="flex items-center gap-1 px-3 py-2 border-b border-slate-200 bg-slate-50">
+            <button type="button" class="p-1.5 rounded hover:bg-slate-200" title="加粗">
+              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"/></svg>
+            </button>
+            <button type="button" class="p-1.5 rounded hover:bg-slate-200" title="斜体">
+              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 4h4m-2 0v16m-4-4h8"/></svg>
+            </button>
+            <button type="button" class="p-1.5 rounded hover:bg-slate-200" title="标题">
+              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h10M4 18h14"/></svg>
+            </button>
+            <button type="button" class="p-1.5 rounded hover:bg-slate-200" title="列表">
+              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+            </button>
+            <button type="button" class="p-1.5 rounded hover:bg-slate-200" title="代码">
+              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+            </button>
+            <button type="button" class="p-1.5 rounded hover:bg-slate-200" title="链接">
+              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            </button>
+            <div class="w-px h-5 bg-slate-300 mx-1"></div>
+            <button type="button" class="p-1.5 rounded hover:bg-slate-200" title="预览">
+              <svg class="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+            </button>
+          </div>
+          <textarea rows="10" placeholder="请输入资源的详细描述，支持 Markdown 语法..." class="w-full px-4 py-3 text-sm focus:outline-none resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- Resource Type -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <label class="block text-sm font-medium text-slate-700 mb-3">资源类型 <span class="text-red-500">*</span></label>
+        <div class="grid grid-cols-2 gap-4">
+          <label class="relative cursor-pointer">
+            <input type="radio" name="resourceType" value="file" checked class="peer sr-only">
+            <div class="border-2 border-slate-200 rounded-xl p-4 text-center peer-checked:border-primary-500 peer-checked:bg-primary-50 hover:border-slate-300 transition-colors">
+              <svg class="w-8 h-8 mx-auto mb-2 text-slate-400 peer-checked:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+              </svg>
+              <p class="text-sm font-medium">文件上传</p>
+              <p class="text-xs text-slate-400 mt-1">PDF, DOCX, PPT, MP4, ZIP</p>
+            </div>
+          </label>
+          <label class="relative cursor-pointer">
+            <input type="radio" name="resourceType" value="link" class="peer sr-only">
+            <div class="border-2 border-slate-200 rounded-xl p-4 text-center peer-checked:border-primary-500 peer-checked:bg-primary-50 hover:border-slate-300 transition-colors">
+              <svg class="w-8 h-8 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+              </svg>
+              <p class="text-sm font-medium">外部链接</p>
+              <p class="text-xs text-slate-400 mt-1">网盘、GitHub、视频平台等</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- File Upload -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <label class="block text-sm font-medium text-slate-700 mb-3">上传文件</label>
+        <div class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-primary-400 transition-colors cursor-pointer">
+          <svg class="w-10 h-10 mx-auto mb-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <p class="text-sm text-slate-600">拖拽文件到此处，或 <span class="text-primary-500 font-medium">点击选择</span></p>
+          <p class="text-xs text-slate-400 mt-1">支持 PDF, DOCX, PPT, MP4, ZIP 等格式，单文件最大 500MB</p>
+        </div>
+        <!-- Uploaded File Example -->
+        <div class="mt-3 flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+          <div class="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm truncate">Java并发编程实战笔记.pdf</p>
+            <p class="text-xs text-slate-400">15.6 MB</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="w-24 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div class="w-3/4 h-full bg-primary-500 rounded-full"></div>
+            </div>
+            <span class="text-xs text-slate-400">75%</span>
+            <button class="text-slate-400 hover:text-red-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cover Image -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <label class="block text-sm font-medium text-slate-700 mb-3">封面图片 <span class="text-slate-400 font-normal">(可选)</span></label>
+        <div class="w-48 h-32 border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center hover:border-primary-400 transition-colors cursor-pointer">
+          <div class="text-center">
+            <svg class="w-8 h-8 mx-auto text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <p class="text-xs text-slate-400 mt-1">上传封面</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Summary Preview -->
+      <div class="bg-gradient-to-r from-purple-50 to-primary-50 border border-purple-200 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-5 h-5 bg-purple-500 rounded flex items-center justify-center">
+            <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-purple-700">AI 智能摘要</span>
+          <span class="text-xs text-purple-500">(发布后自动生成)</span>
+        </div>
+        <p class="text-sm text-slate-500">发布资源后，AI 将自动分析您的描述内容，生成约 100 字的精准摘要，帮助其他用户快速了解资源内容。</p>
+      </div>
+
+      <!-- Submit -->
+      <div class="flex items-center justify-between pt-4">
+        <button type="button" class="px-6 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50">存为草稿</button>
+        <div class="flex items-center gap-3">
+          <button type="button" class="px-6 py-2.5 border border-primary-300 text-primary-600 rounded-lg text-sm hover:bg-primary-50">预览</button>
+          <button type="submit" class="px-8 py-2.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 shadow-sm">发布资源</button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+</body>
+</html>
