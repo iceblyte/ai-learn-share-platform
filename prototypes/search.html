@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 个性化学习资源分享平台 - 搜索结果</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwindcss.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#EFF6FF', 100: '#DBEAFE', 200: '#BFDBFE', 300: '#93C5FD', 400: '#60A5FA', 500: '#3B82F6', 600: '#2563EB', 700: '#1D4ED8' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+            </svg>
+          </div>
+          <span class="text-lg font-bold text-slate-800">LearnShare AI</span>
+        </div>
+        <div class="flex-1 max-w-xl mx-8">
+          <div class="relative">
+            <input type="text" value="推荐关于Java并发编程且评分最高的前5个资源" class="w-full pl-10 pr-20 py-2 border border-primary-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            <svg class="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <span class="absolute right-12 top-2 text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">AI</span>
+            <button class="absolute right-2 top-1.5 bg-primary-500 text-white px-3 py-1 rounded-full text-xs hover:bg-primary-600">搜索</button>
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <button class="text-sm text-slate-600 hover:text-primary-500">发布资源</button>
+          <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+            <span class="text-sm font-medium text-primary-600">张</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- AI Parsed Intent -->
+    <div class="bg-gradient-to-r from-purple-50 to-primary-50 border border-purple-200 rounded-xl p-4 mb-6">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-purple-800">AI 搜索解析</h3>
+          <p class="text-xs text-purple-600 mt-1">已将你的自然语言查询解析为以下结构化条件：</p>
+          <div class="flex flex-wrap items-center gap-2 mt-2">
+            <span class="inline-flex items-center gap-1 text-xs bg-white border border-purple-200 text-purple-700 px-2 py-1 rounded-md">
+              <span class="text-purple-400">关键词:</span> Java, 并发编程
+            </span>
+            <span class="inline-flex items-center gap-1 text-xs bg-white border border-purple-200 text-purple-700 px-2 py-1 rounded-md">
+              <span class="text-purple-400">排序:</span> 评分最高
+            </span>
+            <span class="inline-flex items-center gap-1 text-xs bg-white border border-purple-200 text-purple-700 px-2 py-1 rounded-md">
+              <span class="text-purple-400">数量:</span> 前 5 个
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-6">
+      <!-- Filter Sidebar -->
+      <aside class="w-64 flex-shrink-0 hidden lg:block">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sticky top-24">
+          <h3 class="text-sm font-semibold mb-3">筛选条件</h3>
+
+          <!-- Category Filter -->
+          <div class="mb-4">
+            <h4 class="text-xs font-medium text-slate-500 mb-2">分类</h4>
+            <div class="space-y-1.5">
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>计算机科学</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>数学</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>语言学习</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Tag Filter -->
+          <div class="mb-4">
+            <h4 class="text-xs font-medium text-slate-500 mb-2">标签</h4>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="text-xs bg-primary-100 text-primary-600 px-2 py-1 rounded-md cursor-pointer">Java</span>
+              <span class="text-xs bg-primary-100 text-primary-600 px-2 py-1 rounded-md cursor-pointer">并发</span>
+              <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md cursor-pointer hover:bg-slate-200">多线程</span>
+              <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md cursor-pointer hover:bg-slate-200">锁机制</span>
+              <span class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md cursor-pointer hover:bg-slate-200">线程池</span>
+            </div>
+          </div>
+
+          <!-- Rating Filter -->
+          <div class="mb-4">
+            <h4 class="text-xs font-medium text-slate-500 mb-2">评分</h4>
+            <div class="space-y-1.5">
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="rating" class="w-4 h-4 text-primary-500 border-slate-300 focus:ring-primary-500">
+                <span class="flex items-center gap-1">
+                  <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  4 星及以上
+                </span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="rating" checked class="w-4 h-4 text-primary-500 border-slate-300 focus:ring-primary-500">
+                <span class="flex items-center gap-1">
+                  <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  4.5 星及以上
+                </span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="rating" class="w-4 h-4 text-primary-500 border-slate-300 focus:ring-primary-500">
+                <span>不限</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Resource Type -->
+          <div class="mb-4">
+            <h4 class="text-xs font-medium text-slate-500 mb-2">资源类型</h4>
+            <div class="space-y-1.5">
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>笔记</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>视频</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>电子书</span>
+              </label>
+            </div>
+          </div>
+
+          <button class="w-full text-xs text-primary-500 border border-primary-300 py-1.5 rounded-lg hover:bg-primary-50">清除所有筛选</button>
+        </div>
+      </aside>
+
+      <!-- Results -->
+      <div class="flex-1">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-sm text-slate-500">找到 <span class="font-semibold text-slate-800">5</span> 个结果</p>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500">排序：</span>
+            <button class="text-xs px-3 py-1 bg-primary-500 text-white rounded-full">评分最高</button>
+            <button class="text-xs px-3 py-1 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200">最新</button>
+            <button class="text-xs px-3 py-1 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200">最热</button>
+          </div>
+        </div>
+
+        <!-- Result List -->
+        <div class="space-y-3">
+          <!-- Result 1 -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div class="flex items-start gap-4">
+              <div class="w-20 h-20 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-10 h-10 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between">
+                  <h3 class="font-medium text-base">Java 并发编程实战笔记</h3>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span class="text-sm font-semibold">4.8</span>
+                    <span class="text-xs text-slate-400">(128)</span>
+                  </div>
+                </div>
+                <p class="text-sm text-slate-500 mt-1 line-clamp-2">深入讲解 Java 并发编程核心概念，包含 synchronized、ReentrantLock、线程池、并发容器、CompletableFuture 等，附带大量代码示例和性能调优建议。</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Java</span>
+                  <span class="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">并发</span>
+                  <span class="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">多线程</span>
+                </div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                  <span class="flex items-center gap-1">
+                    <div class="w-4 h-4 bg-primary-100 rounded-full flex items-center justify-center"><span class="text-[8px] text-primary-600">张</span></div>
+                    张三
+                  </span>
+                  <span>2024-03-15</span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    1200
+                  </span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    89
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result 2 -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div class="flex items-start gap-4">
+              <div class="w-20 h-20 bg-gradient-to-br from-emerald-400 to-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-10 h-10 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between">
+                  <h3 class="font-medium text-base">Java 高并发程序设计入门 - 视频教程</h3>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span class="text-sm font-semibold">4.7</span>
+                    <span class="text-xs text-slate-400">(96)</span>
+                  </div>
+                </div>
+                <p class="text-sm text-slate-500 mt-1 line-clamp-2">从基础到进阶，系统讲解 Java 高并发编程，涵盖 JMM、CAS、AQS、锁优化、无锁编程等高级主题。</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Java</span>
+                  <span class="text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded">视频</span>
+                  <span class="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">高并发</span>
+                </div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                  <span class="flex items-center gap-1">
+                    <div class="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center"><span class="text-[8px] text-green-600">李</span></div>
+                    李老师
+                  </span>
+                  <span>2024-02-20</span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    890
+                  </span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    67
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result 3 -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div class="flex items-start gap-4">
+              <div class="w-20 h-20 bg-gradient-to-br from-purple-400 to-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-10 h-10 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between">
+                  <h3 class="font-medium text-base">《Java 并发编程的艺术》读书笔记</h3>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span class="text-sm font-semibold">4.6</span>
+                    <span class="text-xs text-slate-400">(75)</span>
+                  </div>
+                </div>
+                <p class="text-sm text-slate-500 mt-1 line-clamp-2">方腾飞老师著作的精读笔记，重点摘录了 Java 内存模型、线程安全、锁优化等核心章节。</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Java</span>
+                  <span class="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded">电子书</span>
+                  <span class="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">读书笔记</span>
+                </div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                  <span class="flex items-center gap-1">
+                    <div class="w-4 h-4 bg-purple-100 rounded-full flex items-center justify-center"><span class="text-[8px] text-purple-600">王</span></div>
+                    王五
+                  </span>
+                  <span>2024-01-10</span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    654
+                  </span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    45
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result 4 -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div class="flex items-start gap-4">
+              <div class="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-10 h-10 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between">
+                  <h3 class="font-medium text-base">并发编程面试题精选 100 道</h3>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span class="text-sm font-semibold">4.5</span>
+                    <span class="text-xs text-slate-400">(210)</span>
+                  </div>
+                </div>
+                <p class="text-sm text-slate-500 mt-1 line-clamp-2">涵盖 volatile、synchronized、Lock、线程池、阻塞队列、并发工具类等高频面试考点，附带详细解答。</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Java</span>
+                  <span class="text-xs bg-pink-100 text-pink-600 px-1.5 py-0.5 rounded">面试</span>
+                  <span class="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">并发</span>
+                </div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                  <span class="flex items-center gap-1">
+                    <div class="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center"><span class="text-[8px] text-amber-600">赵</span></div>
+                    赵学长
+                  </span>
+                  <span>2024-03-01</span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    2340
+                  </span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    156
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result 5 -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div class="flex items-start gap-4">
+              <div class="w-20 h-20 bg-gradient-to-br from-cyan-400 to-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg class="w-10 h-10 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between">
+                  <h3 class="font-medium text-base">JUC 并发包源码解析</h3>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span class="text-sm font-semibold">4.9</span>
+                    <span class="text-xs text-slate-400">(52)</span>
+                  </div>
+                </div>
+                <p class="text-sm text-slate-500 mt-1 line-clamp-2">深入分析 java.util.concurrent 包核心源码，包括 ConcurrentHashMap、ThreadPoolExecutor、CountDownLatch 等实现原理。</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">Java</span>
+                  <span class="text-xs bg-cyan-100 text-cyan-600 px-1.5 py-0.5 rounded">源码</span>
+                  <span class="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded">并发</span>
+                </div>
+                <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                  <span class="flex items-center gap-1">
+                    <div class="w-4 h-4 bg-cyan-100 rounded-full flex items-center justify-center"><span class="text-[8px] text-cyan-600">刘</span></div>
+                    刘工
+                  </span>
+                  <span>2024-03-10</span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    567
+                  </span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    38
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+</body>
+</html>

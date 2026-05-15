@@ -92,7 +92,7 @@ public class ResourceService {
 
         // Handle tags
         if (request.getTags() != null) {
-            for (tagName : request.getTags()) {
+            for (String tagName : request.getTags()) {
                 Tag tag = tagMapper.selectOne(new QueryWrapper<Tag>().eq("name", tagName));
                 if (tag == null) {
                     tag = new Tag();

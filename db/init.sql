@@ -232,11 +232,11 @@ CREATE TABLE IF NOT EXISTS `recommendation_log` (
 
 -- 管理员账号 (密码: admin123, BCrypt加密)
 INSERT INTO `user` (`username`, `email`, `password_hash`, `nickname`, `role`, `points`)
-VALUES ('admin', 'admin@learning.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '系统管理员', 'ADMIN', 1000);
+VALUES ('admin', 'admin@learning.com', '$2b$10$xQfG5lnviqRGoZ3O6K00/.Sd8Ivi2.EJTxq8bHMHu8HdI9fvrfdmO', '系统管理员', 'ADMIN', 1000);
 
 -- 默认发布者账号 (密码: publisher123)
 INSERT INTO `user` (`username`, `email`, `password_hash`, `nickname`, `role`, `points`)
-VALUES ('publisher', 'publisher@learning.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '资源发布者', 'PUBLISHER', 500);
+VALUES ('publisher', 'publisher@learning.com', '$2b$10$4Qe0TS.kFLsbVqioXmBuPO2m.xvhwYaR02TQEw030VrJ0.GCjU1.G', '资源发布者', 'PUBLISHER', 500);
 
 -- 默认分类
 INSERT INTO `category` (`name`, `parent_id`, `sort_order`) VALUES

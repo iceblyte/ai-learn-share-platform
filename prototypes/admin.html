@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 个性化学习资源分享平台 - 管理后台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwindcss.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50: '#EFF6FF', 100: '#DBEAFE', 200: '#BFDBFE', 300: '#93C5FD', 400: '#60A5FA', 500: '#3B82F6', 600: '#2563EB', 700: '#1D4ED8' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', system-ui, sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <div class="flex h-screen">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-slate-900 text-white flex-shrink-0 flex flex-col">
+      <!-- Logo -->
+      <div class="h-16 flex items-center gap-2 px-6 border-b border-slate-800">
+        <div class="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold">管理后台</span>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-medium">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+          仪表盘
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          用户管理
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          资源审核
+          <span class="ml-auto text-xs bg-red-500 text-white px-1.5 py-0.5 rounded-full">5</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+          分类管理
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white text-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+          标签管理
+        </a>
+      </nav>
+
+      <!-- User -->
+      <div class="p-4 border-t border-slate-800">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+            <span class="text-xs font-medium">管</span>
+          </div>
+          <div>
+            <p class="text-sm font-medium">管理员</p>
+            <p class="text-xs text-slate-400">admin</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="flex-1 overflow-y-auto">
+      <!-- Top Bar -->
+      <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6">
+        <h1 class="text-lg font-semibold">仪表盘</h1>
+        <div class="flex items-center gap-4">
+          <button class="relative p-2 text-slate-400 hover:text-slate-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+          </button>
+          <a href="#" class="text-sm text-primary-500 hover:text-primary-600">返回前台</a>
+        </div>
+      </header>
+
+      <div class="p-6">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-500">总用户数</p>
+                <p class="text-2xl font-bold mt-1">1,286</p>
+                <p class="text-xs text-green-500 mt-1">+12.5% 较上周</p>
+              </div>
+              <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-500">总资源数</p>
+                <p class="text-2xl font-bold mt-1">3,459</p>
+                <p class="text-xs text-green-500 mt-1">+8.3% 较上周</p>
+              </div>
+              <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-500">待审核</p>
+                <p class="text-2xl font-bold mt-1 text-amber-500">5</p>
+                <p class="text-xs text-slate-400 mt-1">需要处理</p>
+              </div>
+              <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-500">今日活跃</p>
+                <p class="text-2xl font-bold mt-1">256</p>
+                <p class="text-xs text-green-500 mt-1">+5.2% 较昨日</p>
+              </div>
+              <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Recent Pending Resources -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between p-4 border-b border-slate-100">
+              <h2 class="font-semibold">待审核资源</h2>
+              <a href="#" class="text-sm text-primary-500 hover:text-primary-600">查看全部</a>
+            </div>
+            <div class="divide-y divide-slate-100">
+              <div class="flex items-center gap-3 p-4">
+                <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium truncate">Redis 设计与实现笔记</p>
+                  <p class="text-xs text-slate-400">张三 &middot; 10 分钟前</p>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">通过</button>
+                  <button class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">拒绝</button>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 p-4">
+                <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium truncate">机器学习数学基础 - 线性代数</p>
+                  <p class="text-xs text-slate-400">李四 &middot; 30 分钟前</p>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">通过</button>
+                  <button class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">拒绝</button>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 p-4">
+                <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium truncate">Go 语言 Gin 框架实战教程</p>
+                  <p class="text-xs text-slate-400">王五 &middot; 1 小时前</p>
+                </div>
+                <div class="flex items-center gap-1">
+                  <button class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">通过</button>
+                  <button class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">拒绝</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Users -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between p-4 border-b border-slate-100">
+              <h2 class="font-semibold">最近注册用户</h2>
+              <a href="#" class="text-sm text-primary-500 hover:text-primary-600">查看全部</a>
+            </div>
+            <div class="divide-y divide-slate-100">
+              <div class="flex items-center gap-3 p-4">
+                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span class="text-xs font-medium text-blue-600">刘</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium">刘小明</p>
+                  <p class="text-xs text-slate-400">liuxm@example.com</p>
+                </div>
+                <span class="text-xs text-slate-400">5 分钟前</span>
+              </div>
+              <div class="flex items-center gap-3 p-4">
+                <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <span class="text-xs font-medium text-green-600">陈</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium">陈思远</p>
+                  <p class="text-xs text-slate-400">chensy@example.com</p>
+                </div>
+                <span class="text-xs text-slate-400">20 分钟前</span>
+              </div>
+              <div class="flex items-center gap-3 p-4">
+                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                  <span class="text-xs font-medium text-purple-600">赵</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium">赵雨涵</p>
+                  <p class="text-xs text-slate-400">zhaoyh@example.com</p>
+                </div>
+                <span class="text-xs text-slate-400">1 小时前</span>
+              </div>
+              <div class="flex items-center gap-3 p-4">
+                <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                  <span class="text-xs font-medium text-amber-600">孙</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium">孙浩然</p>
+                  <p class="text-xs text-slate-400">sunhr@example.com</p>
+                </div>
+                <span class="text-xs text-slate-400">2 小时前</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Category & Tag Management Quick View -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          <!-- Categories -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between p-4 border-b border-slate-100">
+              <h2 class="font-semibold">分类管理</h2>
+              <button class="text-sm text-primary-500 hover:text-primary-600">+ 新增分类</button>
+            </div>
+            <div class="p-4">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                    <span class="text-sm">计算机科学</span>
+                    <span class="text-xs text-slate-400">(1,234 资源)</span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button class="p-1 text-slate-400 hover:text-primary-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                    <button class="p-1 text-slate-400 hover:text-red-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 pl-8">
+                  <span class="text-sm text-slate-600">├ 编程语言</span>
+                  <span class="text-xs text-slate-400">(456)</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 pl-8">
+                  <span class="text-sm text-slate-600">├ 数据结构与算法</span>
+                  <span class="text-xs text-slate-400">(234)</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 pl-8">
+                  <span class="text-sm text-slate-600">└ 人工智能</span>
+                  <span class="text-xs text-slate-400">(189)</span>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                    <span class="text-sm">数学</span>
+                    <span class="text-xs text-slate-400">(567 资源)</span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button class="p-1 text-slate-400 hover:text-primary-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                    <button class="p-1 text-slate-400 hover:text-red-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+                    <span class="text-sm">考试资料</span>
+                    <span class="text-xs text-slate-400">(890 资源)</span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button class="p-1 text-slate-400 hover:text-primary-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                    <button class="p-1 text-slate-400 hover:text-red-500"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tags -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between p-4 border-b border-slate-100">
+              <h2 class="font-semibold">热门标签</h2>
+              <button class="text-sm text-primary-500 hover:text-primary-600">+ 新增标签</button>
+            </div>
+            <div class="p-4">
+              <div class="flex flex-wrap gap-2">
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  Java <span class="text-xs text-slate-400">(456)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  Python <span class="text-xs text-slate-400">(389)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  算法 <span class="text-xs text-slate-400">(312)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  考研 <span class="text-xs text-slate-400">(278)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  机器学习 <span class="text-xs text-slate-400">(198)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  操作系统 <span class="text-xs text-slate-400">(156)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  数据库 <span class="text-xs text-slate-400">(145)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  英语 <span class="text-xs text-slate-400">(134)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  并发 <span class="text-xs text-slate-400">(98)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-sm bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg">
+                  Spring <span class="text-xs text-slate-400">(87)</span>
+                  <svg class="w-3.5 h-3.5 text-slate-400 cursor-pointer hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
