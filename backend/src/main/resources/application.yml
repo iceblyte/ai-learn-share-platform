@@ -1,0 +1,99 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: ai-learning-platform
+
+  # MySQL
+  datasource:
+    url: jdbc:mysql://localhost:3306/learning_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1800000
+
+  # Redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 5000
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+
+  # File Upload
+  servlet:
+    multipart:
+      max-file-size: 500MB
+      max-request-size: 500MB
+
+  # Jackson
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+# MyBatis-Plus
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.learning.platform.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET:myDefaultSecretKeyForJWTTokenGeneration2024LearningPlatform}
+  expiration: 86400000       # 24 hours
+  refresh-expiration: 604800000  # 7 days
+  header: Authorization
+  prefix: "Bearer "
+
+# AI Configuration
+ai:
+  api-key: ${AI_API_KEY:your-gemini-api-key}
+  api-url: ${AI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent}
+  model: ${AI_MODEL:gemini-pro}
+  timeout: 30000
+  max-retries: 3
+
+# File Storage
+storage:
+  type: ${STORAGE_TYPE:local}
+  local:
+    path: ${STORAGE_PATH:./uploads}
+    url-prefix: /files
+  max-size: 524288000  # 500MB
+
+# Springdoc
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+# Logging
+logging:
+  level:
+    com.learning.platform: debug
+    com.learning.platform.mapper: debug

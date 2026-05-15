@@ -1,0 +1,62 @@
+# ==================== Java / Maven ====================
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+hs_err_pid*
+
+# ==================== IDE ====================
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.project
+.classpath
+*.swp
+*.swo
+*~
+
+# ==================== Node / Frontend ====================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# ==================== OS ====================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==================== Environment / Secrets ====================
+.env
+.env.local
+.env.*.local
+application-local.yml
+application-local.yaml
+application-dev.yml
+application-dev.yaml
+
+# ==================== Uploads ====================
+uploads/
+*.pdf
+*.docx
+*.pptx
+*.mp4
+*.zip
+
+# ==================== Logs ====================
+logs/
+*.log
+npm-debug.log*
+
+# ==================== Claude / AI Tools ====================
+.claude/
+.gemini/
+.trae/
+
+# ==================== openspec working files ====================
+openspec/changes/
