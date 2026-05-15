@@ -20,7 +20,14 @@ const form = ref({
   externalUrl: '',
 })
 
+const selectedFiles = ref<File[]>([])
+const uploadProgress = ref(0)
+const isDragging = ref(false)
+
 const tagInput = ref('')
+
+const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.pptx', '.mp4', '.zip']
+const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 
 onMounted(async () => {
   const [catRes, tagRes] = await Promise.all([
@@ -42,22 +49,80 @@ function removeTag(index: number) {
   form.value.tags.splice(index, 1)
 }
 
+function validateFile(file: File): string | null {
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+  if (!ALLOWED_EXTENSIONS.includes(ext)) {
+    return `不支持的文件类型: ${ext}，仅支持 PDF/DOCX/PPT/MP4/ZIP`
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return `文件大小超过限制（最大500MB）`
+  }
+  return null
+}
+
+function handleFileSelect(event: Event) {
+  const input = event.target as HTMLInputElement
+  if (input.files) {
+    addFiles(Array.from(input.files))
+  }
+}
+
+function handleDrop(event: DragEvent) {
+  isDragging.value = false
+  if (event.dataTransfer?.files) {
+    addFiles(Array.from(event.dataTransfer.files))
+  }
+}
+
+function addFiles(files: File[]) {
+  for (const file of files) {
+    const err = validateFile(file)
+    if (err) {
+      error.value = err
+      return
+    }
+  }
+  error.value = ''
+  selectedFiles.value.push(...files)
+}
+
+function removeFile(index: number) {
+  selectedFiles.value.splice(index, 1)
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
 async function handleSubmit() {
   if (!form.value.title || !form.value.categoryId || !form.value.description) {
     error.value = '请填写必填字段'
     return
   }
+  if (form.value.resourceType === 'FILE' && selectedFiles.value.length === 0) {
+    error.value = '请上传至少一个文件'
+    return
+  }
   loading.value = true
   error.value = ''
+  uploadProgress.value = 0
   try {
-    await resourceApi.create({
+    const formData = new FormData()
+    const data = {
       title: form.value.title,
       categoryId: form.value.categoryId,
       tags: form.value.tags,
       description: form.value.description,
       resourceType: form.value.resourceType,
       externalUrl: form.value.externalUrl || undefined,
-    })
+    }
+    formData.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }))
+    if (form.value.resourceType === 'FILE') {
+      selectedFiles.value.forEach(file => formData.append('files', file))
+    }
+    await resourceApi.create(formData)
     router.push('/')
   } catch (e: any) {
     error.value = e.message || '发布失败'
@@ -139,6 +204,51 @@ async function handleSubmit() {
       <div v-if="form.resourceType === 'LINK'">
         <label class="block text-sm font-medium text-slate-700 mb-1">资源链接</label>
         <input v-model="form.externalUrl" class="input-field" placeholder="https://..." />
+      </div>
+
+      <div v-if="form.resourceType === 'FILE'">
+        <label class="block text-sm font-medium text-slate-700 mb-1">上传文件 *</label>
+        <div
+          class="border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer"
+          :class="isDragging ? 'border-primary-500 bg-primary-50' : 'border-slate-300 hover:border-primary-400'"
+          @dragover.prevent="isDragging = true"
+          @dragleave="isDragging = false"
+          @drop.prevent="handleDrop"
+          @click="($refs.fileInput as HTMLInputElement).click()"
+        >
+          <input ref="fileInput" type="file" multiple accept=".pdf,.docx,.pptx,.mp4,.zip" class="hidden" @change="handleFileSelect" />
+          <div class="text-slate-400 mb-2">
+            <svg class="w-10 h-10 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+          </div>
+          <p class="text-sm text-slate-500">拖拽文件到此处或点击选择</p>
+          <p class="text-xs text-slate-400 mt-1">支持 PDF / DOCX / PPT / MP4 / ZIP，最大 500MB</p>
+        </div>
+
+        <div v-if="selectedFiles.length > 0" class="mt-3 space-y-2">
+          <div v-for="(file, i) in selectedFiles" :key="i" class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+            <svg class="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-slate-700 truncate">{{ file.name }}</p>
+              <p class="text-xs text-slate-400">{{ formatSize(file.size) }}</p>
+            </div>
+            <button type="button" @click="removeFile(i)" class="text-slate-400 hover:text-red-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="uploadProgress > 0 && uploadProgress < 100" class="mt-3">
+          <div class="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div class="h-full bg-primary-500 transition-all" :style="{ width: uploadProgress + '%' }"></div>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">上传中 {{ uploadProgress }}%</p>
+        </div>
       </div>
 
       <button type="submit" class="btn-primary w-full py-3" :disabled="loading">

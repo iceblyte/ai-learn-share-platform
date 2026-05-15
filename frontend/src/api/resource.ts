@@ -8,15 +8,7 @@ export const resourceApi = {
   getDetail(id: number) {
     return request.get<ApiResponse<Resource>>(`/resources/${id}`)
   },
-  create(data: ResourceCreateRequest) {
-    const formData = new FormData()
-    formData.append('title', data.title)
-    formData.append('categoryId', String(data.categoryId))
-    formData.append('description', data.description)
-    formData.append('resourceType', data.resourceType)
-    data.tags.forEach(tag => formData.append('tags', tag))
-    if (data.externalUrl) formData.append('externalUrl', data.externalUrl)
-    if (data.files) data.files.forEach(file => formData.append('files', file))
+  create(formData: FormData) {
     return request.post<ApiResponse<Resource>>('/resources', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })

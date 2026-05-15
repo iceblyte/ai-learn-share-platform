@@ -20,7 +20,16 @@ public class SearchService {
     private final ResourceMapper resourceMapper;
     private final RedisTemplate<String, Object> redisTemplate;
 
+    private static final String HOT_KEY = "search:hot";
+    private static final String HISTORY_KEY_PREFIX = "search:history:";
+    private static final int HISTORY_MAX_SIZE = 20;
+    private static final int HISTORY_EXPIRE_DAYS = 30;
+
     public PageResult<Resource> search(String keyword, Long categoryId, String sortBy, int page, int size) {
+        return search(keyword, categoryId, sortBy, page, size, null);
+    }
+
+    public PageResult<Resource> search(String keyword, Long categoryId, String sortBy, int page, int size, Long userId) {
         QueryWrapper<Resource> wrapper = new QueryWrapper<>();
         wrapper.eq("status", "PUBLISHED");
 
@@ -40,9 +49,11 @@ public class SearchService {
 
         IPage<Resource> result = resourceMapper.selectPage(new Page<>(page, size), wrapper);
 
-        // Record search keyword
         if (keyword != null && !keyword.isBlank()) {
             recordSearch(keyword);
+            if (userId != null) {
+                recordUserSearch(userId, keyword);
+            }
         }
 
         return PageResult.from(result);
@@ -50,13 +61,37 @@ public class SearchService {
 
     @SuppressWarnings("unchecked")
     public List<String> getHotSearches() {
-        List<Object> hot = redisTemplate.opsForList().range("search:hot", 0, 9);
+        List<Object> hot = redisTemplate.opsForList().range(HOT_KEY, 0, 9);
         return hot != null ? hot.stream().map(Object::toString).toList() : List.of();
     }
 
     private void recordSearch(String keyword) {
-        redisTemplate.opsForList().leftPush("search:hot", keyword);
-        redisTemplate.opsForList().trim("search:hot", 0, 99);
-        redisTemplate.expire("search:hot", 7, TimeUnit.DAYS);
+        redisTemplate.opsForList().leftPush(HOT_KEY, keyword);
+        redisTemplate.opsForList().trim(HOT_KEY, 0, 99);
+        redisTemplate.expire(HOT_KEY, 7, TimeUnit.DAYS);
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<String> getUserSearchHistory(Long userId) {
+        String key = HISTORY_KEY_PREFIX + userId;
+        List<Object> history = redisTemplate.opsForList().range(key, 0, HISTORY_MAX_SIZE - 1);
+        return history != null ? history.stream().map(Object::toString).toList() : List.of();
+    }
+
+    public void recordUserSearch(Long userId, String keyword) {
+        String key = HISTORY_KEY_PREFIX + userId;
+        // Remove existing occurrence to avoid duplicates
+        redisTemplate.opsForList().remove(key, 1, keyword);
+        // Add to front
+        redisTemplate.opsForList().leftPush(key, keyword);
+        // Trim to max size
+        redisTemplate.opsForList().trim(key, 0, HISTORY_MAX_SIZE - 1);
+        // Set expiration
+        redisTemplate.expire(key, HISTORY_EXPIRE_DAYS, TimeUnit.DAYS);
+    }
+
+    public void clearUserSearchHistory(Long userId) {
+        String key = HISTORY_KEY_PREFIX + userId;
+        redisTemplate.delete(key);
     }
 }

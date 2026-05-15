@@ -9,12 +9,18 @@ import com.learning.platform.dto.ResourceCreateRequest;
 import com.learning.platform.entity.*;
 import com.learning.platform.mapper.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ResourceService {
@@ -24,6 +30,9 @@ public class ResourceService {
     private final TagMapper tagMapper;
     private final CategoryMapper categoryMapper;
     private final UserMapper userMapper;
+    private final FileService fileService;
+    private final ResourceFileMapper resourceFileMapper;
+    private final AiService aiService;
 
     public PageResult<Resource> list(String keyword, Long categoryId, List<String> tags,
                                      String sortBy, BigDecimal minRating, int page, int size) {
@@ -38,6 +47,13 @@ public class ResourceService {
         }
         if (minRating != null) {
             wrapper.ge("avg_rating", minRating);
+        }
+        if (tags != null && !tags.isEmpty()) {
+            String tagNames = tags.stream()
+                    .map(t -> "'" + t.replace("'", "''") + "'")
+                    .collect(Collectors.joining(","));
+            wrapper.inSql("id",
+                    "SELECT resource_id FROM resource_tag rt JOIN tag t ON rt.tag_id = t.id WHERE t.name IN (" + tagNames + ")");
         }
 
         // Sort
@@ -66,7 +82,7 @@ public class ResourceService {
     }
 
     @Transactional
-    public Resource create(ResourceCreateRequest request, Long publisherId) {
+    public Resource create(ResourceCreateRequest request, MultipartFile[] files, Long publisherId) {
         // Validate category
         Category category = categoryMapper.selectById(request.getCategoryId());
         if (category == null) {
@@ -110,7 +126,40 @@ public class ResourceService {
             }
         }
 
+        // Handle file uploads
+        if (files != null && files.length > 0) {
+            for (MultipartFile file : files) {
+                FileService.StoredFile stored = fileService.store(file);
+                ResourceFile rf = new ResourceFile();
+                rf.setResourceId(resource.getId());
+                rf.setFileName(stored.fileName());
+                rf.setFileUrl(stored.fileUrl());
+                rf.setFileSize(stored.fileSize());
+                rf.setFileType(stored.fileType());
+                resourceFileMapper.insert(rf);
+            }
+        }
+
+        // Async AI summary generation
+        if (request.getDescription() != null && request.getDescription().length() > 100) {
+            generateSummaryAsync(resource.getId(), resource.getTitle(), request.getDescription());
+        }
+
         return enrichResource(resource);
+    }
+
+    @Async
+    public void generateSummaryAsync(Long resourceId, String title, String description) {
+        try {
+            String summary = aiService.generateSummary(title, description);
+            Resource resource = resourceMapper.selectById(resourceId);
+            if (resource != null && summary != null) {
+                resource.setAiSummary(summary);
+                resourceMapper.updateById(resource);
+            }
+        } catch (Exception e) {
+            log.error("Failed to generate AI summary for resource {}: {}", resourceId, e.getMessage());
+        }
     }
 
     @Transactional

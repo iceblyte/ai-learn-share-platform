@@ -3,10 +3,12 @@ import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { searchApi } from '@/api/search'
 import { categoryApi, tagApi } from '@/api/category'
+import { useUserStore } from '@/store/user'
 import type { Resource, Category, Tag, SearchParams } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 const keyword = ref((route.query.q as string) || '')
 const isNlMode = ref(false)
@@ -18,6 +20,7 @@ const categories = ref<Category[]>([])
 const hotTags = ref<Tag[]>([])
 const selectedCategory = ref<number | null>((route.query.categoryId as any) || null)
 const sortBy = ref('hot')
+const searchHistory = ref<string[]>([])
 
 onMounted(async () => {
   const [catRes, tagRes] = await Promise.all([
@@ -26,8 +29,23 @@ onMounted(async () => {
   ])
   categories.value = catRes.data.data
   hotTags.value = tagRes.data.data
+  if (userStore.isLoggedIn) loadHistory()
   if (keyword.value) handleSearch()
 })
+
+async function loadHistory() {
+  try {
+    const res = await searchApi.getHistory()
+    searchHistory.value = res.data.data || []
+  } catch {}
+}
+
+async function clearHistory() {
+  try {
+    await searchApi.clearHistory()
+    searchHistory.value = []
+  } catch {}
+}
 
 async function handleSearch() {
   if (!keyword.value.trim() && !selectedCategory.value) return
@@ -53,6 +71,7 @@ async function handleSearch() {
   } finally {
     loading.value = false
   }
+  if (userStore.isLoggedIn) loadHistory()
 }
 
 function goToResource(id: number) {
@@ -88,6 +107,20 @@ watch(sortBy, () => { page.value = 1; handleSearch() })
           @keyup.enter="handleSearch"
         />
         <button @click="handleSearch" class="btn-primary px-6">搜索</button>
+      </div>
+
+      <!-- Search History -->
+      <div v-if="searchHistory.length > 0" class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-slate-400">搜索历史:</span>
+        <button
+          v-for="item in searchHistory"
+          :key="item"
+          @click="keyword = item; handleSearch()"
+          class="px-2 py-1 bg-slate-50 text-slate-500 text-xs rounded hover:bg-primary-50 hover:text-primary-600 transition-colors"
+        >
+          {{ item }}
+        </button>
+        <button @click="clearHistory()" class="text-xs text-slate-400 hover:text-red-500 ml-1">清空</button>
       </div>
     </div>
 
