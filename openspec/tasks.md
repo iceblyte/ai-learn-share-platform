@@ -123,42 +123,42 @@
 ## Phase 5: AI 增强功能模块 (P1)
 
 ### 5.1 后端 - AI 基础设施
-- [ ] 5.1.1 创建 AI 配置类（API Key、模型名称、超时配置）
-- [ ] 5.1.2 实现 AiService 接口和 Gemini 实现类
-- [ ] 5.1.3 实现 HTTP 客户端调用 Gemini API（OkHttp/WebClient）
-- [ ] 5.1.4 实现 AI 调用异常处理和降级策略
-- [ ] 5.1.5 实现 AI 调用日志记录
+- [x] 5.1.1 创建 AI 配置类（API Key、模型名称、超时配置）
+- [x] 5.1.2 实现 AiService 接口和 Gemini 实现类
+- [x] 5.1.3 实现 HTTP 客户端调用 Gemini API（OkHttp/WebClient）
+- [x] 5.1.4 实现 AI 调用异常处理和降级策略
+- [x] 5.1.5 实现 AI 调用日志记录
 
 ### 5.2 后端 - AI 智能摘要
-- [ ] 5.2.1 实现摘要生成 Prompt 模板
-- [ ] 5.2.2 实现 ResourceAiService.generateSummary()
-- [ ] 5.2.3 集成到资源发布流程（异步生成）
+- [x] 5.2.1 实现摘要生成 Prompt 模板
+- [x] 5.2.2 实现 ResourceAiService.generateSummary()
+- [x] 5.2.3 集成到资源发布流程（异步生成）
 - [ ] 5.2.4 实现摘要缓存（Redis）
 
 ### 5.3 后端 - 自然语言搜索 (NL2API)
-- [ ] 5.3.1 实现 NL2API Prompt 模板（解析自然语言为结构化查询）
-- [ ] 5.3.2 实现 QueryParser 解析 LLM 返回的 JSON
-- [ ] 5.3.3 实现 SearchService.naturalLanguageSearch()
-- [ ] 5.3.4 实现 SearchController.nlSearch()
-- [ ] 5.3.5 实现搜索历史记录
+- [x] 5.3.1 实现 NL2API Prompt 模板（解析自然语言为结构化查询）
+- [x] 5.3.2 实现 QueryParser 解析 LLM 返回的 JSON
+- [x] 5.3.3 实现 SearchService.naturalLanguageSearch()
+- [x] 5.3.4 实现 SearchController.nlSearch()
+- [x] 5.3.5 实现搜索历史记录
 
 ### 5.4 后端 - 个性化推荐
-- [ ] 5.4.1 实现用户兴趣标签提取（基于浏览/点赞/收藏历史）
-- [ ] 5.4.2 实现基于标签的内容推荐算法
+- [x] 5.4.1 实现用户兴趣标签提取（基于浏览/点赞/收藏历史）
+- [x] 5.4.2 实现基于标签的内容推荐算法
 - [ ] 5.4.3 实现基于用户行为的协同过滤算法
-- [ ] 5.4.4 实现热度推荐算法
-- [ ] 5.4.5 实现推荐结果合并与排序
-- [ ] 5.4.6 实现推荐理由 Prompt 模板
-- [ ] 5.4.7 实现 RecommendationService.getRecommendations()
-- [ ] 5.4.8 实现 RecommendationController
+- [x] 5.4.4 实现热度推荐算法
+- [x] 5.4.5 实现推荐结果合并与排序
+- [x] 5.4.6 实现推荐理由 Prompt 模板
+- [x] 5.4.7 实现 RecommendationService.getRecommendations()
+- [x] 5.4.8 实现 RecommendationController
 - [ ] 5.4.9 实现推荐结果缓存（Redis）
 
 ### 5.5 前端 - AI 功能
-- [ ] 5.5.1 实现 AI 摘要展示组件
-- [ ] 5.5.2 实现自然语言搜索输入框（带 AI 标识）
-- [ ] 5.5.3 实现 NL 搜索结果展示（解析意图 + 结果列表）
-- [ ] 5.5.4 实现推荐区域组件（推荐卡片 + 推荐理由）
-- [ ] 5.5.5 集成到首页和详情页
+- [x] 5.5.1 实现 AI 摘要展示组件
+- [x] 5.5.2 实现自然语言搜索输入框（带 AI 标识）
+- [x] 5.5.3 实现 NL 搜索结果展示（解析意图 + 结果列表）
+- [x] 5.5.4 实现推荐区域组件（推荐卡片 + 推荐理由）
+- [x] 5.5.5 集成到首页和详情页
 
 ---
 

@@ -194,7 +194,7 @@ public class ResourceService {
         return PageResult.from(result);
     }
 
-    private Resource enrichResource(Resource resource) {
+    public Resource enrichResource(Resource resource) {
         if (resource.getCategoryId() != null) {
             resource.setCategory(categoryMapper.selectById(resource.getCategoryId()));
         }

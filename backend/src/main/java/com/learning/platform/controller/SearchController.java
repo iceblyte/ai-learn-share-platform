@@ -1,18 +1,27 @@
 package com.learning.platform.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.platform.common.PageResult;
 import com.learning.platform.common.Result;
 import com.learning.platform.dto.NlSearchRequest;
+import com.learning.platform.dto.NlSearchResult;
+import com.learning.platform.entity.Category;
 import com.learning.platform.entity.Resource;
 import com.learning.platform.service.AiService;
+import com.learning.platform.service.CategoryService;
 import com.learning.platform.service.SearchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/search")
 @RequiredArgsConstructor
@@ -20,6 +29,8 @@ public class SearchController {
 
     private final SearchService searchService;
     private final AiService aiService;
+    private final CategoryService categoryService;
+    private final ObjectMapper objectMapper;
 
     @GetMapping
     public Result<PageResult<Resource>> search(
@@ -34,13 +45,53 @@ public class SearchController {
     }
 
     @PostMapping("/nl")
-    public Result<String> nlSearch(@Valid @RequestBody NlSearchRequest request, Authentication auth) {
+    public Result<NlSearchResult> nlSearch(@Valid @RequestBody NlSearchRequest request, Authentication auth) {
         Long userId = auth != null ? (Long) auth.getPrincipal() : null;
-        String parsed = aiService.parseNaturalLanguageQuery(request.getQuery());
         if (userId != null && request.getQuery() != null) {
             searchService.recordUserSearch(userId, request.getQuery());
         }
-        return Result.success(parsed);
+
+        String parsed;
+        try {
+            parsed = aiService.parseNaturalLanguageQuery(request.getQuery());
+        } catch (Exception e) {
+            log.warn("AI parse failed, falling back to keyword search: {}", e.getMessage());
+            PageResult<Resource> fallback = searchService.search(request.getQuery(), null, "relevance", 1, 10, userId);
+            Map<String, Object> intent = Map.of("keywords", List.of(request.getQuery()), "sortBy", "relevance");
+            return Result.success(new NlSearchResult(intent, fallback.getRecords(), fallback.getTotal()));
+        }
+
+        Map<String, Object> intent;
+        try {
+            intent = objectMapper.readValue(parsed, new TypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse AI JSON: {}", e.getMessage());
+            PageResult<Resource> fallback = searchService.search(request.getQuery(), null, "relevance", 1, 10, userId);
+            Map<String, Object> fallbackIntent = Map.of("keywords", List.of(request.getQuery()), "sortBy", "relevance");
+            return Result.success(new NlSearchResult(fallbackIntent, fallback.getRecords(), fallback.getTotal()));
+        }
+
+        // Extract parameters from parsed intent
+        String keyword = null;
+        List<String> keywords = (List<String>) intent.get("keywords");
+        if (keywords != null && !keywords.isEmpty()) {
+            keyword = String.join(" ", keywords);
+        }
+
+        Long categoryId = null;
+        String categoryName = (String) intent.get("category");
+        if (categoryName != null && !categoryName.equals("null")) {
+            try {
+                List<Category> tree = categoryService.getTree();
+                categoryId = findCategoryId(tree, categoryName);
+            } catch (Exception ignored) {}
+        }
+
+        String sortBy = (String) intent.getOrDefault("sortBy", "relevance");
+        int limit = intent.get("limit") instanceof Number ? ((Number) intent.get("limit")).intValue() : 10;
+
+        PageResult<Resource> results = searchService.search(keyword, categoryId, sortBy, 1, limit, userId);
+        return Result.success(new NlSearchResult(intent, results.getRecords(), results.getTotal()));
     }
 
     @GetMapping("/hot")
@@ -59,5 +110,18 @@ public class SearchController {
         Long userId = (Long) auth.getPrincipal();
         searchService.clearUserSearchHistory(userId);
         return Result.success(null);
+    }
+
+    private Long findCategoryId(List<Category> categories, String name) {
+        for (Category cat : categories) {
+            if (cat.getName().contains(name) || name.contains(cat.getName())) {
+                return cat.getId();
+            }
+            if (cat.getChildren() != null) {
+                Long found = findCategoryId(cat.getChildren(), name);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 }
