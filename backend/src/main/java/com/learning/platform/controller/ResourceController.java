@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -37,10 +38,13 @@ public class ResourceController {
         return Result.success(resourceService.getDetail(id));
     }
 
-    @PostMapping
-    public Result<Resource> create(@Valid @RequestBody ResourceCreateRequest request, Authentication auth) {
+    @PostMapping(consumes = {"multipart/form-data"})
+    public Result<Resource> create(
+            @Valid @RequestPart("data") ResourceCreateRequest request,
+            @RequestPart(value = "files", required = false) MultipartFile[] files,
+            Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        return Result.created(resourceService.create(request, userId));
+        return Result.created(resourceService.create(request, files, userId));
     }
 
     @DeleteMapping("/{id}")
