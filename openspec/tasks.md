@@ -52,9 +52,9 @@
 - [x] 2.1.8 实现参数校验（@Valid, 自定义校验注解）
 
 ### 2.2 后端 - RBAC 权限控制
-- [ ] 2.2.1 实现角色注解 @RequireRole
-- [ ] 2.2.2 实现权限拦截器 RoleInterceptor
-- [ ] 2.2.3 配置不同角色的 API 访问权限
+- [x] 2.2.1 实现角色注解 @PreAuthorize（类级+方法级）
+- [x] 2.2.2 实现权限拦截器（基于 Spring Security @EnableMethodSecurity）
+- [x] 2.2.3 配置不同角色的 API 访问权限（ADMIN/PUBLISHER/USER）
 
 ### 2.3 前端 - 认证模块
 - [x] 2.3.1 创建 AuthStore（登录状态、Token 管理）
@@ -133,7 +133,7 @@
 - [x] 5.2.1 实现摘要生成 Prompt 模板
 - [x] 5.2.2 实现 ResourceAiService.generateSummary()
 - [x] 5.2.3 集成到资源发布流程（异步生成）
-- [ ] 5.2.4 实现摘要缓存（Redis）
+- [x] 5.2.4 实现摘要缓存（Redis，24h TTL）
 
 ### 5.3 后端 - 自然语言搜索 (NL2API)
 - [x] 5.3.1 实现 NL2API Prompt 模板（解析自然语言为结构化查询）
@@ -145,13 +145,13 @@
 ### 5.4 后端 - 个性化推荐
 - [x] 5.4.1 实现用户兴趣标签提取（基于浏览/点赞/收藏历史）
 - [x] 5.4.2 实现基于标签的内容推荐算法
-- [ ] 5.4.3 实现基于用户行为的协同过滤算法
+- [x] 5.4.3 实现基于用户行为的协同过滤算法（item-based CF + 混合推荐）
 - [x] 5.4.4 实现热度推荐算法
 - [x] 5.4.5 实现推荐结果合并与排序
 - [x] 5.4.6 实现推荐理由 Prompt 模板
 - [x] 5.4.7 实现 RecommendationService.getRecommendations()
 - [x] 5.4.8 实现 RecommendationController
-- [ ] 5.4.9 实现推荐结果缓存（Redis）
+- [x] 5.4.9 实现推荐结果缓存（Redis，30min TTL）
 
 ### 5.5 前端 - AI 功能
 - [x] 5.5.1 实现 AI 摘要展示组件
@@ -166,7 +166,7 @@
 
 ### 6.1 后端 - 用户中心
 - [x] 6.1.1 实现用户信息更新接口
-- [ ] 6.1.2 实现头像上传
+- [x] 6.1.2 实现头像上传（POST /users/avatar，支持 JPG/PNG/GIF/WEBP）
 - [x] 6.1.3 实现我的收藏列表
 - [x] 6.1.4 实现我的发布列表
 - [x] 6.1.5 实现用户统计数据接口
