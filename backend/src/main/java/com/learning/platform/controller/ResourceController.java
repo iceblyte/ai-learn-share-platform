@@ -7,6 +7,7 @@ import com.learning.platform.entity.Resource;
 import com.learning.platform.service.ResourceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +40,7 @@ public class ResourceController {
     }
 
     @PostMapping(consumes = {"multipart/form-data"})
+    @PreAuthorize("hasAnyRole('PUBLISHER', 'ADMIN')")
     public Result<Resource> create(
             @Valid @RequestPart("data") ResourceCreateRequest request,
             @RequestPart(value = "files", required = false) MultipartFile[] files,
@@ -48,6 +50,7 @@ public class ResourceController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('PUBLISHER', 'ADMIN')")
     public Result<Void> delete(@PathVariable Long id, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         resourceService.delete(id, userId);
