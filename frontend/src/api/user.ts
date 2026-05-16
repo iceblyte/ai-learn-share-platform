@@ -23,4 +23,9 @@ export const userApi = {
       totalFavorites: number
     }>>('/users/statistics')
   },
+  uploadAvatar(formData: FormData) {
+    return request.post<ApiResponse<{ avatarUrl: string }>>('/users/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
 }
