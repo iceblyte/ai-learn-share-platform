@@ -75,4 +75,35 @@ public class FileService {
     }
 
     public record StoredFile(String fileName, String fileUrl, long fileSize, String fileType) {}
+
+    private static final Set<String> IMAGE_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
+    private static final long AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+    public String storeAvatar(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new BusinessException("文件不能为空");
+        }
+        if (file.getSize() > AVATAR_MAX_SIZE) {
+            throw new BusinessException("头像大小不能超过5MB");
+        }
+
+        String originalName = file.getOriginalFilename();
+        String extension = getExtension(originalName);
+        if (!IMAGE_EXTENSIONS.contains(extension.toLowerCase())) {
+            throw new BusinessException("仅支持 JPG/PNG/GIF/WEBP 格式");
+        }
+
+        String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
+        String newFileName = "avatar_" + UUID.randomUUID() + extension;
+        Path dir = Paths.get(storagePath, datePath);
+        try {
+            Files.createDirectories(dir);
+            Path filePath = dir.resolve(newFileName);
+            file.transferTo(filePath.toFile());
+        } catch (IOException e) {
+            throw new BusinessException("头像保存失败: " + e.getMessage());
+        }
+
+        return urlPrefix + "/" + datePath + "/" + newFileName;
+    }
 }

@@ -5,12 +5,14 @@ import com.learning.platform.common.PageResult;
 import com.learning.platform.common.Result;
 import com.learning.platform.entity.*;
 import com.learning.platform.mapper.*;
+import com.learning.platform.service.FileService;
 import com.learning.platform.service.ResourceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -28,6 +30,7 @@ public class UserController {
     private final ResourceService resourceService;
     private final LikeRecordMapper likeRecordMapper;
     private final RatingMapper ratingMapper;
+    private final FileService fileService;
 
     @GetMapping("/profile")
     public Result<User> getProfile(Authentication auth) {
@@ -56,6 +59,21 @@ public class UserController {
         userMapper.updateById(user);
         user.setPasswordHash(null);
         return Result.success(user);
+    }
+
+    @PostMapping("/avatar")
+    public Result<Map<String, String>> uploadAvatar(
+            @RequestParam("file") MultipartFile file,
+            Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return Result.error(404, "用户不存在");
+        }
+        String avatarUrl = fileService.storeAvatar(file);
+        user.setAvatarUrl(avatarUrl);
+        userMapper.updateById(user);
+        return Result.success(Map.of("avatarUrl", avatarUrl));
     }
 
     @GetMapping("/favorites")
