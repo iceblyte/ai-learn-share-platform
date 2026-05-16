@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { searchApi } from '@/api/search'
 import { categoryApi, tagApi } from '@/api/category'
@@ -20,7 +20,10 @@ const categories = ref<Category[]>([])
 const hotTags = ref<Tag[]>([])
 const selectedCategory = ref<number | null>((route.query.categoryId as any) || null)
 const sortBy = ref('hot')
+const minRating = ref<number | null>(null)
+const selectedTypes = ref<string[]>([])
 const searchHistory = ref<string[]>([])
+const parsedIntent = ref<Record<string, any> | null>(null)
 
 onMounted(async () => {
   const [catRes, tagRes] = await Promise.all([
@@ -50,12 +53,14 @@ async function clearHistory() {
 async function handleSearch() {
   if (!keyword.value.trim() && !selectedCategory.value) return
   loading.value = true
+  parsedIntent.value = null
   try {
     if (isNlMode.value) {
       const res = await searchApi.nlSearch(keyword.value)
       const data = res.data.data as any
       results.value = data.results || []
       total.value = results.value.length
+      parsedIntent.value = data.parsedIntent || null
     } else {
       const params: SearchParams = {
         keyword: keyword.value || undefined,
@@ -78,13 +83,37 @@ function goToResource(id: number) {
   router.push(`/resource/${id}`)
 }
 
-watch(sortBy, () => { page.value = 1; handleSearch() })
+function getIntentLabel(key: string): string {
+  const labels: Record<string, string> = {
+    keywords: '关键词',
+    category: '分类',
+    sortBy: '排序',
+    limit: '数量',
+    tags: '标签',
+  }
+  return labels[key] || key
+}
+
+function getIntentValue(key: string, value: any): string {
+  if (key === 'sortBy') {
+    const sortLabels: Record<string, string> = {
+      hot: '最热',
+      latest: '最新',
+      rating: '评分最高',
+      view: '最多浏览',
+    }
+    return sortLabels[value] || value
+  }
+  if (key === 'limit') return `前 ${value} 个`
+  if (Array.isArray(value)) return value.join(', ')
+  return String(value)
+}
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
     <!-- Search Bar -->
-    <div class="mb-8">
+    <div class="mb-6">
       <div class="flex items-center gap-3 mb-3">
         <button
           @click="isNlMode = false"
@@ -100,17 +129,28 @@ watch(sortBy, () => { page.value = 1; handleSearch() })
         </button>
       </div>
       <div class="flex gap-3">
-        <input
-          v-model="keyword"
-          :placeholder="isNlMode ? '例如：推荐关于Java并发编程且评分最高的前5个资源' : '搜索资源...'"
-          class="input-field flex-1"
-          @keyup.enter="handleSearch"
-        />
-        <button @click="handleSearch" class="btn-primary px-6">搜索</button>
+        <div class="relative flex-1">
+          <input
+            v-model="keyword"
+            :placeholder="isNlMode ? '例如：推荐关于Java并发编程且评分最高的前5个资源' : '搜索学习资源...'"
+            class="w-full pl-10 pr-20 py-2 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            @keyup.enter="handleSearch"
+          />
+          <svg class="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <span v-if="isNlMode" class="absolute right-12 top-2 text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">AI</span>
+          <button
+            @click="handleSearch"
+            class="absolute right-2 top-1.5 bg-primary-500 text-white px-3 py-1 rounded-full text-xs hover:bg-primary-600 transition-colors"
+          >
+            搜索
+          </button>
+        </div>
       </div>
 
       <!-- Search History -->
-      <div v-if="searchHistory.length > 0" class="flex items-center gap-2 flex-wrap">
+      <div v-if="searchHistory.length > 0 && !parsedIntent" class="flex items-center gap-2 flex-wrap mt-3">
         <span class="text-xs text-slate-400">搜索历史:</span>
         <button
           v-for="item in searchHistory"
@@ -124,53 +164,151 @@ watch(sortBy, () => { page.value = 1; handleSearch() })
       </div>
     </div>
 
-    <div class="flex gap-8">
-      <!-- Sidebar Filters -->
-      <aside class="w-64 flex-shrink-0 hidden lg:block">
-        <div class="card p-4 mb-4">
-          <h3 class="font-semibold text-slate-700 mb-3">分类筛选</h3>
-          <div class="space-y-1">
-            <button
-              @click="selectedCategory = null; handleSearch()"
-              :class="['w-full text-left px-3 py-2 rounded text-sm', selectedCategory === null ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:bg-slate-50']"
+    <!-- AI Parsed Intent -->
+    <div v-if="parsedIntent" class="bg-gradient-to-r from-purple-50 to-primary-50 border border-purple-200 rounded-xl p-4 mb-6">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-purple-800">AI 搜索解析</h3>
+          <p class="text-xs text-purple-600 mt-1">已将你的自然语言查询解析为以下结构化条件：</p>
+          <div class="flex flex-wrap items-center gap-2 mt-2">
+            <span
+              v-for="(value, key) in parsedIntent"
+              :key="key"
+              class="inline-flex items-center gap-1 text-xs bg-white border border-purple-200 text-purple-700 px-2 py-1 rounded-md"
             >
-              全部分类
-            </button>
-            <button
-              v-for="cat in categories"
-              :key="cat.id"
-              @click="selectedCategory = cat.id; handleSearch()"
-              :class="['w-full text-left px-3 py-2 rounded text-sm', selectedCategory === cat.id ? 'bg-primary-50 text-primary-700' : 'text-slate-600 hover:bg-slate-50']"
-            >
-              {{ cat.name }}
-            </button>
+              <span class="text-purple-400">{{ getIntentLabel(key as string) }}:</span>
+              {{ getIntentValue(key as string, value) }}
+            </span>
           </div>
         </div>
+      </div>
+    </div>
 
-        <div class="card p-4">
-          <h3 class="font-semibold text-slate-700 mb-3">热门标签</h3>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="tag in hotTags.slice(0, 15)"
-              :key="tag.id"
-              @click="keyword = tag.name; handleSearch()"
-              class="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded hover:bg-primary-100 hover:text-primary-700"
-            >
-              {{ tag.name }}
-            </button>
+    <div class="flex gap-6">
+      <!-- Sidebar Filters -->
+      <aside class="w-64 flex-shrink-0 hidden lg:block">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sticky top-24">
+          <h3 class="text-sm font-semibold mb-3">筛选条件</h3>
+
+          <!-- Category Filter -->
+          <div class="mb-4">
+            <h4 class="text-xs font-medium text-slate-500 mb-2">分类</h4>
+            <div class="space-y-1.5">
+              <button
+                @click="selectedCategory = null; handleSearch()"
+                :class="['w-full text-left px-3 py-2 rounded text-sm transition-colors', selectedCategory === null ? 'bg-primary-50 text-primary-700 font-medium' : 'text-slate-600 hover:bg-slate-50']"
+              >
+                全部分类
+              </button>
+              <button
+                v-for="cat in categories"
+                :key="cat.id"
+                @click="selectedCategory = cat.id; handleSearch()"
+                :class="['w-full text-left px-3 py-2 rounded text-sm transition-colors', selectedCategory === cat.id ? 'bg-primary-50 text-primary-700 font-medium' : 'text-slate-600 hover:bg-slate-50']"
+              >
+                {{ cat.name }}
+              </button>
+            </div>
           </div>
+
+          <!-- Tag Filter -->
+          <div class="mb-4">
+            <h4 class="text-xs font-medium text-slate-500 mb-2">标签</h4>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="tag in hotTags.slice(0, 10)"
+                :key="tag.id"
+                @click="keyword = tag.name; handleSearch()"
+                :class="[
+                  'px-2 py-1 text-xs rounded-md cursor-pointer transition-colors',
+                  keyword === tag.name
+                    ? 'bg-primary-100 text-primary-600'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ]"
+              >
+                {{ tag.name }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Rating Filter -->
+          <div class="mb-4">
+            <h4 class="text-xs font-medium text-slate-500 mb-2">评分</h4>
+            <div class="space-y-1.5">
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="rating" :checked="minRating === 4" @change="minRating = 4; handleSearch()" class="w-4 h-4 text-primary-500 border-slate-300 focus:ring-primary-500">
+                <span class="flex items-center gap-1">
+                  <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  4 星及以上
+                </span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="rating" :checked="minRating === 4.5" @change="minRating = 4.5; handleSearch()" class="w-4 h-4 text-primary-500 border-slate-300 focus:ring-primary-500">
+                <span class="flex items-center gap-1">
+                  <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  4.5 星及以上
+                </span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="radio" name="rating" :checked="minRating === null" @change="minRating = null; handleSearch()" class="w-4 h-4 text-primary-500 border-slate-300 focus:ring-primary-500">
+                <span>不限</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Resource Type Filter -->
+          <div class="mb-4">
+            <h4 class="text-xs font-medium text-slate-500 mb-2">资源类型</h4>
+            <div class="space-y-1.5">
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" value="笔记" v-model="selectedTypes" @change="handleSearch()" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>笔记</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" value="视频" v-model="selectedTypes" @change="handleSearch()" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>视频</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" value="电子书" v-model="selectedTypes" @change="handleSearch()" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
+                <span>电子书</span>
+              </label>
+            </div>
+          </div>
+
+          <button @click="selectedCategory = null; minRating = null; selectedTypes = []; sortBy = 'hot'; handleSearch()" class="w-full text-xs text-primary-500 border border-primary-300 py-1.5 rounded-lg hover:bg-primary-50">清除所有筛选</button>
         </div>
       </aside>
 
       <!-- Results -->
       <div class="flex-1">
         <div class="flex items-center justify-between mb-4">
-          <p class="text-sm text-slate-500">共找到 {{ total }} 个资源</p>
-          <select v-model="sortBy" class="input-field w-auto text-sm">
-            <option value="hot">最热</option>
-            <option value="latest">最新</option>
-            <option value="rating">评分最高</option>
-          </select>
+          <p class="text-sm text-slate-500">找到 <span class="font-semibold text-slate-800">{{ total }}</span> 个结果</p>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500">排序：</span>
+            <button
+              @click="sortBy = 'rating'; handleSearch()"
+              :class="['text-xs px-3 py-1 rounded-full transition-colors', sortBy === 'rating' ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+            >
+              评分最高
+            </button>
+            <button
+              @click="sortBy = 'latest'; handleSearch()"
+              :class="['text-xs px-3 py-1 rounded-full transition-colors', sortBy === 'latest' ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+            >
+              最新
+            </button>
+            <button
+              @click="sortBy = 'hot'; handleSearch()"
+              :class="['text-xs px-3 py-1 rounded-full transition-colors', sortBy === 'hot' ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+            >
+              最热
+            </button>
+          </div>
         </div>
 
         <div v-if="loading" class="flex justify-center py-20">
@@ -182,28 +320,48 @@ watch(sortBy, () => { page.value = 1; handleSearch() })
           <p class="text-sm">试试其他关键词或浏览分类</p>
         </div>
 
-        <div v-else class="space-y-4">
+        <div v-else class="space-y-3">
           <div
             v-for="res in results"
             :key="res.id"
-            class="card p-5 cursor-pointer"
+            class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
             @click="goToResource(res.id)"
           >
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs rounded-full">{{ res.category?.name }}</span>
-                  <span v-for="tag in res.tags?.slice(0, 3)" :key="tag.id" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs rounded">
+            <div class="flex items-start gap-4">
+              <div class="w-20 h-20 rounded-lg bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center flex-shrink-0">
+                <svg class="w-10 h-10 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between">
+                  <h3 class="font-medium text-base">{{ res.title }}</h3>
+                  <div class="flex items-center gap-1 flex-shrink-0">
+                    <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span class="text-sm font-semibold">{{ res.avgRating?.toFixed(1) }}</span>
+                    <span class="text-xs text-slate-400">({{ res.ratingCount }})</span>
+                  </div>
+                </div>
+                <p class="text-sm text-slate-500 mt-1 line-clamp-2">{{ res.aiSummary || res.description }}</p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span v-for="tag in res.tags?.slice(0, 3)" :key="tag.id" class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">
                     {{ tag.name }}
                   </span>
                 </div>
-                <h3 class="text-lg font-semibold text-slate-800 mb-2">{{ res.title }}</h3>
-                <p class="text-sm text-slate-500 mb-3 line-clamp-2">{{ res.aiSummary || res.description }}</p>
-                <div class="flex items-center space-x-4 text-xs text-slate-400">
-                  <span>{{ res.publisher?.nickname }}</span>
-                  <span>👁 {{ res.viewCount }}</span>
-                  <span>❤️ {{ res.likeCount }}</span>
-                  <span>⭐ {{ res.avgRating?.toFixed(1) }}</span>
+                <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
+                  <span class="flex items-center gap-1">
+                    <div class="w-4 h-4 bg-primary-100 rounded-full flex items-center justify-center"><span class="text-[8px] text-primary-600">{{ res.publisher?.nickname?.[0] || '用' }}</span></div>
+                    {{ res.publisher?.nickname }}
+                  </span>
+                  <span>{{ res.createdAt?.split('T')[0] }}</span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    {{ res.viewCount }}
+                  </span>
+                  <span class="flex items-center gap-0.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    {{ res.likeCount }}
+                  </span>
                 </div>
               </div>
             </div>
