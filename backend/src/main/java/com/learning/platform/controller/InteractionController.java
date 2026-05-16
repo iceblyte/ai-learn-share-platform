@@ -8,6 +8,7 @@ import com.learning.platform.service.CommentService;
 import com.learning.platform.service.InteractionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,18 +23,21 @@ public class InteractionController {
     private final CommentService commentService;
 
     @PostMapping("/resources/{id}/like")
+    @PreAuthorize("isAuthenticated()")
     public Result<Map<String, Object>> likeResource(@PathVariable Long id, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         return Result.success(interactionService.toggleLike(userId, id, "RESOURCE"));
     }
 
     @PostMapping("/resources/{id}/favorite")
+    @PreAuthorize("isAuthenticated()")
     public Result<Map<String, Object>> favoriteResource(@PathVariable Long id, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         return Result.success(interactionService.toggleFavorite(userId, id));
     }
 
     @PostMapping("/resources/{id}/rating")
+    @PreAuthorize("isAuthenticated()")
     public Result<Map<String, Object>> rateResource(@PathVariable Long id,
                                                      @Valid @RequestBody RatingRequest request,
                                                      Authentication auth) {
@@ -49,6 +53,7 @@ public class InteractionController {
     }
 
     @PostMapping("/resources/{id}/comments")
+    @PreAuthorize("isAuthenticated()")
     public Result<Comment> createComment(@PathVariable Long id,
                                           @Valid @RequestBody CommentRequest request,
                                           Authentication auth) {
@@ -57,6 +62,7 @@ public class InteractionController {
     }
 
     @DeleteMapping("/comments/{id}")
+    @PreAuthorize("isAuthenticated()")
     public Result<Void> deleteComment(@PathVariable Long id, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         commentService.delete(id, userId);
@@ -64,6 +70,7 @@ public class InteractionController {
     }
 
     @PostMapping("/comments/{id}/like")
+    @PreAuthorize("isAuthenticated()")
     public Result<Map<String, Object>> likeComment(@PathVariable Long id, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         return Result.success(interactionService.toggleLike(userId, id, "COMMENT"));

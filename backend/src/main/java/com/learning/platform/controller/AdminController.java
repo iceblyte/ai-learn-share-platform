@@ -13,15 +13,20 @@ import com.learning.platform.mapper.ResourceMapper;
 import com.learning.platform.mapper.UserMapper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
+
+    private static final List<String> VALID_ROLES = List.of("USER", "PUBLISHER", "ADMIN");
 
     private final UserMapper userMapper;
     private final ResourceMapper resourceMapper;
@@ -38,9 +43,13 @@ public class AdminController {
 
     @PutMapping("/users/{id}/role")
     public Result<Void> updateRole(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String role = body.get("role");
+        if (role == null || !VALID_ROLES.contains(role)) {
+            return Result.error("无效的角色，允许值: " + String.join(", ", VALID_ROLES));
+        }
         User user = userMapper.selectById(id);
         if (user == null) throw BusinessException.notFound("用户不存在");
-        user.setRole(body.get("role"));
+        user.setRole(role);
         userMapper.updateById(user);
         return Result.success(null);
     }
