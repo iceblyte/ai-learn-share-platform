@@ -5,9 +5,11 @@ import com.learning.platform.entity.*;
 import com.learning.platform.mapper.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -22,12 +24,28 @@ public class RecommendationService {
     private final FavoriteMapper favoriteMapper;
     private final AiService aiService;
     private final ResourceService resourceService;
+    private final RedisTemplate<String, Object> redisTemplate;
+
+    private static final String RECOMMEND_CACHE_PREFIX = "recommend:user:";
+    private static final long RECOMMEND_CACHE_TTL_MINUTES = 30;
 
     private static final String DEFAULT_REASON = "该资源在相关领域受到好评";
     private static final int CF_MAX_SIMILAR_USERS = 20;
     private static final int CF_MAX_CANDIDATES = 30;
 
+    @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getRecommendations(Long userId, int limit) {
+        // Check cache first
+        String cacheKey = RECOMMEND_CACHE_PREFIX + userId + ":" + limit;
+        try {
+            Object cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached instanceof List) {
+                return (List<Map<String, Object>>) cached;
+            }
+        } catch (Exception e) {
+            log.warn("Redis read failed for recommendations: {}", e.getMessage());
+        }
+
         // Step 1: Get user's interaction history
         Set<Long> interactedResourceIds = new HashSet<>();
         Map<Long, Integer> tagWeightMap = new HashMap<>();
@@ -134,6 +152,14 @@ public class RecommendationService {
             }
             results.add(item);
         }
+
+        // Cache the results
+        try {
+            redisTemplate.opsForValue().set(cacheKey, results, RECOMMEND_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("Redis write failed for recommendations: {}", e.getMessage());
+        }
+
         return results;
     }
 
