@@ -24,13 +24,14 @@ public class RecommendationService {
     private final ResourceService resourceService;
 
     private static final String DEFAULT_REASON = "该资源在相关领域受到好评";
+    private static final int CF_MAX_SIMILAR_USERS = 20;
+    private static final int CF_MAX_CANDIDATES = 30;
 
     public List<Map<String, Object>> getRecommendations(Long userId, int limit) {
-        // Step 1: Get user's interest tags from likes and favorites
+        // Step 1: Get user's interaction history
         Set<Long> interactedResourceIds = new HashSet<>();
         Map<Long, Integer> tagWeightMap = new HashMap<>();
 
-        // From likes
         List<LikeRecord> likes = likeRecordMapper.selectList(
                 new QueryWrapper<LikeRecord>().eq("user_id", userId).eq("target_type", "RESOURCE"));
         for (LikeRecord like : likes) {
@@ -38,7 +39,6 @@ public class RecommendationService {
             addTagWeights(like.getTargetId(), tagWeightMap, 3);
         }
 
-        // From favorites
         List<Favorite> favorites = favoriteMapper.selectList(
                 new QueryWrapper<Favorite>().eq("user_id", userId));
         for (Favorite fav : favorites) {
@@ -46,55 +46,80 @@ public class RecommendationService {
             addTagWeights(fav.getResourceId(), tagWeightMap, 5);
         }
 
-        // Step 2: If no interests, return hot resources
-        if (tagWeightMap.isEmpty()) {
+        if (interactedResourceIds.isEmpty()) {
             return getHotRecommendations(limit);
         }
 
-        // Step 3: Get top interest tags
-        List<Long> topTagIds = tagWeightMap.entrySet().stream()
-                .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
-                .limit(5)
-                .map(Map.Entry::getKey)
-                .toList();
+        // Step 2: Tag-based recommendations
+        Map<Long, Double> tagScores = new HashMap<>();
+        if (!tagWeightMap.isEmpty()) {
+            List<Long> topTagIds = tagWeightMap.entrySet().stream()
+                    .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
+                    .limit(5)
+                    .map(Map.Entry::getKey)
+                    .toList();
 
-        // Step 4: Find resources matching interest tags (exclude already interacted)
-        Set<Long> recommendedIds = new HashSet<>();
-        for (Long tagId : topTagIds) {
-            List<ResourceTag> rts = resourceTagMapper.selectList(
-                    new QueryWrapper<ResourceTag>().eq("tag_id", tagId));
-            for (ResourceTag rt : rts) {
-                if (!interactedResourceIds.contains(rt.getResourceId())) {
-                    recommendedIds.add(rt.getResourceId());
+            for (Long tagId : topTagIds) {
+                List<ResourceTag> rts = resourceTagMapper.selectList(
+                        new QueryWrapper<ResourceTag>().eq("tag_id", tagId));
+                for (ResourceTag rt : rts) {
+                    if (!interactedResourceIds.contains(rt.getResourceId())) {
+                        tagScores.merge(rt.getResourceId(), tagWeightMap.getOrDefault(tagId, 1.0), Double::sum);
+                    }
                 }
             }
         }
 
-        if (recommendedIds.isEmpty()) {
+        // Step 3: Collaborative filtering recommendations
+        Map<Long, Double> cfScores = collaborativeFilter(userId, interactedResourceIds);
+
+        // Step 4: Merge scores (tag:weight=0.6, cf:weight=0.4)
+        Map<Long, Double> mergedScores = new HashMap<>();
+        double tagMax = tagScores.values().stream().mapToDouble(Double::doubleValue).max().orElse(1.0);
+        double cfMax = cfScores.values().stream().mapToDouble(Double::doubleValue).max().orElse(1.0);
+
+        Set<Long> allCandidates = new HashSet<>();
+        allCandidates.addAll(tagScores.keySet());
+        allCandidates.addAll(cfScores.keySet());
+
+        for (Long resourceId : allCandidates) {
+            double tagNorm = tagScores.getOrDefault(resourceId, 0.0) / tagMax;
+            double cfNorm = cfScores.getOrDefault(resourceId, 0.0) / cfMax;
+            mergedScores.put(resourceId, tagNorm * 0.6 + cfNorm * 0.4);
+        }
+
+        if (mergedScores.isEmpty()) {
             return getHotRecommendations(limit);
         }
 
-        // Step 5: Fetch and sort by hot_score
-        List<Resource> resources = resourceMapper.selectBatchIds(recommendedIds).stream()
-                .filter(r -> "PUBLISHED".equals(r.getStatus()) && r.getIsDeleted() == 0)
-                .sorted(Comparator.comparingInt(Resource::getHotScore).reversed())
+        // Step 5: Sort by merged score, take top N
+        List<Long> sortedIds = mergedScores.entrySet().stream()
+                .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
                 .limit(limit)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        List<Resource> resources = sortedIds.stream()
+                .map(resourceMapper::selectById)
+                .filter(r -> r != null && "PUBLISHED".equals(r.getStatus()) && r.getIsDeleted() == 0)
                 .peek(resourceService::enrichResource)
                 .toList();
 
-        // Step 6: Generate reasons for top 5
-        List<Map<String, Object>> results = new ArrayList<>();
-        String userInterests = topTagIds.stream()
-                .map(id -> { Tag t = tagMapper.selectById(id); return t != null ? t.getName() : ""; })
+        // Step 6: Generate reasons
+        String userInterests = tagWeightMap.entrySet().stream()
+                .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
+                .limit(5)
+                .map(e -> { Tag t = tagMapper.selectById(e.getKey()); return t != null ? t.getName() : ""; })
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.joining("、"));
 
+        List<Map<String, Object>> results = new ArrayList<>();
         for (int i = 0; i < resources.size(); i++) {
             Resource r = resources.get(i);
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("resource", r);
-            item.put("algorithm", "TAG_BASED");
-            item.put("score", 1.0 - (i * 0.05));
+            item.put("algorithm", mergedScores.containsKey(r.getId()) ? "HYBRID" : "HOT");
+            item.put("score", mergedScores.getOrDefault(r.getId(), 0.0));
 
             if (i < 5) {
                 try {
@@ -110,6 +135,73 @@ public class RecommendationService {
             results.add(item);
         }
         return results;
+    }
+
+    /**
+     * Item-based collaborative filtering:
+     * Find users who interacted with the same resources, then recommend what they also liked.
+     */
+    private Map<Long, Double> collaborativeFilter(Long userId, Set<Long> interactedResourceIds) {
+        Map<Long, Double> scores = new HashMap<>();
+        if (interactedResourceIds.isEmpty()) return scores;
+
+        // Find similar users (users who liked/favorited the same resources)
+        Map<Long, Integer> similarUserCounts = new HashMap<>();
+        for (Long resourceId : interactedResourceIds) {
+            List<LikeRecord> likers = likeRecordMapper.selectList(
+                    new QueryWrapper<LikeRecord>().eq("target_id", resourceId).eq("target_type", "RESOURCE"));
+            for (LikeRecord lr : likers) {
+                if (!lr.getUserId().equals(userId)) {
+                    similarUserCounts.merge(lr.getUserId(), 1, Integer::sum);
+                }
+            }
+            List<Favorite> favorers = favoriteMapper.selectList(
+                    new QueryWrapper<Favorite>().eq("resource_id", resourceId));
+            for (Favorite f : favorers) {
+                if (!f.getUserId().equals(userId)) {
+                    similarUserCounts.merge(f.getUserId(), 1, Integer::sum);
+                }
+            }
+        }
+
+        // Take top N similar users
+        List<Long> similarUsers = similarUserCounts.entrySet().stream()
+                .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
+                .limit(CF_MAX_SIMILAR_USERS)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        if (similarUsers.isEmpty()) return scores;
+
+        // Collect resources from similar users
+        Map<Long, Integer> resourceVotes = new HashMap<>();
+        for (Long similarUserId : similarUsers) {
+            int similarity = similarUserCounts.getOrDefault(similarUserId, 1);
+
+            List<LikeRecord> userLikes = likeRecordMapper.selectList(
+                    new QueryWrapper<LikeRecord>().eq("user_id", similarUserId).eq("target_type", "RESOURCE"));
+            for (LikeRecord lr : userLikes) {
+                if (!interactedResourceIds.contains(lr.getTargetId())) {
+                    resourceVotes.merge(lr.getTargetId(), similarity, Integer::sum);
+                }
+            }
+
+            List<Favorite> userFavs = favoriteMapper.selectList(
+                    new QueryWrapper<Favorite>().eq("user_id", similarUserId));
+            for (Favorite f : userFavs) {
+                if (!interactedResourceIds.contains(f.getResourceId())) {
+                    resourceVotes.merge(f.getResourceId(), similarity, Integer::sum);
+                }
+            }
+        }
+
+        // Normalize to scores
+        resourceVotes.entrySet().stream()
+                .sorted(Map.Entry.<Long, Integer>comparingByValue().reversed())
+                .limit(CF_MAX_CANDIDATES)
+                .forEach(e -> scores.put(e.getKey(), (double) e.getValue()));
+
+        return scores;
     }
 
     public List<String> generateReasons(Long userId, List<Long> resourceIds) {
