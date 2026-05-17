@@ -7,6 +7,7 @@ import com.learning.platform.entity.User;
 import com.learning.platform.mapper.UserMapper;
 import com.learning.platform.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -76,8 +78,11 @@ public class AuthService {
         if (token != null && token.startsWith("Bearer ")) {
             token = token.substring(7);
         }
-        // Blacklist the token in Redis
-        redisTemplate.opsForValue().set("token:blacklist:" + token, "1", 24, TimeUnit.HOURS);
+        try {
+            redisTemplate.opsForValue().set("token:blacklist:" + token, "1", 24, TimeUnit.HOURS);
+        } catch (Exception e) {
+            log.warn("Redis unavailable for token blacklist: {}", e.getMessage());
+        }
     }
 
     public User getUserInfo(Long userId) {
