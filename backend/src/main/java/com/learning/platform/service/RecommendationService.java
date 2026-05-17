@@ -82,7 +82,7 @@ public class RecommendationService {
                         new QueryWrapper<ResourceTag>().eq("tag_id", tagId));
                 for (ResourceTag rt : rts) {
                     if (!interactedResourceIds.contains(rt.getResourceId())) {
-                        tagScores.merge(rt.getResourceId(), tagWeightMap.getOrDefault(tagId, 1.0), Double::sum);
+                        tagScores.merge(rt.getResourceId(), tagWeightMap.getOrDefault(tagId, 1).doubleValue(), Double::sum);
                     }
                 }
             }
