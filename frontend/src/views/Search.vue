@@ -20,6 +20,12 @@ const categories = ref<Category[]>([])
 const hotTags = ref<Tag[]>([])
 const selectedCategory = ref<number | null>((route.query.categoryId as any) || null)
 const sortBy = ref('hot')
+const toast = ref<{ message: string; type: 'info' | 'error' | 'success' } | null>(null)
+
+function showToast(message: string, type: 'info' | 'error' | 'success' = 'info') {
+  toast.value = { message, type }
+  setTimeout(() => { toast.value = null }, 3000)
+}
 const minRating = ref<number | null>(null)
 const selectedTypes = ref<string[]>([])
 const searchHistory = ref<string[]>([])
@@ -57,8 +63,8 @@ async function handleSearch() {
   try {
     if (isNlMode.value) {
       if (!userStore.isLoggedIn) {
-        alert('AI 搜索需要登录，请先登录后再使用')
-        router.push('/login')
+        showToast('AI 搜索需要登录，请先登录后再使用', 'error')
+        setTimeout(() => router.push('/login'), 1500)
         return
       }
       const res = await searchApi.nlSearch(keyword.value)
@@ -122,7 +128,35 @@ function getIntentValue(key: string, value: any): string {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 relative">
+    <!-- Toast Notification -->
+    <Transition
+      enter-active-class="transition-all duration-300 ease-out"
+      enter-from-class="opacity-0 -translate-y-4"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition-all duration-200 ease-in"
+      leave-from-class="opacity-100 translate-y-0"
+      leave-to-class="opacity-0 -translate-y-4"
+    >
+      <div
+        v-if="toast"
+        :class="[
+          'absolute top-0 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-sm font-medium',
+          toast.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
+          toast.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+          'bg-blue-50 text-blue-700 border border-blue-200'
+        ]"
+      >
+        <svg v-if="toast.type === 'error'" class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <svg v-else-if="toast.type === 'success'" class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <svg v-else class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>{{ toast.message }}</span>
+        <button @click="toast = null" class="ml-2 opacity-60 hover:opacity-100 transition-opacity">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </Transition>
+
     <!-- Search Bar -->
     <div class="mb-6">
       <div class="flex items-center gap-3 mb-3">
