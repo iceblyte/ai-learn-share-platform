@@ -47,6 +47,15 @@ spring:
     time-zone: Asia/Shanghai
     default-property-inclusion: non_null
 
+  # Spring AI - Google Gemini
+  ai:
+    google:
+      genai:
+        api-key: ${AI_API_KEY:your-gemini-api-key}
+        chat:
+          options:
+            model: ${AI_MODEL:gemini-pro}
+
 # MyBatis-Plus
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml
@@ -68,14 +77,6 @@ jwt:
   refresh-expiration: 604800000  # 7 days
   header: Authorization
   prefix: "Bearer "
-
-# AI Configuration
-ai:
-  api-key: ${AI_API_KEY:your-gemini-api-key}
-  api-url: ${AI_API_URL:https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent}
-  model: ${AI_MODEL:gemini-pro}
-  timeout: 30000
-  max-retries: 3
 
 # File Storage
 storage:

@@ -1,38 +1,28 @@
 package com.learning.platform.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.platform.common.BusinessException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.*;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AiService {
 
-    @Value("${ai.api-key}")
-    private String apiKey;
-
-    @Value("${ai.api-url}")
-    private String apiUrl;
-
-    @Value("${ai.timeout}")
-    private int timeout;
-
     private final RedisTemplate<String, Object> redisTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ChatClient chatClient;
+
+    public AiService(RedisTemplate<String, Object> redisTemplate, ChatClient.Builder chatClientBuilder) {
+        this.redisTemplate = redisTemplate;
+        this.chatClient = chatClientBuilder.build();
+    }
 
     private static final String CACHE_PREFIX_SUMMARY = "ai:summary:";
     private static final String CACHE_PREFIX_NL = "ai:nl:";
@@ -40,12 +30,6 @@ public class AiService {
     private static final long SUMMARY_TTL_HOURS = 24;
     private static final long NL_TTL_HOURS = 1;
     private static final long REASON_TTL_HOURS = 6;
-
-    private final OkHttpClient httpClient = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build();
 
     /**
      * Generate AI summary for a resource description (cached)
@@ -139,32 +123,20 @@ public class AiService {
 
     private String callGemini(String prompt) {
         try {
-            Map<String, Object> requestBody = Map.of(
-                    "contents", new Object[]{
-                            Map.of("parts", new Object[]{
-                                    Map.of("text", prompt)
-                            })
-                    }
-            );
+            ChatResponse response = chatClient.prompt()
+                    .user(prompt)
+                    .call()
+                    .chatResponse();
 
-            String json = objectMapper.writeValueAsString(requestBody);
-
-            Request request = new Request.Builder()
-                    .url(apiUrl + "?key=" + apiKey)
-                    .post(RequestBody.create(json, MediaType.parse("application/json")))
-                    .build();
-
-            try (Response response = httpClient.newCall(request).execute()) {
-                if (!response.isSuccessful()) {
-                    log.error("AI API call failed: {}", response.code());
-                    throw new BusinessException(503, "AI 服务调用失败");
-                }
-
-                String body = response.body().string();
-                JsonNode root = objectMapper.readTree(body);
-                return root.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText();
+            String result = response.getResult().getOutput().getText();
+            if (result == null || result.isBlank()) {
+                log.error("AI returned empty response");
+                throw new BusinessException(503, "AI 服务返回为空");
             }
-        } catch (IOException e) {
+            return result;
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
             log.error("AI API call error", e);
             throw new BusinessException(503, "AI 服务不可用");
         }
