@@ -316,8 +316,20 @@ function getIntentValue(key: string, value: any): string {
         </div>
 
         <div v-else-if="results.length === 0" class="text-center py-20 text-slate-400">
+          <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <p class="text-lg mb-2">暂无搜索结果</p>
-          <p class="text-sm">试试其他关键词或浏览分类</p>
+          <p v-if="selectedCategory || keyword" class="text-sm mb-4">
+            当前筛选：
+            <span v-if="keyword" class="font-medium text-slate-500">"{{ keyword }}"</span>
+            <span v-if="keyword && selectedCategory"> + </span>
+            <span v-if="selectedCategory" class="font-medium text-slate-500">{{ categories.flatMap(c => c.children || [c]).find(c => c.id === selectedCategory)?.name || '该分类' }}</span>
+          </p>
+          <button
+            @click="keyword = ''; selectedCategory = null; minRating = null; sortBy = 'hot'; handleSearch()"
+            class="px-4 py-2 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50 transition-colors"
+          >
+            清除所有筛选
+          </button>
         </div>
 
         <div v-else class="space-y-3">
