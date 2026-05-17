@@ -8,7 +8,7 @@
 
 ### 1.1 核心业务目标
 
-构建面向大学生的学习资源共享社区，利用 AI 技术（Gemini API 兼容）实现：
+构建面向大学生的学习资源共享社区，利用 AI 技术（Spring AI + Google GenAI）实现：
 
 | 目标 | 说明 |
 |------|------|
@@ -59,7 +59,7 @@ AI个性化学习资源分享平台/
 │       ├── service/                  # 业务逻辑层 (10 个)
 │       │   ├── AuthService.java              # 注册/登录/JWT 签发
 │       │   ├── ResourceService.java          # 资源 CRUD + 筛选 + 全文搜索
-│       │   ├── AiService.java                # Gemini API 调用 (摘要/NL解析/推荐理由) + Redis 缓存
+│       │   ├── AiService.java                # Spring AI ChatClient 调用 (摘要/NL解析/推荐理由) + Redis 缓存
 │       │   ├── SearchService.java            # 关键词搜索 + NL2API 搜索 + Redis 热搜/历史
 │       │   ├── RecommendationService.java    # 标签推荐 + 协同过滤 + 热度推荐 + Redis 缓存
 │       │   ├── InteractionService.java       # 点赞/收藏/评分
@@ -193,7 +193,7 @@ AI个性化学习资源分享平台/
 | 混合推荐 (标签0.6 + CF0.4) | ✅ | `RecommendationService` mergedScores |
 | AI 推荐理由生成 + 缓存 (6h) | ✅ | `AiService.generateRecommendReason()` |
 | 推荐结果 Redis 缓存 (30min) | ✅ | `RecommendationService` + Redis `recommend:user:{id}` |
-| Gemini API 调用封装 | ✅ | `AiService.callGemini()` (OkHttp) |
+| Spring AI ChatClient 调用 | ✅ | `AiService.callGemini()` (Spring AI Google GenAI) |
 
 ### 3.4 社区互动
 
@@ -383,7 +383,7 @@ AiService.java (核心 AI 服务 + Redis 缓存)
     └── 缓存未命中 → callGemini(prompt) → 写入缓存 (6h TTL)
 ```
 
-**调用方式**: OkHttp 同步调用，Gemini API `v1beta/models/gemini-pro:generateContent`
+**调用方式**: Spring AI ChatClient 调用 Google GenAI (gemini-pro)
 **降级策略**: Redis 不可用时跳过缓存直接调用 API；AI 调用失败时返回默认推荐理由
 
 ### 6.4 推荐算法 (RecommendationService - 混合推荐)
@@ -476,8 +476,7 @@ beforeEach:
 DB_PASSWORD=root            # MySQL 密码
 REDIS_HOST=localhost        # Redis 地址 (可选)
 JWT_SECRET=<32+字符密钥>     # JWT 签名密钥
-AI_API_KEY=<Gemini API Key> # AI 服务密钥
-AI_API_URL=<API 端点>        # 默认 Gemini API
+AI_API_KEY=<Gemini API Key> # AI 服务密钥 (Spring AI Google GenAI)
 STORAGE_TYPE=local          # 文件存储类型
 STORAGE_PATH=./uploads      # 本地存储路径
 ```
@@ -536,7 +535,7 @@ npm run dev                          # http://localhost:5173
 - **消息通知**: 用户被回复、资源被审核等场景缺少通知
 - **积分系统**: `user.points` 字段已定义但未与行为关联
 - **文件存储**: 生产环境建议切换到 MinIO/OSS，当前使用本地文件系统
-- **AI 模型切换**: 当前硬编码 Gemini API，可抽象为可配置的 AI Provider
+- **AI 模型切换**: 已通过 Spring AI 抽象，可切换至 OpenAI、Anthropic 等其他模型
 
 ---
 
@@ -576,7 +575,7 @@ af42c1b feat: init AI personalized learning resource sharing platform
 | JJWT | 0.12.5 | JWT 库 |
 | Hutool | 5.8.26 | Java 工具库 |
 | SpringDoc | 2.4.0 | Swagger UI |
-| OkHttp | 4.12.0 | HTTP 客户端 (AI 调用) |
+| Spring AI | 1.1.6 | AI 框架 (Google GenAI Starter) |
 | Lettuce | 6.3.2 | Redis 客户端 |
 | Vue | 3.4.21 | 前端框架 |
 | Vue Router | 4.3.0 | 路由 |

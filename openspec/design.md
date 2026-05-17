@@ -17,7 +17,7 @@
 | **缓存** | Redis | 高性能缓存，支持多种数据结构 |
 | **数据库** | MySQL 8.0 | 成熟稳定，支持全文索引 |
 | **文件存储** | 本地文件系统 / MinIO | 可扩展的对象存储方案 |
-| **AI 对接** | Gemini API 兼容接口 | 统一 AI 调用层，支持多模型切换 |
+| **AI 对接** | Spring AI (Google GenAI Starter) | 统一 AI 调用层，支持多模型切换 |
 | **构建工具** | Vite (前端) / Maven (后端) | 快速构建和热更新 |
 | **API 文档** | SpringDoc OpenAPI (Swagger) | 自动生成 API 文档，支持在线调试 |
 
@@ -55,7 +55,7 @@ graph TB
     end
 
     subgraph "外部服务"
-        GeminiAPI[Gemini API]
+        GeminiAPI[Google GenAI (via Spring AI)]
     end
 
     Browser --> VueApp
