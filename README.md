@@ -7,7 +7,7 @@
 - **前端**: Vue 3 + TypeScript + Tailwind CSS
 - **后端**: Spring Boot 3 (Java 17)
 - **数据库**: MySQL 8.0 + Redis
-- **AI**: 兼容 Gemini API
+- **AI**: Spring AI (Google GenAI)
 - **构建**: Vite (前端) / Maven (后端)
 
 ## 环境要求
@@ -112,7 +112,7 @@ AI个性化学习资源分享平台/
 
 1. **用户与权限管理**: JWT + RefreshToken 认证, Spring Security RBAC (USER/PUBLISHER/ADMIN), 头像上传
 2. **资源管理**: 发布、浏览、搜索学习资源 (文件上传/外部链接), 分类树, 标签系统
-3. **AI 智能摘要**: 基于 Gemini API 自动生成约100字的精准资源摘要 (Redis 缓存 24h)
+3. **AI 智能摘要**: 基于 Spring AI (Google GenAI) 自动生成约100字的精准资源摘要 (Redis 缓存 24h)
 4. **自然语言搜索**: 支持自然语言查询，AI 解析为结构化搜索 (NL2API)
 5. **个性化推荐**: 混合推荐算法 (标签权重 0.6 + 协同过滤 0.4), AI 生成推荐理由, Redis 缓存 30min
 6. **社区互动**: 点赞、收藏、星级评分、多级评论

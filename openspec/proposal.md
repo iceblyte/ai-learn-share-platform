@@ -306,5 +306,5 @@ flowchart TD
 - 前端：Vue 3 + TypeScript + Tailwind CSS
 - 后端：Spring Boot (Java)
 - 数据库：MySQL + Redis
-- AI 对接：兼容 Gemini API KEY 格式
+- AI 对接：Spring AI Google GenAI Starter
 - 部署环境：Windows (PowerShell 7)
