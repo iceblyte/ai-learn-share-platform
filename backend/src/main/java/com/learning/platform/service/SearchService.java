@@ -7,12 +7,14 @@ import com.learning.platform.common.PageResult;
 import com.learning.platform.entity.Resource;
 import com.learning.platform.mapper.ResourceMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SearchService {
@@ -61,37 +63,55 @@ public class SearchService {
 
     @SuppressWarnings("unchecked")
     public List<String> getHotSearches() {
-        List<Object> hot = redisTemplate.opsForList().range(HOT_KEY, 0, 9);
-        return hot != null ? hot.stream().map(Object::toString).toList() : List.of();
+        try {
+            List<Object> hot = redisTemplate.opsForList().range(HOT_KEY, 0, 9);
+            return hot != null ? hot.stream().map(Object::toString).toList() : List.of();
+        } catch (Exception e) {
+            log.warn("Redis unavailable for hot searches: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     private void recordSearch(String keyword) {
-        redisTemplate.opsForList().leftPush(HOT_KEY, keyword);
-        redisTemplate.opsForList().trim(HOT_KEY, 0, 99);
-        redisTemplate.expire(HOT_KEY, 7, TimeUnit.DAYS);
+        try {
+            redisTemplate.opsForList().leftPush(HOT_KEY, keyword);
+            redisTemplate.opsForList().trim(HOT_KEY, 0, 99);
+            redisTemplate.expire(HOT_KEY, 7, TimeUnit.DAYS);
+        } catch (Exception e) {
+            log.warn("Redis unavailable for recording search: {}", e.getMessage());
+        }
     }
 
     @SuppressWarnings("unchecked")
     public List<String> getUserSearchHistory(Long userId) {
-        String key = HISTORY_KEY_PREFIX + userId;
-        List<Object> history = redisTemplate.opsForList().range(key, 0, HISTORY_MAX_SIZE - 1);
-        return history != null ? history.stream().map(Object::toString).toList() : List.of();
+        try {
+            String key = HISTORY_KEY_PREFIX + userId;
+            List<Object> history = redisTemplate.opsForList().range(key, 0, HISTORY_MAX_SIZE - 1);
+            return history != null ? history.stream().map(Object::toString).toList() : List.of();
+        } catch (Exception e) {
+            log.warn("Redis unavailable for search history: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     public void recordUserSearch(Long userId, String keyword) {
-        String key = HISTORY_KEY_PREFIX + userId;
-        // Remove existing occurrence to avoid duplicates
-        redisTemplate.opsForList().remove(key, 1, keyword);
-        // Add to front
-        redisTemplate.opsForList().leftPush(key, keyword);
-        // Trim to max size
-        redisTemplate.opsForList().trim(key, 0, HISTORY_MAX_SIZE - 1);
-        // Set expiration
-        redisTemplate.expire(key, HISTORY_EXPIRE_DAYS, TimeUnit.DAYS);
+        try {
+            String key = HISTORY_KEY_PREFIX + userId;
+            redisTemplate.opsForList().remove(key, 1, keyword);
+            redisTemplate.opsForList().leftPush(key, keyword);
+            redisTemplate.opsForList().trim(key, 0, HISTORY_MAX_SIZE - 1);
+            redisTemplate.expire(key, HISTORY_EXPIRE_DAYS, TimeUnit.DAYS);
+        } catch (Exception e) {
+            log.warn("Redis unavailable for recording user search: {}", e.getMessage());
+        }
     }
 
     public void clearUserSearchHistory(Long userId) {
-        String key = HISTORY_KEY_PREFIX + userId;
-        redisTemplate.delete(key);
+        try {
+            String key = HISTORY_KEY_PREFIX + userId;
+            redisTemplate.delete(key);
+        } catch (Exception e) {
+            log.warn("Redis unavailable for clearing search history: {}", e.getMessage());
+        }
     }
 }
