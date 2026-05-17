@@ -56,6 +56,11 @@ async function handleSearch() {
   parsedIntent.value = null
   try {
     if (isNlMode.value) {
+      if (!userStore.isLoggedIn) {
+        alert('AI 搜索需要登录，请先登录后再使用')
+        router.push('/login')
+        return
+      }
       const res = await searchApi.nlSearch(keyword.value)
       const data = res.data.data as any
       results.value = data.results || []
@@ -72,6 +77,12 @@ async function handleSearch() {
       const res = await searchApi.search(params)
       results.value = res.data.data.records
       total.value = res.data.data.total
+    }
+  } catch (e: any) {
+    // 403 or auth errors on NL search
+    if (!userStore.isLoggedIn) {
+      alert('AI 搜索需要登录，请先登录后再使用')
+      router.push('/login')
     }
   } finally {
     loading.value = false
