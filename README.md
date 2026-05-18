@@ -4,10 +4,11 @@
 
 ## 技术栈
 
-- **前端**: Vue 3 + TypeScript + Tailwind CSS
-- **后端**: Spring Boot 3 (Java 17)
+- **前端**: Vue 3 + TypeScript + Tailwind CSS + marked (Markdown 渲染)
+- **后端**: Spring Boot 3 (Java 17) + MyBatis-Plus
 - **数据库**: MySQL 8.0 + Redis
-- **AI**: Spring AI (Google GenAI)
+- **AI**: Spring AI 1.1.6 (Google GenAI)
+- **文件存储**: 阿里云 OSS (生产) / 本地文件系统 (开发回退)
 - **构建**: Vite (前端) / Maven (后端)
 
 ## 环境要求
@@ -28,6 +29,9 @@ mysql -u root -p --default-character-set=utf8mb4 < db/init.sql
 
 # 导入测试种子数据 (可选, 22个资源 + 评论/点赞/评分)
 mysql -u root -p --default-character-set=utf8mb4 < db/seed.sql
+
+# 更新种子数据的在线图片/头像 URL (可选)
+mysql -u root -p --default-character-set=utf8mb4 < db/seed_images.sql
 ```
 
 ### 2. 后端启动
@@ -40,6 +44,9 @@ $env:DB_PASSWORD = "your_mysql_password"
 $env:REDIS_HOST = "localhost"
 $env:JWT_SECRET = "your_jwt_secret_key_at_least_32_chars"
 $env:AI_API_KEY = "your_gemini_api_key"
+
+# 阿里云 OSS 配置 (文件存储，密钥填写在 application-local.yml)
+$env:STORAGE_TYPE = "oss"   # 或 "local" 使用本地存储
 
 # 编译并运行
 mvn clean install
@@ -104,7 +111,8 @@ AI个性化学习资源分享平台/
 │
 ├── db/                         # 数据库脚本
 │   ├── init.sql               # 建表 + 初始数据
-│   └── seed.sql               # 测试种子数据 (可选, 支持重复执行)
+│   ├── seed.sql               # 测试种子数据 (可选, 支持重复执行)
+│   └── seed_images.sql        # 更新种子数据为在线图片 URL (可选)
 │
 ├── openspec/                   # 项目文档
 │   ├── proposal.md            # PRD 产品需求文档
@@ -116,14 +124,15 @@ AI个性化学习资源分享平台/
 
 ## 核心功能
 
-1. **用户与权限管理**: JWT + RefreshToken 认证, Spring Security RBAC (USER/PUBLISHER/ADMIN), 头像上传
-2. **资源管理**: 发布、浏览、搜索学习资源 (文件上传/外部链接), 分类树, 标签系统
+1. **用户与权限管理**: JWT + RefreshToken 认证, Spring Security RBAC (USER/PUBLISHER/ADMIN), 头像上传 (阿里云 OSS)
+2. **资源管理**: 发布、浏览、搜索学习资源 (文件上传/外部链接), 分类树, 标签系统, Markdown 渲染 (marked)
 3. **AI 智能摘要**: 基于 Spring AI (Google GenAI) 自动生成约100字的精准资源摘要 (Redis 缓存 24h)
 4. **自然语言搜索**: 支持自然语言查询，AI 解析为结构化搜索 (NL2API, 需登录)
 5. **个性化推荐**: 混合推荐算法 (标签权重 0.6 + 协同过滤 0.4), AI 生成推荐理由, Redis 缓存 30min
-6. **社区互动**: 点赞、收藏、星级评分、多级评论
-7. **管理后台**: 用户管理、资源审核、分类/标签 CRUD、平台统计仪表盘
-8. **Redis 缓存策略**: AI 响应缓存 + 推荐缓存 + 搜索历史 + Token 黑名单, 所有 Redis 操作均优雅降级
+6. **社区互动**: 点赞/收藏状态高亮、星级评分悬停预览、分享链接复制、多级评论点赞
+7. **管理后台**: 用户管理 (分页+角色修改)、资源审核 (确认弹窗+查看详情)、分类/标签 CRUD、平台统计仪表盘
+8. **文件存储**: 阿里云 OSS (生产环境) / 本地文件系统 (开发回退), 通过 `storage.type` 配置切换
+9. **Redis 缓存策略**: AI 响应缓存 + 推荐缓存 + 搜索历史 + Token 黑名单, 所有 Redis 操作均优雅降级
 
 ## API 接口
 

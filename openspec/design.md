@@ -16,7 +16,7 @@
 | **认证** | Spring Security + JWT | 无状态认证，适合前后端分离架构 |
 | **缓存** | Redis | 高性能缓存，支持多种数据结构 |
 | **数据库** | MySQL 8.0 | 成熟稳定，支持全文索引 |
-| **文件存储** | 本地文件系统 / MinIO | 可扩展的对象存储方案 |
+| **文件存储** | 阿里云 OSS / 本地文件系统 | 通过 storage.type 配置切换，OSS Bucket: ai-learn-share-platform |
 | **AI 对接** | Spring AI (Google GenAI Starter) | 统一 AI 调用层，支持多模型切换 |
 | **构建工具** | Vite (前端) / Maven (后端) | 快速构建和热更新 |
 | **API 文档** | SpringDoc OpenAPI (Swagger) | 自动生成 API 文档，支持在线调试 |
