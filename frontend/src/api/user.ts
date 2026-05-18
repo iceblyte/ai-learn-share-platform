@@ -28,4 +28,7 @@ export const userApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
+  upgradeToPublisher() {
+    return request.post<ApiResponse<string>>('/users/upgrade-to-publisher')
+  },
 }
