@@ -1,6 +1,6 @@
 # PROJECT SNAPSHOT - AI 个性化学习资源分享平台
 
-> 快照时间: 2026-05-17 | 分支: main | 最新提交: 496f458
+> 快照时间: 2026-05-18 | 分支: main | 最新提交: 38dc7df
 
 ---
 
@@ -98,7 +98,7 @@ AI个性化学习资源分享平台/
 │       │   └── user.ts                       # 用户信息 API (含头像上传)
 │       ├── views/                    # 页面组件 (13 个)
 │       │   ├── Home.vue                      # 首页 (分类导航 + AI推荐 + 热门/最新)
-│       │   ├── Search.vue                    # 搜索页 (关键词/NL切换 + 侧边筛选 + AI意图)
+│       │   ├── Search.vue                    # 搜索页 (关键词/NL切换 + 侧边筛选 + AI意图 + 空结果提示 + Toast通知)
 │       │   ├── ResourceDetail.vue            # 资源详情 (面包屑 + 侧边栏 + 评论)
 │       │   ├── Publish.vue                   # 发布页 (Markdown编辑器 + 文件/封面上传 + AI摘要)
 │       │   ├── Profile.vue                   # 个人中心 (侧边栏 + 4 Tab + 头像上传 + 编辑/删除)
@@ -119,7 +119,7 @@ AI个性化学习资源分享平台/
 │
 ├── db/                               # 数据库脚本
 │   ├── init.sql                      # 建库 + 13 张表 + 索引 + 初始数据 (admin/publisher/分类/标签)
-│   └── seed.sql                      # 测试种子数据 (8 用户 + 22 资源 + 评论/点赞/收藏/评分)
+│   └── seed.sql                      # 测试种子数据 (8 用户 + 22 资源 + 评论/点赞/收藏/评分, SET NAMES utf8mb4, INSERT IGNORE 可重复执行)
 │
 ├── prototypes/                       # HTML 页面原型 (UI 设计参考)
 │   ├── index.html / search.html / detail.html
@@ -185,7 +185,7 @@ AI个性化学习资源分享平台/
 |------|------|---------|
 | AI 智能摘要生成 | ✅ | `AiService.generateSummary()` |
 | 摘要 Redis 缓存 (24h TTL) | ✅ | `AiService` + Redis `ai:summary:{md5}` |
-| 自然语言搜索 (NL2API) | ✅ | `AiService.parseNaturalLanguageQuery()` → `SearchService` |
+| 自然语言搜索 (NL2API) | ✅ | `AiService.parseNaturalLanguageQuery()` → `SearchService` (需登录, 前端 Toast 提示) |
 | NL 搜索 Redis 缓存 (1h TTL) | ✅ | `AiService` + Redis `ai:nl:{md5}` |
 | AI 搜索意图展示 | ✅ | `Search.vue` parsedIntent |
 | 个性化推荐 (标签+协同过滤+热度) | ✅ | `RecommendationService.getRecommendations()` |
@@ -542,6 +542,13 @@ npm run dev                          # http://localhost:5173
 ## 9. Git 提交历史
 
 ```
+38dc7df fix: 替换 alert 为页面内嵌 Toast 提示条
+0e764c3 fix: NL 搜索未登录时前端提示并跳转登录页
+d0527f3 fix: 搜索无结果时显示当前筛选条件和清除按钮
+070d8c8 fix: 修复 seed.sql 字符编码和重复键问题
+a93e2e1 docs: 更新文档反映 Spring AI 迁移
+d16692b refactor: 迁移 AI 服务从 OkHttp 到 Spring AI 框架
+8f3d896 docs: 更新项目文档匹配最新项目状态
 496f458 fix: 所有 Redis 调用添加异常保护，支持无 Redis 环境运行
 3152267 fix: 修复 RecommendationService 编译类型错误
 7484778 docs: 标记已完成的后端任务（RBAC/头像/缓存/协同过滤）

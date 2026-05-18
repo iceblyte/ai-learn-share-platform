@@ -125,7 +125,7 @@
 ### 5.1 后端 - AI 基础设施
 - [x] 5.1.1 创建 AI 配置类（API Key、模型名称、超时配置）
 - [x] 5.1.2 实现 AiService 接口和 Gemini 实现类
-- [x] 5.1.3 实现 HTTP 客户端调用 Gemini API（OkHttp/WebClient）
+- [x] 5.1.3 实现 AI 调用层（Spring AI ChatClient + Google GenAI Starter）
 - [x] 5.1.4 实现 AI 调用异常处理和降级策略
 - [x] 5.1.5 实现 AI 调用日志记录
 
@@ -192,6 +192,13 @@
 - [x] 6.4.4 实现资源审核页面
 - [x] 6.4.5 实现分类管理页面（树形结构）
 - [x] 6.4.6 实现标签管理页面
+
+### 6.5 体验优化与修复
+- [x] 6.5.1 迁移 AI 服务至 Spring AI 框架（OkHttp → spring-ai-starter-model-google-genai 1.1.6）
+- [x] 6.5.2 修复 seed.sql 字符编码问题（添加 SET NAMES utf8mb4）和重复执行问题（INSERT IGNORE）
+- [x] 6.5.3 搜索无结果时显示当前筛选条件（关键词 + 分类名）和"清除所有筛选"按钮
+- [x] 6.5.4 NL 搜索未登录时前端 Toast 提示并跳转登录页（替代 alert）
+- [x] 6.5.5 Toast 通知组件（页面内嵌、动画、自动消失、颜色区分）
 
 ---
 
