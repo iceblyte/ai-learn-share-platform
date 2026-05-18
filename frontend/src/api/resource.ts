@@ -1,5 +1,5 @@
 import request from './request'
-import type { ApiResponse, PageData, Resource, ResourceCreateRequest, SearchParams } from '@/types'
+import type { ApiResponse, PageData, Resource, SearchParams } from '@/types'
 
 export const resourceApi = {
   getList(params: SearchParams) {
@@ -40,6 +40,6 @@ export const resourceApi = {
     )
   },
   getInteractions(id: number) {
-    return request.get<ApiResponse<{ liked: boolean; favorited: boolean }>>(`/resources/${id}/interactions`)
+    return request.get<ApiResponse<{ liked: boolean; favorited: boolean; myRating?: number }>>(`/resources/${id}/interactions`)
   },
 }

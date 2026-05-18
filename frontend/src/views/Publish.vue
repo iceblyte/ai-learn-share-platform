@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { resourceApi } from '@/api/resource'
 import { categoryApi, tagApi } from '@/api/category'
-import { useUserStore } from '@/store/user'
 import type { Category, Tag } from '@/types'
 import { marked } from 'marked'
 import AppModal from '@/components/AppModal.vue'
 
 const router = useRouter()
 const route = useRoute()
-const userStore = useUserStore()
 const categories = ref<Category[]>([])
 const tags = ref<Tag[]>([])
 const loading = ref(false)
