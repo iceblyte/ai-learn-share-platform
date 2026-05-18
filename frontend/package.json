@@ -10,6 +10,7 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix"
   },
   "dependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.60.4",
     "@tailwindcss/typography": "^0.5.19",
     "@types/marked": "^5.0.2",
     "@vueuse/core": "^10.9.0",
