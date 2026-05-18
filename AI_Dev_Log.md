@@ -165,3 +165,36 @@
 
 ### 8.6 新增 SQL 脚本
 - `db/seed_images.sql` - 更新种子数据为在线图片 URL (ui-avatars.com, picsum.photos)
+
+## 9. Bug 修复记录 (2026-05-18 - Problem3)
+
+### 9.1 问题来源
+用户提供了 `problem3.md` 文件，列出 7 类问题。
+
+### 9.2 修复策略
+按依赖关系分批修复：AI基础 → 交互层 → 文件上传 → 草稿功能 → 样式 → 导航
+
+### 9.3 关键修复项
+
+| 模块 | 问题 | 修复方案 |
+|------|------|---------|
+| AI | 所有AI功能不可用 | 模型名 gemini-pro → gemini-2.0-flash (gemini-pro 已被 Google 废弃) |
+| 资源详情 | 评分不持久化 | getInteractions API 增加 myRating 字段，InteractionService 新增 getMyRating() |
+| 资源详情 | 点赞/收藏无反馈 | handleLike/handleFavorite/handleCommentLike 添加 toast.show() |
+| 发布 | 封面图片丢失 | Controller 增加 @RequestPart coverImage，FileService 新增 storeCoverImage() |
+| 发布 | 草稿消失 | 改为后端 DRAFT 状态持久化，Profile 新增草稿箱 tab |
+| Markdown | 链接无法区分 | 安装 @tailwindcss/typography，renderMarkdown 链接加 target=_blank |
+| 首页 | 分类跳搜索页 | 改为首页内联筛选，调用 resourceApi.getList({ categoryId }) |
+
+### 9.4 新增后端方法
+- `InteractionService.getMyRating(userId, resourceId)` - 获取用户评分
+- `FileService.storeCoverImage(file)` - 存储封面图片 (OSS/本地)
+
+### 9.5 后端接口变更
+- `GET /resources/{id}/interactions` - 返回值增加 `myRating` 字段
+- `GET /users/resources` - 新增 `status` 参数支持筛选草稿
+- `POST /resources` - 新增 `@RequestPart coverImage` 参数
+- `PUT /resources/{id}` - 新增 `@RequestPart coverImage` 参数
+
+### 9.6 新增 SQL 脚本
+- `db/ai_config.sql` - AI 配置变更记录
