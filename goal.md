@@ -11,7 +11,7 @@
   - **前端**：Vue 3 + TypeScript + Tailwind CSS
   - **后端**：Spring Boot (Java)
   - **数据库**：MySQL + Redis
-  - **AI 对接**：兼容 Gemini 的 API KEY 格式
+  - **AI 对接**：Spring AI (Google GenAI Starter)，支持多模型切换
   - **测试**：基于 Python+Pytest/Postman 的接口测试，Playwright/Selenium 的 UI 测试
   
   ## 4. 核心功能需求

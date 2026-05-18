@@ -1,6 +1,6 @@
 # PROJECT SNAPSHOT - AI 个性化学习资源分享平台
 
-> 快照时间: 2026-05-18 | 分支: main | 最新提交: 38dc7df
+> 快照时间: 2026-05-18 | 分支: main | 最新提交: 29fd4ea
 
 ---
 
@@ -112,7 +112,9 @@ AI个性化学习资源分享平台/
 │       │       └── Tags.vue                  # 标签管理 (标签云 CRUD)
 │       ├── components/               # 公共组件
 │       │   ├── AppHeader.vue                 # 顶部导航 (Logo + 搜索 + 用户菜单)
-│       │   └── AppFooter.vue                 # 底部
+│       │   ├── AppFooter.vue                 # 底部
+│       │   ├── AppToast.vue                  # 全局 Toast 通知 (4种类型, 自动消失)
+│       │   └── AppModal.vue                  # 通用弹窗 (Teleport, 缩放动画, 插槽)
 │       ├── router/index.ts           # 路由 (含路由守卫: requiresAuth/requiresAdmin/requiresPublisher)
 │       ├── store/user.ts             # Pinia 用户状态 (token 持久化 + 角色计算属性)
 │       └── types/index.ts            # TypeScript 类型定义
@@ -477,8 +479,12 @@ DB_PASSWORD=root            # MySQL 密码
 REDIS_HOST=localhost        # Redis 地址 (可选)
 JWT_SECRET=<32+字符密钥>     # JWT 签名密钥
 AI_API_KEY=<Gemini API Key> # AI 服务密钥 (Spring AI Google GenAI)
-STORAGE_TYPE=local          # 文件存储类型
+STORAGE_TYPE=local          # 文件存储类型 (local 或 oss)
 STORAGE_PATH=./uploads      # 本地存储路径
+OSS_ENDPOINT=oss-cn-beijing.aliyuncs.com  # 阿里云 OSS Endpoint
+OSS_BUCKET=ai-learn-share-platform        # OSS Bucket 名称
+OSS_ACCESS_KEY_ID=         # 阿里云 AccessKey ID (填写在 application-local.yml)
+OSS_ACCESS_KEY_SECRET=     # 阿里云 AccessKey Secret (填写在 application-local.yml)
 ```
 
 ### 7.3 快速启动
@@ -534,7 +540,7 @@ npm run dev                          # http://localhost:5173
 
 - **消息通知**: 用户被回复、资源被审核等场景缺少通知
 - **积分系统**: `user.points` 字段已定义但未与行为关联
-- **文件存储**: 生产环境建议切换到 MinIO/OSS，当前使用本地文件系统
+- **文件存储**: 已集成阿里云 OSS (Bucket: ai-learn-share-platform)，通过 `storage.type` 配置切换 local/oss
 - **AI 模型切换**: 已通过 Spring AI 抽象，可切换至 OpenAI、Anthropic 等其他模型
 
 ---
@@ -542,6 +548,13 @@ npm run dev                          # http://localhost:5173
 ## 9. Git 提交历史
 
 ```
+29fd4ea fix: 修复管理后台全部功能
+c591974 fix: 修复个人中心和发布资源功能
+a000553 feat: 集成阿里云OSS文件存储
+d57e34a fix: 重写资源详情页交互功能
+48d43c8 fix: 修复首页交互和搜索筛选功能
+15af760 feat: 添加种子数据图片和链接更新脚本
+774818f docs: 更新全部文档反映最新项目状态
 38dc7df fix: 替换 alert 为页面内嵌 Toast 提示条
 0e764c3 fix: NL 搜索未登录时前端提示并跳转登录页
 d0527f3 fix: 搜索无结果时显示当前筛选条件和清除按钮
@@ -583,11 +596,13 @@ af42c1b feat: init AI personalized learning resource sharing platform
 | Hutool | 5.8.26 | Java 工具库 |
 | SpringDoc | 2.4.0 | Swagger UI |
 | Spring AI | 1.1.6 | AI 框架 (Google GenAI Starter) |
+| Aliyun OSS SDK | 3.17.4 | 阿里云对象存储 |
 | Lettuce | 6.3.2 | Redis 客户端 |
 | Vue | 3.4.21 | 前端框架 |
 | Vue Router | 4.3.0 | 路由 |
 | Pinia | 2.1.7 | 状态管理 |
 | Axios | 1.6.8 | HTTP 客户端 |
+| marked | latest | Markdown 渲染 |
 | Tailwind CSS | 3.4.3 | CSS 框架 |
 | Vite | 5.2.8 | 构建工具 |
 | TypeScript | 5.4.0 | 类型系统 |

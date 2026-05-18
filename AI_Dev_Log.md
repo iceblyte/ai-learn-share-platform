@@ -129,3 +129,39 @@
 1. AI 生成的代码需要人工审查，特别是安全相关逻辑
 2. 数据库索引设计需要根据实际查询模式调整
 3. AI API 调用需要降级策略，避免服务不可用时影响核心功能
+
+## 8. Bug 修复记录 (2026-05-18)
+
+### 8.1 问题来源
+用户提供了 `problem.md` 文件，列出 11 类问题，涵盖首页、资源详情、评论、个人中心、管理后台、发布资源、搜索筛选、NL 搜索等模块。
+
+### 8.2 修复策略
+按模块分批修复，每完成一批功能后 git commit 并 push：
+1. 种子数据 → 2. 首页交互 → 3. 搜索筛选 → 4. 资源详情 → 5. OSS 集成 → 6. 个人中心/发布 → 7. 管理后台
+
+### 8.3 关键修复项
+
+| 模块 | 问题 | 修复方案 |
+|------|------|---------|
+| 搜索 | 分类筛选返回空 | `getAllDescendantIds()` 递归展开子分类，`IN` 替代 `EQ` |
+| 搜索 | 标签筛选无效 | SQL 子查询 `HAVING COUNT(DISTINCT) = N` 确保全匹配 |
+| 搜索 | NL 搜索无结果 | 取最长关键词而非拼接全部关键词 |
+| 资源详情 | 点赞数重置为 1 | 新增 `GET /interactions` 接口获取状态，前端正确更新 |
+| 资源详情 | 按钮无视觉反馈 | 条件 class 切换 `border-red-300 bg-red-50` 等 |
+| 文件存储 | 头像上传路径错误 | 集成阿里云 OSS，`storage.type` 切换 local/oss |
+| 发布 | 编辑模式内容丢失 | 读取 `?edit=id` 参数，`loadResource()` 回填表单 |
+| 发布 | Markdown 显示原始文本 | 引入 `marked` 库，`v-html="renderMarkdown(text)"` |
+| 管理后台 | 仪表盘数据缺失 | 补充 `todayActive` 统计，修复 API 路径 |
+| 管理后台 | 审核无确认 | 全部替换为 `AppModal` 组件确认弹窗 |
+
+### 8.4 新增组件
+- **AppToast.vue**: 全局 Toast 通知，4 种类型 (info/success/error/warning)，自动消失
+- **AppModal.vue**: 通用弹窗，Teleport 渲染，缩放动画，body/footer 插槽
+
+### 8.5 新增后端接口
+- `GET /resources/{id}/interactions` - 获取当前用户点赞/收藏状态
+- `PUT /resources/{id}` - 更新资源 (multipart/form-data)
+- `GET /admin/resources` - 通用资源列表 (支持 status 筛选)
+
+### 8.6 新增 SQL 脚本
+- `db/seed_images.sql` - 更新种子数据为在线图片 URL (ui-avatars.com, picsum.photos)
