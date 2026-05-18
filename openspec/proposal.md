@@ -306,5 +306,5 @@ flowchart TD
 - 前端：Vue 3 + TypeScript + Tailwind CSS
 - 后端：Spring Boot (Java)
 - 数据库：MySQL + Redis
-- AI 对接：Spring AI Google GenAI Starter
+- AI 对接：Spring AI (阿里云百炼 Qwen, DashScope OpenAI 兼容 API)
 - 部署环境：Windows (PowerShell 7)

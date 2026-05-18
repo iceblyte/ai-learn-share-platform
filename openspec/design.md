@@ -17,7 +17,7 @@
 | **缓存** | Redis | 高性能缓存，支持多种数据结构 |
 | **数据库** | MySQL 8.0 | 成熟稳定，支持全文索引 |
 | **文件存储** | 阿里云 OSS / 本地文件系统 | 通过 storage.type 配置切换，OSS Bucket: ai-learn-share-platform |
-| **AI 对接** | Spring AI (Google GenAI Starter) | 统一 AI 调用层，支持多模型切换 |
+| **AI 对接** | Spring AI (阿里云百炼 Qwen) | 统一 AI 调用层，DashScope OpenAI 兼容 API |
 | **构建工具** | Vite (前端) / Maven (后端) | 快速构建和热更新 |
 | **API 文档** | SpringDoc OpenAPI (Swagger) | 自动生成 API 文档，支持在线调试 |
 
@@ -55,7 +55,7 @@ graph TB
     end
 
     subgraph "外部服务"
-        GeminiAPI[Google GenAI (via Spring AI)]
+        QwenAPI[阿里云百炼 Qwen (via Spring AI)]
     end
 
     Browser --> VueApp
@@ -71,7 +71,7 @@ graph TB
     Mapper --> MySQL
     Service --> Redis
     Service --> FileStorage
-    AIEngine --> GeminiAPI
+    AIEngine --> QwenAPI
 ```
 
 ### 1.3 分层架构说明
@@ -102,7 +102,7 @@ graph TB
 │    └────┬────┘ └─────┘ └───┬────┘                         │
 └─────────┼──────────────────┼───────────────────────────────┘
      ┌────▼────┐         ┌───▼────┐
-     │ MySQL   │         │Gemini  │
+     │ MySQL   │         │ Qwen   │
      └─────────┘         └────────┘
 ```
 
