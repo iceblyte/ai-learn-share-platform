@@ -37,4 +37,7 @@ export const resourceApi = {
       { score }
     )
   },
+  getInteractions(id: number) {
+    return request.get<ApiResponse<{ liked: boolean; favorited: boolean }>>(`/resources/${id}/interactions`)
+  },
 }
