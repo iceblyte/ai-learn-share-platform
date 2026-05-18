@@ -7,7 +7,7 @@
 - **前端**: Vue 3 + TypeScript + Tailwind CSS + marked (Markdown 渲染)
 - **后端**: Spring Boot 3 (Java 17) + MyBatis-Plus
 - **数据库**: MySQL 8.0 + Redis
-- **AI**: Spring AI 1.1.6 (阿里云百炼 Qwen)
+- **AI**: 阿里云百炼 Qwen（OpenAI 兼容 HTTP 接口）
 - **文件存储**: 阿里云 OSS (生产) / 本地文件系统 (开发回退)
 - **构建**: Vite (前端) / Maven (后端)
 
@@ -24,14 +24,11 @@
 ### 1. 数据库初始化
 
 ```powershell
-# 建表 + 初始数据 (分类、标签、管理员账号)
+# 建库建表
 mysql -u root -p --default-character-set=utf8mb4 < db/init.sql
 
-# 导入测试种子数据 (可选, 22个资源 + 评论/点赞/评分)
+# 导入统一测试数据
 mysql -u root -p --default-character-set=utf8mb4 < db/seed.sql
-
-# 更新种子数据的在线图片/头像 URL (可选)
-mysql -u root -p --default-character-set=utf8mb4 < db/seed_images.sql
 ```
 
 ### 2. 后端启动
@@ -44,8 +41,9 @@ $env:DB_PASSWORD = "your_mysql_password"
 $env:REDIS_HOST = "localhost"
 $env:JWT_SECRET = "your_jwt_secret_key_at_least_32_chars"
 $env:AI_API_KEY = "your_dashscope_api_key"
-$env:AI_CONNECT_TIMEOUT_MS = "3000"
-$env:AI_READ_TIMEOUT_MS = "8000"
+$env:AI_CONNECT_TIMEOUT_MS = "5000"
+$env:AI_READ_TIMEOUT_MS = "20000"
+$env:AI_CHAT_TIMEOUT_MS = "120000"
 
 # 阿里云 OSS 配置 (文件存储，密钥填写在 application-local.yml)
 $env:STORAGE_TYPE = "oss"   # 或 "local" 使用本地存储
@@ -112,9 +110,13 @@ AI个性化学习资源分享平台/
 │   └── package.json
 │
 ├── db/                         # 数据库脚本
-│   ├── init.sql               # 建表 + 初始数据
-│   ├── seed.sql               # 测试种子数据 (可选, 支持重复执行)
-│   └── seed_images.sql        # 更新种子数据为在线图片 URL (可选)
+│   ├── init.sql               # 建库建表脚本
+│   └── seed.sql               # 统一测试数据脚本
+│
+├── docs/                       # 最终交付文档
+│   ├── PRD.md                 # 产品需求文档
+│   ├── 设计文档.md            # 系统设计与数据库/API说明
+│   └── 交付清单.md            # 交付物总览
 │
 ├── problem4-plan.md            # AI 搜索/推荐问题修复计划
 ├── PROJECT_SNAPSHOT.md         # 项目快照
@@ -151,7 +153,15 @@ AI 相关接口：
 
 - 如果 DashScope 账号对当前 `AI_MODEL` 没有额度或权限，聊天接口会返回明确失败提示，不再伪装为 AI 已回答。
 - 推荐、摘要、搜索都带本地降级路径；聊天功能会优先等待真实 AI 回复，并按配置进行重试。
-- 若历史种子数据中的点赞/收藏/评论统计与交互表不一致，请执行 `db/fix_interaction_counters_20260519.sql` 对齐计数。
+
+## 交付文档
+
+- 产品需求文档：`docs/PRD.md`
+- 系统设计文档：`docs/设计文档.md`
+- 交付物清单：`docs/交付清单.md`
+- 需求原型：`prototypes/README.md`
+- Spec 文档：`openspec/proposal.md`、`openspec/design.md`、`openspec/tasks.md`
+- 测试资产：`tests/test_cases.md`、`tests/test_api.py`、`tests/test_ui.py`、`tests/test_report.md`
 
 ## 许可证
 

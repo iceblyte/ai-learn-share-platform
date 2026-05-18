@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS `tag` (
 CREATE TABLE IF NOT EXISTS `resource` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '资源ID',
     `title` VARCHAR(200) NOT NULL COMMENT '资源标题',
-    `category_id` BIGINT NOT NULL COMMENT '分类ID',
+    `category_id` BIGINT DEFAULT NULL COMMENT '分类ID，草稿可为空',
     `publisher_id` BIGINT NOT NULL COMMENT '发布者ID',
     `description` TEXT COMMENT '资源描述(支持Markdown)',
     `ai_summary` VARCHAR(500) DEFAULT NULL COMMENT 'AI生成的摘要',
@@ -226,83 +226,6 @@ CREATE TABLE IF NOT EXISTS `recommendation_log` (
     KEY `idx_rec_created` (`created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='推荐日志表';
 
--- ============================================
--- 初始数据
--- ============================================
-
--- 管理员账号 (密码: admin123, BCrypt加密)
-INSERT INTO `user` (`username`, `email`, `password_hash`, `nickname`, `role`, `points`)
-VALUES ('admin', 'admin@learning.com', '$2b$10$xQfG5lnviqRGoZ3O6K00/.Sd8Ivi2.EJTxq8bHMHu8HdI9fvrfdmO', '系统管理员', 'ADMIN', 1000);
-
--- 默认发布者账号 (密码: publisher123)
-INSERT INTO `user` (`username`, `email`, `password_hash`, `nickname`, `role`, `points`)
-VALUES ('publisher', 'publisher@learning.com', '$2b$10$4Qe0TS.kFLsbVqioXmBuPO2m.xvhwYaR02TQEw030VrJ0.GCjU1.G', '资源发布者', 'PUBLISHER', 500);
-
--- 默认分类
-INSERT INTO `category` (`name`, `parent_id`, `sort_order`) VALUES
-('计算机科学', NULL, 1),
-('数学', NULL, 2),
-('语言学习', NULL, 3),
-('专业课', NULL, 4),
-('考试资料', NULL, 5);
-
--- 计算机科学子分类
-INSERT INTO `category` (`name`, `parent_id`, `sort_order`) VALUES
-('编程语言', 1, 1),
-('数据结构与算法', 1, 2),
-('操作系统', 1, 3),
-('计算机网络', 1, 4),
-('数据库', 1, 5),
-('人工智能/机器学习', 1, 6);
-
--- 数学子分类
-INSERT INTO `category` (`name`, `parent_id`, `sort_order`) VALUES
-('高等数学', 2, 1),
-('线性代数', 2, 2),
-('概率论与数理统计', 2, 3),
-('离散数学', 2, 4);
-
--- 语言学习子分类
-INSERT INTO `category` (`name`, `parent_id`, `sort_order`) VALUES
-('英语', 3, 1),
-('日语', 3, 2),
-('其他语种', 3, 3);
-
--- 考试资料子分类
-INSERT INTO `category` (`name`, `parent_id`, `sort_order`) VALUES
-('考研', 5, 1),
-('四六级', 5, 2),
-('计算机等级考试', 5, 3);
-
--- 常用标签
-INSERT INTO `tag` (`name`, `usage_count`) VALUES
-('Java', 0),
-('Python', 0),
-('C++', 0),
-('Go', 0),
-('JavaScript', 0),
-('TypeScript', 0),
-('Vue', 0),
-('React', 0),
-('Spring Boot', 0),
-('并发编程', 0),
-('多线程', 0),
-('算法', 0),
-('数据结构', 0),
-('机器学习', 0),
-('深度学习', 0),
-('数据库', 0),
-('MySQL', 0),
-('Redis', 0),
-('操作系统', 0),
-('计算机网络', 0),
-('考研', 0),
-('四六级', 0),
-('笔记', 0),
-('视频教程', 0),
-('电子书', 0),
-('面试', 0),
-('项目实战', 0),
-('入门教程', 0),
-('进阶', 0),
-('高数', 0);
+-- 建表脚本到此结束。
+-- 所有默认数据、测试数据、资源封面、文件记录与统计修正
+-- 请统一执行 db/seed.sql。

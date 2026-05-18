@@ -178,8 +178,8 @@
 - `PUT /resources/{id}` - 更新资源 (multipart/form-data)
 - `GET /admin/resources` - 通用资源列表 (支持 status 筛选)
 
-### 8.6 新增 SQL 脚本
-- `db/seed_images.sql` - 更新种子数据为在线图片 URL (ui-avatars.com, picsum.photos)
+### 8.6 种子数据补充
+- 测试数据、封面图、头像、文件记录已统一并入 `db/seed.sql`
 
 ## 9. Bug 修复记录 (2026-05-18 - Problem3)
 
@@ -216,10 +216,10 @@
 - `POST /resources` - 新增 `@RequestPart coverImage` 参数
 - `PUT /resources/{id}` - 新增 `@RequestPart coverImage` 参数
 
-### 9.6 新增 SQL 脚本
-- `db/ai_config.sql` - AI 配置变更记录
-- `db/ai_runtime_fix_20260519.sql` - AI 运行时超时和降级配置记录
-- `db/fix_interaction_counters_20260519.sql` - 资源/评论交互计数对齐脚本
+### 9.6 数据库脚本整理
+- 最终仅保留 `db/init.sql` 与 `db/seed.sql`
+- AI 配置说明和运行时策略已整理到 README 与设计文档中
+- 交互计数修复已固化到业务代码，不再额外保留单独 SQL 脚本
 
 ## 10. Bug 修复记录 (2026-05-19 - Problem4 延伸)
 

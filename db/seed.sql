@@ -1,6 +1,12 @@
 -- ============================================
--- AI 个性化学习资源分享平台 - 种子数据
--- 包含测试用户、资源、评论、互动数据
+-- AI 个性化学习资源分享平台 - 统一测试数据脚本
+-- 用途：
+--   1. 插入默认账号、分类、标签
+--   2. 插入较完整的资源、评论、点赞、收藏、评分测试数据
+--   3. 补充资源封面、头像、文件记录和外部链接
+-- 说明：
+--   - 需先执行 db/init.sql
+--   - 脚本基于空库或近空库设计，建议在全新数据库执行
 -- ============================================
 
 USE learning_platform;
@@ -9,7 +15,48 @@ SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
 
 -- ============================================
--- 1. 测试用户 (密码均为 123456, BCrypt加密)
+-- 1. 默认账号
+-- ============================================
+INSERT IGNORE INTO `user` (`username`, `email`, `password_hash`, `nickname`, `bio`, `role`, `points`) VALUES
+('admin', 'admin@learning.com', '$2b$10$xQfG5lnviqRGoZ3O6K00/.Sd8Ivi2.EJTxq8bHMHu8HdI9fvrfdmO', '系统管理员', '负责平台运营、资源审核和用户管理。', 'ADMIN', 1000),
+('publisher', 'publisher@learning.com', '$2b$10$4Qe0TS.kFLsbVqioXmBuPO2m.xvhwYaR02TQEw030VrJ0.GCjU1.G', '资源发布者', '默认测试发布者账号。', 'PUBLISHER', 500);
+
+-- ============================================
+-- 2. 默认分类与标签
+-- ============================================
+INSERT IGNORE INTO `category` (`name`, `parent_id`, `sort_order`) VALUES
+('计算机科学', NULL, 1),
+('数学', NULL, 2),
+('语言学习', NULL, 3),
+('专业课', NULL, 4),
+('考试资料', NULL, 5),
+('编程语言', 1, 1),
+('数据结构与算法', 1, 2),
+('操作系统', 1, 3),
+('计算机网络', 1, 4),
+('数据库', 1, 5),
+('人工智能/机器学习', 1, 6),
+('高等数学', 2, 1),
+('线性代数', 2, 2),
+('概率论与数理统计', 2, 3),
+('离散数学', 2, 4),
+('英语', 3, 1),
+('日语', 3, 2),
+('其他语种', 3, 3),
+('考研', 5, 1),
+('四六级', 5, 2),
+('计算机等级考试', 5, 3);
+
+INSERT IGNORE INTO `tag` (`name`, `usage_count`) VALUES
+('Java', 0), ('Python', 0), ('C++', 0), ('Go', 0), ('JavaScript', 0),
+('TypeScript', 0), ('Vue', 0), ('React', 0), ('Spring Boot', 0), ('并发编程', 0),
+('多线程', 0), ('算法', 0), ('数据结构', 0), ('机器学习', 0), ('深度学习', 0),
+('数据库', 0), ('MySQL', 0), ('Redis', 0), ('操作系统', 0), ('计算机网络', 0),
+('考研', 0), ('四六级', 0), ('笔记', 0), ('视频教程', 0), ('电子书', 0),
+('面试', 0), ('项目实战', 0), ('入门教程', 0), ('进阶', 0), ('高数', 0);
+
+-- ============================================
+-- 3. 测试用户 (密码均为 123456, BCrypt加密)
 -- ============================================
 INSERT IGNORE INTO `user` (`username`, `email`, `password_hash`, `nickname`, `bio`, `role`, `points`) VALUES
 ('zhangsan', 'zhangsan@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '张三', '热爱学习，乐于分享。主要关注 Java 后端开发和分布式系统。', 'PUBLISHER', 850),
@@ -19,10 +66,14 @@ INSERT IGNORE INTO `user` (`username`, `email`, `password_hash`, `nickname`, `bi
 ('sunqi', 'sunqi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '孙七', 'Python 数据分析师，喜欢分享数据分析和机器学习相关资源。', 'PUBLISHER', 680),
 ('zhouba', 'zhouba@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '周八', '前端开发工程师，Vue/React 都有涉猎。', 'PUBLISHER', 550),
 ('wujiu', 'wujiu@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '吴九', '英语学习爱好者，四六级高分通过。', 'PUBLISHER', 420),
-('zhengshi', 'zhengshi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '郑十', '数据库 DBA，专注于 MySQL 性能优化。', 'PUBLISHER', 380);
+('zhengshi', 'zhengshi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '郑十', '数据库 DBA，专注于 MySQL 性能优化。', 'PUBLISHER', 380),
+('qianyi', 'qianyi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '钱一', '准备秋招的后端学习者，关注 Java、MySQL 和面试题。', 'USER', 230),
+('fenger', 'fenger@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '冯二', '热衷前端工程化和 Vue 生态。', 'USER', 260),
+('chenthree', 'chenthree@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '陈三', '考研用户，主要关注高数、线代、概率论资料。', 'USER', 190),
+('liusi', 'liusi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '刘四', '在准备英语和计算机等级考试，也会收藏算法题单。', 'USER', 210);
 
 -- ============================================
--- 2. 学习资源 (20个资源)
+-- 4. 学习资源
 -- ============================================
 INSERT IGNORE INTO `resource` (`title`, `category_id`, `publisher_id`, `description`, `ai_summary`, `resource_type`, `external_url`, `view_count`, `like_count`, `favorite_count`, `comment_count`, `avg_rating`, `rating_count`, `hot_score`, `status`, `created_at`) VALUES
 
@@ -228,7 +279,15 @@ INSERT IGNORE INTO `resource` (`title`, `category_id`, `publisher_id`, `descript
 
 ('分布式系统设计', 9, 3, '分布式系统设计原理与实践，包含 CAP 理论、一致性协议等。
 
-正在整理中...', NULL, 'LINK', 'https://example.com/distributed', 0, 0, 0, 0, 0.00, 0, 0, 'PENDING', '2024-04-21 14:00:00');
+正在整理中...', NULL, 'LINK', 'https://example.com/distributed', 0, 0, 0, 0, 0.00, 0, 0, 'PENDING', '2024-04-21 14:00:00'),
+
+-- 新增测试资源
+('Vue 3 + TypeScript 组件库实践', 6, 8, '围绕 Vue 3 与 TypeScript 构建中后台组件库，涵盖组件抽象、主题变量、表单封装和构建发布流程。', 'Vue 3 与 TypeScript 组件库实践资料，覆盖组件抽象、主题设计和发布流程。', 'FILE', NULL, 860, 52, 93, 11, 4.66, 27, 190, 'PUBLISHED', '2024-04-22 11:00:00'),
+('Docker 与 CI/CD 入门实战', 6, 3, '帮助后端和全栈开发者快速掌握 Docker、GitHub Actions、镜像构建和持续部署。', 'Docker 与 CI/CD 入门实战教程，适合想建立自动化交付流程的开发者。', 'LINK', 'https://github.com/docker/getting-started', 990, 61, 108, 17, 4.71, 29, 230, 'PUBLISHED', '2024-04-23 15:30:00'),
+('计算机组成原理期末速记', 4, 5, '面向校内专业课考试的计算机组成原理速记资料，涵盖流水线、存储层次、指令系统和历年考点。', '计算机组成原理速记资料，适合期末冲刺和考点回顾。', 'FILE', NULL, 730, 47, 84, 9, 4.63, 21, 165, 'PUBLISHED', '2024-04-16 13:20:00'),
+('前端性能优化清单', 6, 8, '整理首屏优化、缓存策略、图片懒加载、打包分析和性能监控方案，适合中高级前端复盘。', '前端性能优化清单，覆盖首屏、缓存、打包与监控方案。', 'FILE', NULL, 1180, 73, 129, 15, 4.77, 34, 260, 'PUBLISHED', '2024-04-24 10:10:00'),
+('大学物理期末高频题型', 4, 5, '面向工科学生的大学物理期末题型整理，重点覆盖力学、电磁学、波动与光学。', '大学物理高频题型整理，适合工科课程期末复习。', 'FILE', NULL, 640, 39, 75, 8, 4.51, 19, 145, 'PUBLISHED', '2024-04-19 09:40:00'),
+('英语六级阅读技巧精讲', 16, 9, '针对英语六级阅读理解的做题方法、词汇线索和真题训练总结。', '英语六级阅读技巧精讲，适合冲刺阶段快速提分。', 'FILE', NULL, 910, 58, 104, 13, 4.69, 25, 205, 'PUBLISHED', '2024-04-25 08:50:00');
 
 -- ============================================
 -- 3. 资源-标签关联
@@ -277,7 +336,19 @@ INSERT IGNORE INTO `resource_tag` (`resource_id`, `tag_id`) VALUES
 -- 考研数学真题
 (21, 21), (21, 26),
 -- 四六级写作
-(22, 22), (22, 24);
+(22, 22), (22, 24),
+-- Vue 3 + TypeScript 组件库实践
+(25, 6), (25, 7), (25, 27),
+-- Docker 与 CI/CD 入门实战
+(26, 9), (26, 27), (26, 29),
+-- 计算机组成原理期末速记
+(27, 23), (27, 26),
+-- 前端性能优化清单
+(28, 5), (28, 6), (28, 29),
+-- 大学物理期末高频题型
+(29, 23), (29, 28),
+-- 英语六级阅读技巧精讲
+(30, 22), (30, 28);
 
 -- ============================================
 -- 4. 评论数据
@@ -317,7 +388,13 @@ INSERT IGNORE INTO `comment` (`resource_id`, `user_id`, `parent_id`, `content`, 
 (18, 4, NULL, '假设检验那部分终于讲明白了，感谢！', 16, 'APPROVED', '2024-03-15 09:00:00'),
 
 -- 英语四级评论
-(19, 4, NULL, '按主题分类记忆效率高很多，比死记硬背强多了。', 11, 'APPROVED', '2024-03-10 16:00:00');
+(19, 4, NULL, '按主题分类记忆效率高很多，比死记硬背强多了。', 11, 'APPROVED', '2024-03-10 16:00:00'),
+
+-- 新增测试资源评论
+(25, 12, NULL, '组件抽象和 API 设计部分很适合拿来做毕业设计参考。', 6, 'APPROVED', '2024-04-23 10:00:00'),
+(26, 11, NULL, 'CI/CD 流程解释得很顺，适合第一次接触自动化部署的同学。', 4, 'APPROVED', '2024-04-24 09:20:00'),
+(28, 13, NULL, '性能监控方案很实用，终于知道线上该看哪些指标了。', 7, 'APPROVED', '2024-04-24 18:10:00'),
+(30, 14, NULL, '阅读定位题和同义替换技巧总结得很好。', 5, 'APPROVED', '2024-04-25 11:30:00');
 
 -- ============================================
 -- 5. 点赞记录
@@ -341,11 +418,18 @@ INSERT IGNORE INTO `like_record` (`user_id`, `target_id`, `target_type`, `create
 (2, 21, 'RESOURCE', '2024-01-10 09:00:00'),
 (4, 21, 'RESOURCE', '2024-01-12 14:00:00'),
 (6, 21, 'RESOURCE', '2024-01-15 10:00:00'),
+(11, 25, 'RESOURCE', '2024-04-23 10:10:00'),
+(12, 25, 'RESOURCE', '2024-04-23 11:20:00'),
+(13, 26, 'RESOURCE', '2024-04-24 09:30:00'),
+(14, 28, 'RESOURCE', '2024-04-24 18:20:00'),
+(11, 30, 'RESOURCE', '2024-04-25 11:40:00'),
 -- 评论点赞
 (3, 1, 'COMMENT', '2024-03-16 11:00:00'),
 (4, 1, 'COMMENT', '2024-03-16 12:00:00'),
 (7, 5, 'COMMENT', '2024-02-15 12:00:00'),
-(8, 9, 'COMMENT', '2024-02-01 10:00:00');
+(8, 9, 'COMMENT', '2024-02-01 10:00:00'),
+(11, 20, 'COMMENT', '2024-04-23 10:30:00'),
+(12, 21, 'COMMENT', '2024-04-24 09:40:00');
 
 -- ============================================
 -- 6. 收藏记录
@@ -370,7 +454,11 @@ INSERT IGNORE INTO `favorite` (`user_id`, `resource_id`, `created_at`) VALUES
 (4, 21, '2024-01-12 14:00:00'),
 (6, 21, '2024-01-15 10:00:00'),
 (4, 12, '2024-03-20 14:00:00'),
-(4, 18, '2024-03-15 09:00:00');
+(4, 18, '2024-03-15 09:00:00'),
+(11, 25, '2024-04-23 10:10:00'),
+(12, 26, '2024-04-24 09:30:00'),
+(13, 28, '2024-04-24 18:20:00'),
+(14, 30, '2024-04-25 11:40:00');
 
 -- ============================================
 -- 7. 评分记录
@@ -411,7 +499,13 @@ INSERT IGNORE INTO `rating` (`user_id`, `resource_id`, `score`, `created_at`) VA
 -- 概率论评分
 (4, 18, 5, '2024-03-15 09:00:00'),
 (6, 18, 5, '2024-03-18 14:00:00'),
-(2, 18, 5, '2024-03-20 10:00:00');
+(2, 18, 5, '2024-03-20 10:00:00'),
+-- 新增测试资源评分
+(11, 25, 5, '2024-04-23 10:10:00'),
+(12, 25, 4, '2024-04-23 11:20:00'),
+(13, 26, 5, '2024-04-24 09:30:00'),
+(14, 28, 5, '2024-04-24 18:20:00'),
+(11, 30, 4, '2024-04-25 11:40:00');
 
 -- ============================================
 -- 8. 更新标签使用次数
@@ -431,3 +525,84 @@ UPDATE `resource` r SET `comment_count` = (
 -- 更新热度分
 UPDATE `resource` SET `hot_score` = `view_count` + `like_count` * 3 + `favorite_count` * 5 + `rating_count` * 2 + `avg_rating` * 10
 WHERE `status` = 'PUBLISHED' AND `is_deleted` = 0;
+
+-- ============================================
+-- 10. 用户头像、封面图与外部链接
+-- ============================================
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff&size=150' WHERE `username` = 'admin';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=Publisher&background=10B981&color=fff&size=150' WHERE `username` = 'publisher';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=ZS&background=3B82F6&color=fff&size=150' WHERE `username` = 'zhangsan';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=LM&background=8B5CF6&color=fff&size=150' WHERE `username` = 'lisi';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=WJ&background=EF4444&color=fff&size=150' WHERE `username` = 'wangwu';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=ZX&background=F59E0B&color=fff&size=150' WHERE `username` = 'zhaoliu';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=SQ&background=10B981&color=fff&size=150' WHERE `username` = 'sunqi';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=ZB&background=6366F1&color=fff&size=150' WHERE `username` = 'zhouba';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=WJ&background=EC4899&color=fff&size=150' WHERE `username` = 'wujiu';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=ZS&background=14B8A6&color=fff&size=150' WHERE `username` = 'zhengshi';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=QY&background=64748B&color=fff&size=150' WHERE `username` = 'qianyi';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=FE&background=2563EB&color=fff&size=150' WHERE `username` = 'fenger';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=CS&background=0F766E&color=fff&size=150' WHERE `username` = 'chenthree';
+UPDATE `user` SET `avatar_url` = 'https://ui-avatars.com/api/?name=LS&background=7C3AED&color=fff&size=150' WHERE `username` = 'liusi';
+
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/java-concurrent/800/450' WHERE `id` = 1;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/python-ml/800/450' WHERE `id` = 2;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/data-structure/800/450' WHERE `id` = 3;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/springboot3/800/450' WHERE `id` = 4;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/go-performance/800/450' WHERE `id` = 5;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/leetcode100/800/450' WHERE `id` = 6;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/graph-theory/800/450' WHERE `id` = 7;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/os-tsinghua/800/450' WHERE `id` = 8;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/linux-kernel/800/450' WHERE `id` = 9;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/computer-network/800/450' WHERE `id` = 10;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/tcp-ip/800/450' WHERE `id` = 11;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/mysql-index/800/450' WHERE `id` = 12;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/redis-design/800/450' WHERE `id` = 13;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/deep-learning/800/450' WHERE `id` = 14;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/nlp-python/800/450' WHERE `id` = 15;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/calculus-tongji/800/450' WHERE `id` = 16;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/linear-algebra-mit/800/450' WHERE `id` = 17;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/probability/800/450' WHERE `id` = 18;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/cet4-vocab/800/450' WHERE `id` = 19;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/jlpt-n2/800/450' WHERE `id` = 20;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/kaoyan-math/800/450' WHERE `id` = 21;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/cet-writing/800/450' WHERE `id` = 22;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/vue-components/800/450' WHERE `id` = 25;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/docker-cicd/800/450' WHERE `id` = 26;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/coa-review/800/450' WHERE `id` = 27;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/frontend-performance/800/450' WHERE `id` = 28;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/college-physics/800/450' WHERE `id` = 29;
+UPDATE `resource` SET `cover_image_url` = 'https://picsum.photos/seed/cet6-reading/800/450' WHERE `id` = 30;
+
+UPDATE `resource` SET `external_url` = 'https://www.bilibili.com/video/BV1jE411J7N5' WHERE `id` = 2;
+UPDATE `resource` SET `external_url` = 'https://github.com/AobingJava/JavaFamily' WHERE `id` = 4;
+UPDATE `resource` SET `external_url` = 'https://github.com/youngyangyang04/leetcode-master' WHERE `id` = 6;
+UPDATE `resource` SET `external_url` = 'https://github.com/torvalds/linux' WHERE `id` = 9;
+UPDATE `resource` SET `external_url` = 'https://www.bilibili.com/video/BV1c4411d7jb' WHERE `id` = 11;
+UPDATE `resource` SET `external_url` = 'https://github.com/fighting41love/funNLP' WHERE `id` = 15;
+UPDATE `resource` SET `external_url` = 'https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/' WHERE `id` = 17;
+UPDATE `resource` SET `external_url` = 'https://github.com/donnemartin/system-design-primer' WHERE `title` = '分布式系统设计';
+
+-- ============================================
+-- 11. 文件记录
+-- ============================================
+INSERT IGNORE INTO `resource_file` (`resource_id`, `file_name`, `file_url`, `file_size`, `file_type`) VALUES
+(1, 'Java并发编程实战笔记.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 2048000, 'application/pdf'),
+(3, '数据结构与算法完整笔记.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 3072000, 'application/pdf'),
+(5, 'Go语言高性能编程.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1536000, 'application/pdf'),
+(7, '图论算法专题.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1024000, 'application/pdf'),
+(8, '操作系统原理笔记.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 2560000, 'application/pdf'),
+(10, '计算机网络笔记.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1792000, 'application/pdf'),
+(12, 'MySQL索引优化实战.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1280000, 'application/pdf'),
+(13, 'Redis设计与实现笔记.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1152000, 'application/pdf'),
+(14, '深度学习入门笔记.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 2304000, 'application/pdf'),
+(16, '高等数学精讲笔记.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 3584000, 'application/pdf'),
+(18, '概率论期末复习.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1408000, 'application/pdf'),
+(19, '英语四级高频词汇.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 896000, 'application/pdf'),
+(20, '日语N2语法总结.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 768000, 'application/pdf'),
+(21, '考研数学一真题解析.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 4096000, 'application/pdf'),
+(22, '四六级写作模板与范文.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1024000, 'application/pdf'),
+(25, 'Vue3组件库实践.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1880000, 'application/pdf'),
+(27, '计算机组成原理速记.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1360000, 'application/pdf'),
+(28, '前端性能优化清单.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1240000, 'application/pdf'),
+(29, '大学物理期末高频题型.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1180000, 'application/pdf'),
+(30, '英语六级阅读技巧.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 980000, 'application/pdf');
