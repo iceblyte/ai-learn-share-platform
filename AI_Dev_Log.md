@@ -68,6 +68,7 @@
 - 定义所有可能的字段和枚举值
 - 提供默认值说明，减少歧义
 - 要求"不要输出其他内容"，确保可解析性
+- 后端会叠加本地规则解析，校验“评分最高/最热/最新/前 N 个”等确定性意图；AI 不可用或输出过宽时仍可查询数据库
 
 ### 4.3 个性化推荐理由 Prompt
 ```
@@ -84,6 +85,20 @@
 - 控制输出长度（50字以内），适合卡片展示
 - 注入用户兴趣上下文，实现个性化
 - 要求"语气亲切"，增强用户体验
+
+### 4.4 AI 聊天 Prompt
+```
+你是 AI 学习平台内的学习助手。回答要直接、清楚、简洁，优先帮助用户理解学习资源、学习路径、技术概念和平台内功能。
+如果用户的问题与当前页面有关，可以参考页面上下文。
+当前页面标题：{pageTitle}
+当前页面路由：{route}
+不要输出 markdown 标题，不要使用过度客套。
+```
+
+**设计思路**:
+- 固定系统角色，避免聊天结果跑题
+- 透传页面标题和路由，给悬浮聊天窗最低限度上下文
+- 控制语气和格式，保证流式输出时更稳定
 
 ## 5. 架构决策记录
 
@@ -179,6 +194,10 @@
 | 模块 | 问题 | 修复方案 |
 |------|------|---------|
 | AI | 所有AI功能不可用 | Google Gemini → 阿里云百炼 Qwen (DashScope OpenAI 兼容 API, qwen-plus-2025-07-28) |
+| AI 搜索 | 自然语言搜索空结果 | AI 解析优先 + 本地意图解析兜底 + 空结果放宽分类/标签/评分过滤 |
+| AI 推荐 | 前端推荐列表为空 | `GET /api/v1/ai/recommendations` 改为分页响应，前端兼容旧数组结构 |
+| AI 推荐理由 | AI 不可用时理由缺失 | 使用用户兴趣、资源评分和热度生成本地推荐理由 |
+| AI 摘要 | 外部服务慢响应导致超时感知差 | 增加 AI 连接/读取超时和占位 key 快速降级 |
 | 资源详情 | 评分不持久化 | getInteractions API 增加 myRating 字段，InteractionService 新增 getMyRating() |
 | 资源详情 | 点赞/收藏无反馈 | handleLike/handleFavorite/handleCommentLike 添加 toast.show() |
 | 发布 | 封面图片丢失 | Controller 增加 @RequestPart coverImage，FileService 新增 storeCoverImage() |
@@ -192,9 +211,34 @@
 
 ### 9.5 后端接口变更
 - `GET /resources/{id}/interactions` - 返回值增加 `myRating` 字段
+- `GET /ai/recommendations` - 返回分页结构 `{ records, total, page, size, pages }`
 - `GET /users/resources` - 新增 `status` 参数支持筛选草稿
 - `POST /resources` - 新增 `@RequestPart coverImage` 参数
 - `PUT /resources/{id}` - 新增 `@RequestPart coverImage` 参数
 
 ### 9.6 新增 SQL 脚本
 - `db/ai_config.sql` - AI 配置变更记录
+- `db/ai_runtime_fix_20260519.sql` - AI 运行时超时和降级配置记录
+- `db/fix_interaction_counters_20260519.sql` - 资源/评论交互计数对齐脚本
+
+## 10. Bug 修复记录 (2026-05-19 - Problem4 延伸)
+
+### 10.1 关键修复项
+
+| 模块 | 问题 | 修复方案 |
+|------|------|---------|
+| AI 聊天 | 悬浮窗始终显示固定离线答复 | 改为真实 AI 回复优先，失败时返回明确错误，不再伪装成功 |
+| AI 聊天 | 页面内无法移动按钮和窗口 | `AiChatWidget` 增加按钮拖拽和面板头部拖拽 |
+| AI 聊天 | 请求超时体验差 | 增加聊天专用超时、重试和分块输出 |
+| 发布 | 发布资源接口被摘要生成阻塞 | 摘要先同步写本地摘要，再由独立异步服务刷新 AI 摘要 |
+| 评论 | 评论或回复失败无反馈 | 资源详情页增加登录校验、失败提示和成功提示 |
+| 点赞计数 | 点击后历史点赞数被重算成 1 | 交互逻辑改为基于当前统计值增减，并补充计数对齐 SQL |
+
+### 10.2 新增前端组件
+- `frontend/src/components/AiChatWidget.vue` - 全局 AI 悬浮聊天窗，支持流式输出、建议问题、拖拽移动
+
+### 10.3 新增后端接口
+- `POST /api/v1/ai/chat/stream` - AI 聊天流式输出接口
+
+### 10.4 新增后端服务
+- `ResourceSummaryAsyncService.refreshSummary()` - 独立异步刷新资源摘要
