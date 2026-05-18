@@ -13,6 +13,8 @@ const latestResources = ref<Resource[]>([])
 const recommendations = ref<Recommendation[]>([])
 const loading = ref(true)
 const activeCategory = ref<number | null>(null)
+const categoryResources = ref<Resource[]>([])
+const categoryLoading = ref(false)
 const gradients = [
   'from-blue-400 to-blue-600',
   'from-green-400 to-emerald-600',
@@ -46,10 +48,20 @@ function goToResource(id: number) {
   router.push(`/resource/${id}`)
 }
 
-function goToCategory(id: number | null) {
+async function goToCategory(id: number | null) {
   activeCategory.value = id
-  if (id) {
-    router.push({ name: 'Search', query: { categoryId: id } })
+  if (id === null) {
+    categoryResources.value = []
+    return
+  }
+  categoryLoading.value = true
+  try {
+    const res = await resourceApi.getList({ categoryId: id, size: 8 })
+    categoryResources.value = res.data.data?.records || []
+  } catch {
+    categoryResources.value = []
+  } finally {
+    categoryLoading.value = false
   }
 }
 
@@ -107,6 +119,60 @@ function formatTimeAgo(dateStr: string): string {
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+      <!-- Category Filtered Resources -->
+      <section v-if="activeCategory !== null" class="mb-10">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold">
+            {{ categories.find(c => c.id === activeCategory)?.name || '分类资源' }}
+          </h2>
+          <button
+            @click="goToCategory(null)"
+            class="text-sm text-slate-500 hover:text-primary-500"
+          >
+            清除筛选
+          </button>
+        </div>
+        <div v-if="categoryLoading" class="flex justify-center py-12">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+        </div>
+        <div v-else-if="categoryResources.length === 0" class="text-center py-12 text-slate-400">
+          该分类下暂无资源
+        </div>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div
+            v-for="(res, index) in categoryResources"
+            :key="res.id"
+            class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+            @click="goToResource(res.id)"
+          >
+            <div class="h-32 bg-gradient-to-br flex items-center justify-center overflow-hidden" :class="getGradient(index)">
+              <img v-if="res.coverImageUrl" :src="res.coverImageUrl" :alt="res.title" class="w-full h-full object-cover" loading="lazy"/>
+              <svg v-else class="w-12 h-12 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div class="p-3">
+              <h3 class="font-medium text-sm truncate">{{ res.title }}</h3>
+              <p class="text-xs text-slate-500 mt-1 line-clamp-2">{{ res.aiSummary || res.description }}</p>
+              <div class="flex items-center gap-1 mt-2">
+                <span v-for="tag in res.tags?.slice(0, 2)" :key="tag.id" class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded">
+                  {{ tag.name }}
+                </span>
+              </div>
+              <div class="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
+                <span class="text-xs text-slate-400">{{ res.publisher?.nickname }}</span>
+                <span class="text-xs text-slate-400 flex items-center gap-0.5">
+                  <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  {{ res.avgRating?.toFixed(1) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <!-- AI Recommendation Section -->
       <section v-if="recommendations.length > 0" class="mb-10">
