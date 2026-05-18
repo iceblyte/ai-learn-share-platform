@@ -14,7 +14,7 @@
           <a href="#" class="hover:text-primary-600">隐私政策</a>
           <a href="#" class="hover:text-primary-600">联系我们</a>
         </div>
-        <p class="text-sm text-slate-400">&copy; 2024 AI Learning Platform. All rights reserved.</p>
+        <p class="text-sm text-slate-400">&copy; 2026 AI Learning Platform. All rights reserved.</p>
       </div>
     </div>
   </footer>
