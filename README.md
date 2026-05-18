@@ -118,9 +118,8 @@ AI个性化学习资源分享平台/
 │   ├── 设计文档.md            # 系统设计与数据库/API说明
 │   └── 交付清单.md            # 交付物总览
 │
-├── problem4-plan.md            # AI 搜索/推荐问题修复计划
-├── PROJECT_SNAPSHOT.md         # 项目快照
 ├── AI_Dev_Log.md               # AI 开发日志
+├── docs/archive/               # 历史过程文档归档
 └── README.md
 ```
 
