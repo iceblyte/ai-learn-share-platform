@@ -5,6 +5,7 @@ export interface User {
   email: string
   nickname: string
   avatar: string
+  avatarUrl: string
   bio: string
   role: 'USER' | 'PUBLISHER' | 'ADMIN'
   points: number
@@ -28,6 +29,7 @@ export interface LoginResponse {
   username: string
   nickname: string
   avatar: string
+  avatarUrl: string
   role: string
   token: string
   refreshToken: string
