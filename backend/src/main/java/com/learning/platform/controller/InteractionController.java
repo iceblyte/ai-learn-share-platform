@@ -22,6 +22,16 @@ public class InteractionController {
     private final InteractionService interactionService;
     private final CommentService commentService;
 
+    @GetMapping("/resources/{id}/interactions")
+    @PreAuthorize("isAuthenticated()")
+    public Result<Map<String, Object>> getInteractions(@PathVariable Long id, Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("liked", interactionService.isLiked(userId, id, "RESOURCE"));
+        result.put("favorited", interactionService.isFavorited(userId, id));
+        return Result.success(result);
+    }
+
     @PostMapping("/resources/{id}/like")
     @PreAuthorize("isAuthenticated()")
     public Result<Map<String, Object>> likeResource(@PathVariable Long id, Authentication auth) {
