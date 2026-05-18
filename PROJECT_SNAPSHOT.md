@@ -8,7 +8,7 @@
 
 ### 1.1 核心业务目标
 
-构建面向大学生的学习资源共享社区，利用 AI 技术（Spring AI + 阿里云百炼 Qwen）实现：
+构建面向大学生的学习资源共享社区，利用 AI 技术（阿里云百炼 Qwen + OpenAI 兼容 HTTP 接口）实现：
 
 | 目标 | 说明 |
 |------|------|
@@ -122,8 +122,13 @@ AI个性化学习资源分享平台/
 │       └── types/index.ts            # TypeScript 类型定义
 │
 ├── db/                               # 数据库脚本
-│   ├── init.sql                      # 建库 + 13 张表 + 索引 + 初始数据 (admin/publisher/分类/标签)
-│   └── seed.sql                      # 测试种子数据 (8 用户 + 22 资源 + 评论/点赞/收藏/评分, SET NAMES utf8mb4, INSERT IGNORE 可重复执行)
+│   ├── init.sql                      # 建库建表脚本
+│   └── seed.sql                      # 统一测试数据脚本 (默认账号/分类标签/资源/互动/封面/文件记录)
+│
+├── docs/                             # 最终交付文档
+│   ├── PRD.md
+│   ├── 设计文档.md
+│   └── 交付清单.md
 │
 ├── prototypes/                       # HTML 页面原型 (UI 设计参考)
 │   ├── index.html / search.html / detail.html
@@ -211,7 +216,7 @@ AI个性化学习资源分享平台/
 | 多级评论 (一级+回复) | ✅ | `CommentService.java` |
 | 评论列表 (嵌套回复) | ✅ | `ResourceDetail.vue` |
 | 评论失败提示与回复反馈 | ✅ | `ResourceDetail.vue` |
-| 交互计数对齐脚本 | ✅ | `db/fix_interaction_counters_20260519.sql` |
+| 交付文档目录 | ✅ | `docs/PRD.md`、`docs/设计文档.md`、`docs/交付清单.md` |
 
 ### 3.5 管理后台
 
@@ -485,7 +490,7 @@ beforeEach:
 DB_PASSWORD=root            # MySQL 密码
 REDIS_HOST=localhost        # Redis 地址 (可选)
 JWT_SECRET=<32+字符密钥>     # JWT 签名密钥
-AI_API_KEY=<DashScope API Key> # AI 服务密钥 (Spring AI 阿里云百炼 Qwen)
+AI_API_KEY=<DashScope API Key> # AI 服务密钥 (阿里云百炼 Qwen)
 AI_CONNECT_TIMEOUT_MS=3000     # AI 连接超时
 AI_READ_TIMEOUT_MS=8000        # AI 读取超时
 AI_TEMPERATURE=0.2             # AI 生成温度
@@ -502,8 +507,8 @@ OSS_ACCESS_KEY_SECRET=     # 阿里云 AccessKey Secret (填写在 application-l
 
 ```bash
 # 1. 数据库
-mysql -u root -p < db/init.sql      # 建表 + 初始数据
-mysql -u root -p < db/seed.sql      # 测试数据 (可选)
+mysql -u root -p < db/init.sql      # 建库建表
+mysql -u root -p < db/seed.sql      # 统一测试数据
 
 # 2. 后端
 cd backend
@@ -552,7 +557,7 @@ npm run dev                          # http://localhost:5173
 - **消息通知**: 用户被回复、资源被审核等场景缺少通知
 - **积分系统**: `user.points` 字段已定义但未与行为关联
 - **文件存储**: 已集成阿里云 OSS (Bucket: ai-learn-share-platform)，通过 `storage.type` 配置切换 local/oss
-- **AI 模型切换**: 已通过 Spring AI 抽象，可切换至 OpenAI、Anthropic 等其他模型
+- **AI 模型切换**: 当前通过 OpenAI 兼容接口对接阿里云百炼，后续可继续扩展其他兼容模型
 
 ---
 
@@ -606,7 +611,7 @@ af42c1b feat: init AI personalized learning resource sharing platform
 | JJWT | 0.12.5 | JWT 库 |
 | Hutool | 5.8.26 | Java 工具库 |
 | SpringDoc | 2.4.0 | Swagger UI |
-| Spring AI | 1.1.6 | AI 框架 (阿里云百炼 Qwen, DashScope OpenAI) |
+| DashScope OpenAI Compatible API | - | 阿里云百炼 Qwen 接入方式 |
 | Aliyun OSS SDK | 3.17.4 | 阿里云对象存储 |
 | Lettuce | 6.3.2 | Redis 客户端 |
 | Vue | 3.4.21 | 前端框架 |
