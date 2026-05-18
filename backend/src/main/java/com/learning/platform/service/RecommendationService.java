@@ -142,7 +142,7 @@ public class RecommendationService {
             if (i < 5) {
                 try {
                     String reason = aiService.generateRecommendReason(userInterests, r.getTitle(), r.getDescription());
-                    item.put("recommendReason", reason);
+                    item.put("recommendReason", reason != null ? reason : DEFAULT_REASON);
                 } catch (Exception e) {
                     log.warn("Failed to generate reason for resource {}: {}", r.getId(), e.getMessage());
                     item.put("recommendReason", DEFAULT_REASON);
@@ -256,7 +256,8 @@ public class RecommendationService {
                 continue;
             }
             try {
-                reasons.add(aiService.generateRecommendReason(userInterests, r.getTitle(), r.getDescription()));
+                String reason = aiService.generateRecommendReason(userInterests, r.getTitle(), r.getDescription());
+                reasons.add(reason != null ? reason : DEFAULT_REASON);
             } catch (Exception e) {
                 reasons.add(DEFAULT_REASON);
             }

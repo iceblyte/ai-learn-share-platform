@@ -53,11 +53,9 @@ public class SearchController {
             searchService.recordUserSearch(userId, request.getQuery());
         }
 
-        String parsed;
-        try {
-            parsed = aiService.parseNaturalLanguageQuery(request.getQuery());
-        } catch (Exception e) {
-            log.warn("AI parse failed, falling back to keyword search: {}", e.getMessage());
+        String parsed = aiService.parseNaturalLanguageQuery(request.getQuery());
+        if (parsed == null) {
+            log.warn("AI parse returned null (quota exhausted or unavailable), falling back to keyword search");
             PageResult<Resource> fallback = searchService.search(request.getQuery(), null, null, null, "relevance", 1, 10, userId);
             Map<String, Object> intent = Map.of("keywords", List.of(request.getQuery()), "sortBy", "relevance");
             return Result.success(new NlSearchResult(intent, fallback.getRecords(), fallback.getTotal()));

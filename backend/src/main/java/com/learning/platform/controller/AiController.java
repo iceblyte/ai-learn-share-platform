@@ -32,9 +32,11 @@ public class AiController {
             return Result.error(404, "资源不存在");
         }
         String summary = aiService.generateSummary(resource.getTitle(), resource.getDescription());
-        resource.setAiSummary(summary);
-        resourceMapper.updateById(resource);
-        return Result.success(Map.of("summary", summary));
+        if (summary != null) {
+            resource.setAiSummary(summary);
+            resourceMapper.updateById(resource);
+        }
+        return Result.success(Map.of("summary", summary != null ? summary : ""));
     }
 
     @GetMapping("/recommendations")
