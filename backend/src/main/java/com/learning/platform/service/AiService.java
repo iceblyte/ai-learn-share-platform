@@ -62,7 +62,10 @@ public class AiService {
                 "请输出以下JSON格式（不要输出其他内容）：\n" +
                 "{\"keywords\": [\"关键词1\", \"关键词2\"], \"category\": \"分类名或null\", \"tags\": [\"标签1\"], " +
                 "\"sortBy\": \"relevance/latest/hot/rating\", \"limit\": 数字, \"minRating\": 数字或null}\n\n" +
-                "注意：sortBy默认为relevance，limit默认为10", query
+                "注意：\n" +
+                "- keywords 必须是简短的核心搜索词（2-6个字），用于数据库模糊匹配，不要包含动词、虚词或修饰语\n" +
+                "- 例如用户说\"推荐关于Java并发且评分最高的前5个资源\"，keywords应为[\"Java并发\"]，而不是[\"推荐关于Java并发且评分最高的前5个资源\"]\n" +
+                "- sortBy默认为relevance，limit默认为10", query
         );
         String result = callGemini(prompt);
         if (result != null) cache(cacheKey, result, NL_TTL_HOURS);

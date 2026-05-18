@@ -35,6 +35,63 @@ public class SearchService {
         return search(keyword, categoryId, null, null, sortBy, page, size, null);
     }
 
+    /**
+     * Search by multiple keywords (OR logic) — any keyword matches title or description.
+     */
+    public PageResult<Resource> searchByKeywords(List<String> keywords, Long categoryId, List<String> tags,
+                                                  Double minRating, String sortBy, int page, int size, Long userId) {
+        if (keywords == null || keywords.isEmpty()) {
+            return search(null, categoryId, tags, minRating, sortBy, page, size, userId);
+        }
+        if (keywords.size() == 1) {
+            return search(keywords.get(0), categoryId, tags, minRating, sortBy, page, size, userId);
+        }
+
+        QueryWrapper<Resource> wrapper = new QueryWrapper<>();
+        wrapper.eq("status", "PUBLISHED");
+
+        // Match ANY keyword in title or description
+        wrapper.and(w -> {
+            for (int i = 0; i < keywords.size(); i++) {
+                String kw = keywords.get(i);
+                if (i > 0) w.or();
+                w.and(inner -> inner.like("title", kw).or().like("description", kw));
+            }
+        });
+
+        if (categoryId != null) {
+            List<Long> categoryIds = getAllDescendantIds(categoryId);
+            categoryIds.add(categoryId);
+            wrapper.in("category_id", categoryIds);
+        }
+        if (minRating != null && minRating > 0) {
+            wrapper.ge("avg_rating", minRating);
+        }
+        if (tags != null && !tags.isEmpty()) {
+            wrapper.inSql("id",
+                    "SELECT resource_id FROM resource_tag rt JOIN tag t ON rt.tag_id = t.id " +
+                    "WHERE t.name IN (" + tags.stream().map(t -> "'" + t.replace("'", "''") + "'").collect(java.util.stream.Collectors.joining(", ")) + ") " +
+                    "GROUP BY resource_id HAVING COUNT(DISTINCT t.id) = " + tags.size());
+        }
+
+        switch (sortBy != null ? sortBy : "relevance") {
+            case "latest" -> wrapper.orderByDesc("created_at");
+            case "rating" -> wrapper.orderByDesc("avg_rating");
+            case "hot" -> wrapper.orderByDesc("hot_score");
+            default -> wrapper.orderByDesc("hot_score");
+        }
+
+        IPage<Resource> result = resourceMapper.selectPage(new Page<>(page, size), wrapper);
+
+        String primary = keywords.get(0);
+        recordSearch(primary);
+        if (userId != null) {
+            recordUserSearch(userId, primary);
+        }
+
+        return PageResult.from(result);
+    }
+
     public PageResult<Resource> search(String keyword, Long categoryId, List<String> tags, Double minRating,
                                        String sortBy, int page, int size, Long userId) {
         QueryWrapper<Resource> wrapper = new QueryWrapper<>();
