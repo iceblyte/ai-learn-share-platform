@@ -44,7 +44,7 @@ public class AiService {
                 title, description.length() > 2000 ? description.substring(0, 2000) : description
         );
         String result = callGemini(prompt);
-        cache(cacheKey, result, SUMMARY_TTL_HOURS);
+        if (result != null) cache(cacheKey, result, SUMMARY_TTL_HOURS);
         return result;
     }
 
@@ -65,7 +65,7 @@ public class AiService {
                 "注意：sortBy默认为relevance，limit默认为10", query
         );
         String result = callGemini(prompt);
-        cache(cacheKey, result, NL_TTL_HOURS);
+        if (result != null) cache(cacheKey, result, NL_TTL_HOURS);
         return result;
     }
 
@@ -85,7 +85,7 @@ public class AiService {
                 resourceDescription.length() > 200 ? resourceDescription.substring(0, 200) : resourceDescription
         );
         String result = callGemini(prompt);
-        cache(cacheKey, result, REASON_TTL_HOURS);
+        if (result != null) cache(cacheKey, result, REASON_TTL_HOURS);
         return result;
     }
 
@@ -130,15 +130,18 @@ public class AiService {
 
             String result = response.getResult().getOutput().getText();
             if (result == null || result.isBlank()) {
-                log.error("AI returned empty response");
-                throw new BusinessException(503, "AI 服务返回为空");
+                log.warn("AI returned empty response");
+                return null;
             }
             return result;
-        } catch (BusinessException e) {
-            throw e;
         } catch (Exception e) {
-            log.error("AI API call error", e);
-            throw new BusinessException(503, "AI 服务不可用");
+            String msg = e.getMessage();
+            if (msg != null && (msg.contains("429") || msg.contains("quota") || msg.contains("RESOURCE_EXHAUSTED"))) {
+                log.warn("AI API quota exhausted (429), skipping: {}", msg.length() > 100 ? msg.substring(0, 100) : msg);
+            } else {
+                log.error("AI API call error: {}", msg);
+            }
+            return null;
         }
     }
 }
