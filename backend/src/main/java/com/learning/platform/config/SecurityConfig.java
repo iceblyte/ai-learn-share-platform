@@ -33,6 +33,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/ai/chat/stream").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/resources/**", "/api/v1/categories/**", "/api/v1/tags/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/search/**").permitAll()
                 .requestMatchers("/api/v1/users/{id}").permitAll()
