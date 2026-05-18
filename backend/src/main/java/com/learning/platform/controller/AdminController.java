@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,9 +35,13 @@ public class AdminController {
     @GetMapping("/users")
     public Result<PageResult<User>> userList(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        IPage<User> result = userMapper.selectPage(new Page<>(page, size),
-                new QueryWrapper<User>().orderByDesc("created_at"));
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String sort) {
+        QueryWrapper<User> wrapper = new QueryWrapper<User>().orderByDesc("created_at");
+        if ("latest".equals(sort)) {
+            wrapper.orderByDesc("created_at");
+        }
+        IPage<User> result = userMapper.selectPage(new Page<>(page, size), wrapper);
         result.getRecords().forEach(u -> u.setPasswordHash(null));
         return Result.success(PageResult.from(result));
     }
@@ -60,6 +65,19 @@ public class AdminController {
             @RequestParam(defaultValue = "10") int size) {
         IPage<Resource> result = resourceMapper.selectPage(new Page<>(page, size),
                 new QueryWrapper<Resource>().eq("status", "PENDING").orderByDesc("created_at"));
+        return Result.success(PageResult.from(result));
+    }
+
+    @GetMapping("/resources")
+    public Result<PageResult<Resource>> resourceList(
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        QueryWrapper<Resource> wrapper = new QueryWrapper<Resource>().orderByDesc("created_at");
+        if (status != null && !status.isEmpty()) {
+            wrapper.eq("status", status);
+        }
+        IPage<Resource> result = resourceMapper.selectPage(new Page<>(page, size), wrapper);
         return Result.success(PageResult.from(result));
     }
 
@@ -87,6 +105,10 @@ public class AdminController {
                 new QueryWrapper<Resource>().eq("status", "PUBLISHED")));
         stats.put("pendingResources", resourceMapper.selectCount(
                 new QueryWrapper<Resource>().eq("status", "PENDING")));
+        // Today active: users who registered today as a proxy
+        Long todayActive = userMapper.selectCount(
+                new QueryWrapper<User>().ge("created_at", LocalDate.now().toString()));
+        stats.put("todayActive", todayActive);
         return Result.success(stats);
     }
 }

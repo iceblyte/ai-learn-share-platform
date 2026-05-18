@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { categoryApi } from '@/api/category'
 import type { Category } from '@/types'
+import AppModal from '@/components/AppModal.vue'
 
 const categories = ref<Category[]>([])
 const loading = ref(true)
@@ -9,6 +10,8 @@ const showAdd = ref(false)
 const newName = ref('')
 const editingId = ref<number | null>(null)
 const editingName = ref('')
+const showDeleteModal = ref(false)
+const deleteTargetId = ref<number | null>(null)
 
 onMounted(async () => {
   await loadCategories()
@@ -43,12 +46,19 @@ async function updateCategory(id: number) {
   } catch {}
 }
 
-async function deleteCategory(id: number) {
-  if (!confirm('确定删除此分类？子分类也会被删除。')) return
+function confirmDelete(id: number) {
+  deleteTargetId.value = id
+  showDeleteModal.value = true
+}
+
+async function executeDelete() {
+  if (!deleteTargetId.value) return
   try {
-    await categoryApi.delete(id)
+    await categoryApi.delete(deleteTargetId.value)
     await loadCategories()
   } catch {}
+  showDeleteModal.value = false
+  deleteTargetId.value = null
 }
 
 function startEdit(cat: Category) {
@@ -109,7 +119,7 @@ function startEdit(cat: Category) {
               <button @click="startEdit(cat)" class="p-1.5 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               </button>
-              <button @click="deleteCategory(cat.id)" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded">
+              <button @click="confirmDelete(cat.id)" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
             </div>
@@ -125,7 +135,7 @@ function startEdit(cat: Category) {
               <button @click="startEdit(child)" class="p-1.5 text-slate-400 hover:text-primary-500 hover:bg-primary-50 rounded">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               </button>
-              <button @click="deleteCategory(child.id)" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded">
+              <button @click="confirmDelete(child.id)" class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
             </div>
@@ -134,4 +144,15 @@ function startEdit(cat: Category) {
       </div>
     </div>
   </div>
+
+  <!-- Delete Confirmation Modal -->
+  <AppModal :visible="showDeleteModal" title="确认删除" @close="showDeleteModal = false" @confirm="executeDelete">
+    <template #body>
+      <p class="text-sm text-slate-600">确定删除此分类吗？子分类也会被删除，此操作不可撤销。</p>
+    </template>
+    <template #footer>
+      <button @click="showDeleteModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+      <button @click="executeDelete" class="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600">确认删除</button>
+    </template>
+  </AppModal>
 </template>

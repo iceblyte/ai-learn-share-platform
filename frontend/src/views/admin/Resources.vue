@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import request from '@/api/request'
 import type { Resource } from '@/types'
+import AppModal from '@/components/AppModal.vue'
 
+const router = useRouter()
 const resources = ref<Resource[]>([])
 const loading = ref(true)
+
+const showAuditModal = ref(false)
+const auditTarget = ref<Resource | null>(null)
+const auditAction = ref<'APPROVE' | 'REJECT'>('APPROVE')
 
 onMounted(() => loadPending())
 
@@ -18,18 +25,20 @@ async function loadPending() {
   }
 }
 
-async function approveResource(id: number) {
-  try {
-    await request.put(`/admin/resources/${id}/audit`, { action: 'APPROVE' })
-    resources.value = resources.value.filter(r => r.id !== id)
-  } catch {}
+function confirmAudit(resource: Resource, action: 'APPROVE' | 'REJECT') {
+  auditTarget.value = resource
+  auditAction.value = action
+  showAuditModal.value = true
 }
 
-async function rejectResource(id: number) {
+async function executeAudit() {
+  if (!auditTarget.value) return
   try {
-    await request.put(`/admin/resources/${id}/audit`, { action: 'REJECT' })
-    resources.value = resources.value.filter(r => r.id !== id)
+    await request.put(`/admin/resources/${auditTarget.value.id}/audit`, { action: auditAction.value })
+    resources.value = resources.value.filter(r => r.id !== auditTarget.value!.id)
   } catch {}
+  showAuditModal.value = false
+  auditTarget.value = null
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -71,21 +80,28 @@ function formatTimeAgo(dateStr: string): string {
         <div class="flex items-start justify-between">
           <div class="flex-1 min-w-0">
             <h3 class="font-semibold text-slate-800">{{ res.title }}</h3>
-            <p class="text-sm text-slate-500 mt-1 line-clamp-2">{{ res.description }}</p>
+            <p class="text-sm text-slate-500 mt-1 line-clamp-2">{{ res.aiSummary || res.description }}</p>
             <div class="flex items-center gap-3 mt-2 text-xs text-slate-400">
               <span>{{ res.publisher?.nickname || '未知用户' }}</span>
               <span>{{ formatTimeAgo(res.createdAt) }}</span>
+              <span v-if="res.category" class="px-2 py-0.5 bg-primary-50 text-primary-600 rounded">{{ res.category.name }}</span>
             </div>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0 ml-4">
             <button
-              @click="approveResource(res.id)"
+              @click="router.push(`/resource/${res.id}`)"
+              class="px-3 py-1.5 text-xs bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+            >
+              查看
+            </button>
+            <button
+              @click="confirmAudit(res, 'APPROVE')"
               class="px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
             >
               通过
             </button>
             <button
-              @click="rejectResource(res.id)"
+              @click="confirmAudit(res, 'REJECT')"
               class="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
             >
               拒绝
@@ -95,4 +111,27 @@ function formatTimeAgo(dateStr: string): string {
       </div>
     </div>
   </div>
+
+  <!-- Audit Confirmation Modal -->
+  <AppModal
+    :visible="showAuditModal"
+    :title="auditAction === 'APPROVE' ? '确认通过' : '确认拒绝'"
+    @close="showAuditModal = false"
+    @confirm="executeAudit"
+  >
+    <template #body>
+      <p class="text-sm text-slate-600">
+        确定要{{ auditAction === 'APPROVE' ? '通过' : '拒绝' }}资源「{{ auditTarget?.title }}」吗？
+      </p>
+    </template>
+    <template #footer>
+      <button @click="showAuditModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+      <button
+        @click="executeAudit"
+        :class="['px-4 py-2 text-sm text-white rounded-lg', auditAction === 'APPROVE' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600']"
+      >
+        {{ auditAction === 'APPROVE' ? '确认通过' : '确认拒绝' }}
+      </button>
+    </template>
+  </AppModal>
 </template>
