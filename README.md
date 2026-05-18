@@ -23,8 +23,11 @@
 ### 1. 数据库初始化
 
 ```powershell
-# 登录 MySQL 并执行建表脚本
-mysql -u root -p < db/init.sql
+# 建表 + 初始数据 (分类、标签、管理员账号)
+mysql -u root -p --default-character-set=utf8mb4 < db/init.sql
+
+# 导入测试种子数据 (可选, 22个资源 + 评论/点赞/评分)
+mysql -u root -p --default-character-set=utf8mb4 < db/seed.sql
 ```
 
 ### 2. 后端启动
@@ -64,6 +67,8 @@ npm run dev
 - 前端页面: http://localhost:5173
 - API 文档: http://localhost:8080/swagger-ui.html
 - 管理员账号: admin / admin123
+- 测试发布者: zhangsan / 123456 (需先执行 seed.sql)
+- 测试普通用户: zhaoliu / 123456 (需先执行 seed.sql)
 
 ## 项目结构
 
@@ -98,7 +103,8 @@ AI个性化学习资源分享平台/
 │   └── package.json
 │
 ├── db/                         # 数据库脚本
-│   └── init.sql               # 建表 + 初始数据
+│   ├── init.sql               # 建表 + 初始数据
+│   └── seed.sql               # 测试种子数据 (可选, 支持重复执行)
 │
 ├── openspec/                   # 项目文档
 │   ├── proposal.md            # PRD 产品需求文档
@@ -113,7 +119,7 @@ AI个性化学习资源分享平台/
 1. **用户与权限管理**: JWT + RefreshToken 认证, Spring Security RBAC (USER/PUBLISHER/ADMIN), 头像上传
 2. **资源管理**: 发布、浏览、搜索学习资源 (文件上传/外部链接), 分类树, 标签系统
 3. **AI 智能摘要**: 基于 Spring AI (Google GenAI) 自动生成约100字的精准资源摘要 (Redis 缓存 24h)
-4. **自然语言搜索**: 支持自然语言查询，AI 解析为结构化搜索 (NL2API)
+4. **自然语言搜索**: 支持自然语言查询，AI 解析为结构化搜索 (NL2API, 需登录)
 5. **个性化推荐**: 混合推荐算法 (标签权重 0.6 + 协同过滤 0.4), AI 生成推荐理由, Redis 缓存 30min
 6. **社区互动**: 点赞、收藏、星级评分、多级评论
 7. **管理后台**: 用户管理、资源审核、分类/标签 CRUD、平台统计仪表盘
