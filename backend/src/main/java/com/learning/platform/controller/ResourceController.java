@@ -44,9 +44,10 @@ public class ResourceController {
     public Result<Resource> create(
             @Valid @RequestPart("data") ResourceCreateRequest request,
             @RequestPart(value = "files", required = false) MultipartFile[] files,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
             Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        return Result.created(resourceService.create(request, files, userId));
+        return Result.created(resourceService.create(request, files, coverImage, userId));
     }
 
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
@@ -55,9 +56,10 @@ public class ResourceController {
             @PathVariable Long id,
             @Valid @RequestPart("data") ResourceCreateRequest request,
             @RequestPart(value = "files", required = false) MultipartFile[] files,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
             Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        return Result.success(resourceService.update(id, request, files, userId));
+        return Result.success(resourceService.update(id, request, files, coverImage, userId));
     }
 
     @DeleteMapping("/{id}")
