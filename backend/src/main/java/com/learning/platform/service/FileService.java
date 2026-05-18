@@ -1,11 +1,15 @@
 package com.learning.platform.service;
 
+import com.aliyun.oss.OSS;
+import com.aliyun.oss.OSSClientBuilder;
 import com.learning.platform.common.BusinessException;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,27 +21,55 @@ import java.util.UUID;
 @Service
 public class FileService {
 
-    private static final Set<String> ALLOWED_TYPES = Set.of(
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "video/mp4",
-            "application/zip",
-            "application/x-zip-compressed"
-    );
-
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
             ".pdf", ".docx", ".pptx", ".mp4", ".zip"
     );
 
+    private static final Set<String> IMAGE_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
+    private static final long AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+    @Value("${storage.type:local}")
+    private String storageType;
+
     @Value("${storage.local.path:./uploads}")
-    private String storagePath;
+    private String localPath;
 
     @Value("${storage.local.url-prefix:/files}")
-    private String urlPrefix;
+    private String localUrlPrefix;
+
+    @Value("${storage.oss.endpoint:}")
+    private String ossEndpoint;
+
+    @Value("${storage.oss.bucket:}")
+    private String ossBucket;
+
+    @Value("${storage.oss.access-key-id:}")
+    private String ossAccessKeyId;
+
+    @Value("${storage.oss.access-key-secret:}")
+    private String ossAccessKeySecret;
+
+    @Value("${storage.oss.url-prefix:}")
+    private String ossUrlPrefix;
 
     @Value("${storage.max-size:524288000}")
     private long maxSize;
+
+    private OSS ossClient;
+
+    private OSS getOssClient() {
+        if (ossClient == null) {
+            ossClient = new OSSClientBuilder().build(ossEndpoint, ossAccessKeyId, ossAccessKeySecret);
+        }
+        return ossClient;
+    }
+
+    @PreDestroy
+    public void destroy() {
+        if (ossClient != null) {
+            ossClient.shutdown();
+        }
+    }
 
     public StoredFile store(MultipartFile file) {
         if (file.isEmpty()) {
@@ -55,29 +87,17 @@ public class FileService {
 
         String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
         String newFileName = UUID.randomUUID() + extension;
-        Path dir = Paths.get(storagePath, datePath);
-        try {
-            Files.createDirectories(dir);
-            Path filePath = dir.resolve(newFileName);
-            file.transferTo(filePath.toFile());
-        } catch (IOException e) {
-            throw new BusinessException("文件保存失败: " + e.getMessage());
+        String objectKey = "resources/" + datePath + "/" + newFileName;
+
+        String fileUrl;
+        if ("oss".equalsIgnoreCase(storageType)) {
+            fileUrl = uploadToOss(file, objectKey);
+        } else {
+            fileUrl = saveToLocal(file, datePath, newFileName, "resources");
         }
 
-        String fileUrl = urlPrefix + "/" + datePath + "/" + newFileName;
         return new StoredFile(originalName, fileUrl, file.getSize(), extension.replace(".", "").toUpperCase());
     }
-
-    private String getExtension(String filename) {
-        if (filename == null) return "";
-        int dot = filename.lastIndexOf('.');
-        return dot >= 0 ? filename.substring(dot) : "";
-    }
-
-    public record StoredFile(String fileName, String fileUrl, long fileSize, String fileType) {}
-
-    private static final Set<String> IMAGE_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
-    private static final long AVATAR_MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
     public String storeAvatar(MultipartFile file) {
         if (file.isEmpty()) {
@@ -95,15 +115,41 @@ public class FileService {
 
         String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
         String newFileName = "avatar_" + UUID.randomUUID() + extension;
-        Path dir = Paths.get(storagePath, datePath);
+        String objectKey = "avatars/" + datePath + "/" + newFileName;
+
+        if ("oss".equalsIgnoreCase(storageType)) {
+            return uploadToOss(file, objectKey);
+        } else {
+            return saveToLocal(file, datePath, newFileName, "avatars");
+        }
+    }
+
+    private String uploadToOss(MultipartFile file, String objectKey) {
+        try (InputStream inputStream = file.getInputStream()) {
+            getOssClient().putObject(ossBucket, objectKey, inputStream);
+            return ossUrlPrefix + "/" + objectKey;
+        } catch (IOException e) {
+            throw new BusinessException("文件上传失败: " + e.getMessage());
+        }
+    }
+
+    private String saveToLocal(MultipartFile file, String datePath, String newFileName, String subDir) {
+        Path dir = Paths.get(localPath, subDir, datePath);
         try {
             Files.createDirectories(dir);
             Path filePath = dir.resolve(newFileName);
             file.transferTo(filePath.toFile());
         } catch (IOException e) {
-            throw new BusinessException("头像保存失败: " + e.getMessage());
+            throw new BusinessException("文件保存失败: " + e.getMessage());
         }
-
-        return urlPrefix + "/" + datePath + "/" + newFileName;
+        return localUrlPrefix + "/" + subDir + "/" + datePath + "/" + newFileName;
     }
+
+    private String getExtension(String filename) {
+        if (filename == null) return "";
+        int dot = filename.lastIndexOf('.');
+        return dot >= 0 ? filename.substring(dot) : "";
+    }
+
+    public record StoredFile(String fileName, String fileUrl, long fileSize, String fileType) {}
 }
