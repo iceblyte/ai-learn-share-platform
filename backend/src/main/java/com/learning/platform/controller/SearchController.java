@@ -36,12 +36,14 @@ public class SearchController {
     public Result<PageResult<Resource>> search(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) List<String> tags,
+            @RequestParam(required = false) Double minRating,
             @RequestParam(required = false, defaultValue = "relevance") String sortBy,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             Authentication auth) {
         Long userId = auth != null ? (Long) auth.getPrincipal() : null;
-        return Result.success(searchService.search(keyword, categoryId, sortBy, page, size, userId));
+        return Result.success(searchService.search(keyword, categoryId, tags, minRating, sortBy, page, size, userId));
     }
 
     @PostMapping("/nl")
@@ -75,7 +77,10 @@ public class SearchController {
         String keyword = null;
         List<String> keywords = (List<String>) intent.get("keywords");
         if (keywords != null && !keywords.isEmpty()) {
-            keyword = String.join(" ", keywords);
+            // Use the most specific keyword (longest one) for better matching
+            keyword = keywords.stream()
+                    .max(java.util.Comparator.comparingInt(String::length))
+                    .orElse(keywords.get(0));
         }
 
         Long categoryId = null;
@@ -87,10 +92,21 @@ public class SearchController {
             } catch (Exception ignored) {}
         }
 
+        // Extract tags from parsed intent
+        @SuppressWarnings("unchecked")
+        List<String> tags = (List<String>) intent.get("tags");
+
+        // Extract minRating
+        Double minRating = null;
+        Object minRatingObj = intent.get("minRating");
+        if (minRatingObj instanceof Number) {
+            minRating = ((Number) minRatingObj).doubleValue();
+        }
+
         String sortBy = (String) intent.getOrDefault("sortBy", "relevance");
         int limit = intent.get("limit") instanceof Number ? ((Number) intent.get("limit")).intValue() : 10;
 
-        PageResult<Resource> results = searchService.search(keyword, categoryId, sortBy, 1, limit, userId);
+        PageResult<Resource> results = searchService.search(keyword, categoryId, tags, minRating, sortBy, 1, limit, userId);
         return Result.success(new NlSearchResult(intent, results.getRecords(), results.getTotal()));
     }
 

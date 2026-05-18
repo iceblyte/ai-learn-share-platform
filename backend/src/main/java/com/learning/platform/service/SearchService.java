@@ -4,13 +4,16 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.learning.platform.common.PageResult;
+import com.learning.platform.entity.Category;
 import com.learning.platform.entity.Resource;
+import com.learning.platform.mapper.CategoryMapper;
 import com.learning.platform.mapper.ResourceMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -20,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 public class SearchService {
 
     private final ResourceMapper resourceMapper;
+    private final CategoryMapper categoryMapper;
     private final RedisTemplate<String, Object> redisTemplate;
 
     private static final String HOT_KEY = "search:hot";
@@ -28,10 +32,11 @@ public class SearchService {
     private static final int HISTORY_EXPIRE_DAYS = 30;
 
     public PageResult<Resource> search(String keyword, Long categoryId, String sortBy, int page, int size) {
-        return search(keyword, categoryId, sortBy, page, size, null);
+        return search(keyword, categoryId, null, null, sortBy, page, size, null);
     }
 
-    public PageResult<Resource> search(String keyword, Long categoryId, String sortBy, int page, int size, Long userId) {
+    public PageResult<Resource> search(String keyword, Long categoryId, List<String> tags, Double minRating,
+                                       String sortBy, int page, int size, Long userId) {
         QueryWrapper<Resource> wrapper = new QueryWrapper<>();
         wrapper.eq("status", "PUBLISHED");
 
@@ -39,7 +44,19 @@ public class SearchService {
             wrapper.and(w -> w.like("title", keyword).or().like("description", keyword));
         }
         if (categoryId != null) {
-            wrapper.eq("category_id", categoryId);
+            List<Long> categoryIds = getAllDescendantIds(categoryId);
+            categoryIds.add(categoryId);
+            wrapper.in("category_id", categoryIds);
+        }
+        if (minRating != null && minRating > 0) {
+            wrapper.ge("avg_rating", minRating);
+        }
+        if (tags != null && !tags.isEmpty()) {
+            // Filter resources that have ALL specified tags
+            wrapper.inSql("id",
+                    "SELECT resource_id FROM resource_tag rt JOIN tag t ON rt.tag_id = t.id " +
+                    "WHERE t.name IN (" + tags.stream().map(t -> "'" + t.replace("'", "''") + "'").collect(java.util.stream.Collectors.joining(", ")) + ") " +
+                    "GROUP BY resource_id HAVING COUNT(DISTINCT t.id) = " + tags.size());
         }
 
         switch (sortBy != null ? sortBy : "relevance") {
@@ -113,5 +130,16 @@ public class SearchService {
         } catch (Exception e) {
             log.warn("Redis unavailable for clearing search history: {}", e.getMessage());
         }
+    }
+
+    private List<Long> getAllDescendantIds(Long categoryId) {
+        List<Category> children = categoryMapper.selectList(
+                new QueryWrapper<Category>().eq("parent_id", categoryId));
+        List<Long> ids = new ArrayList<>();
+        for (Category child : children) {
+            ids.add(child.getId());
+            ids.addAll(getAllDescendantIds(child.getId()));
+        }
+        return ids;
     }
 }

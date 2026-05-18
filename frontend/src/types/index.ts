@@ -59,7 +59,7 @@ export interface Resource {
   aiSummary: string
   resourceType: 'FILE' | 'LINK'
   externalUrl: string
-  coverImage: string
+  coverImageUrl: string
   viewCount: number
   likeCount: number
   favoriteCount: number
