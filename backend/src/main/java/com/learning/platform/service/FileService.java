@@ -124,6 +124,31 @@ public class FileService {
         }
     }
 
+    public String storeCoverImage(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new BusinessException("文件不能为空");
+        }
+        if (file.getSize() > AVATAR_MAX_SIZE) {
+            throw new BusinessException("封面图片大小不能超过5MB");
+        }
+
+        String originalName = file.getOriginalFilename();
+        String extension = getExtension(originalName);
+        if (!IMAGE_EXTENSIONS.contains(extension.toLowerCase())) {
+            throw new BusinessException("仅支持 JPG/PNG/GIF/WEBP 格式");
+        }
+
+        String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
+        String newFileName = "cover_" + UUID.randomUUID() + extension;
+        String objectKey = "covers/" + datePath + "/" + newFileName;
+
+        if ("oss".equalsIgnoreCase(storageType)) {
+            return uploadToOss(file, objectKey);
+        } else {
+            return saveToLocal(file, datePath, newFileName, "covers");
+        }
+    }
+
     private String uploadToOss(MultipartFile file, String objectKey) {
         try (InputStream inputStream = file.getInputStream()) {
             getOssClient().putObject(ossBucket, objectKey, inputStream);

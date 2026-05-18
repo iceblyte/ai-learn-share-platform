@@ -85,7 +85,7 @@ public class ResourceService {
     }
 
     @Transactional
-    public Resource create(ResourceCreateRequest request, MultipartFile[] files, Long publisherId) {
+    public Resource create(ResourceCreateRequest request, MultipartFile[] files, MultipartFile coverImage, Long publisherId) {
         // Validate category
         Category category = categoryMapper.selectById(request.getCategoryId());
         if (category == null) {
@@ -100,6 +100,10 @@ public class ResourceService {
         resource.setResourceType(request.getResourceType());
         resource.setExternalUrl(request.getExternalUrl());
         resource.setCoverImageUrl(request.getCoverImageUrl());
+        // Handle cover image upload
+        if (coverImage != null && !coverImage.isEmpty()) {
+            resource.setCoverImageUrl(fileService.storeCoverImage(coverImage));
+        }
         resource.setViewCount(0);
         resource.setLikeCount(0);
         resource.setFavoriteCount(0);
@@ -179,7 +183,7 @@ public class ResourceService {
     }
 
     @Transactional
-    public Resource update(Long id, ResourceCreateRequest request, MultipartFile[] files, Long userId) {
+    public Resource update(Long id, ResourceCreateRequest request, MultipartFile[] files, MultipartFile coverImage, Long userId) {
         Resource resource = resourceMapper.selectById(id);
         if (resource == null) {
             throw BusinessException.notFound("资源不存在");
@@ -195,6 +199,10 @@ public class ResourceService {
         resource.setExternalUrl(request.getExternalUrl());
         if (request.getCoverImageUrl() != null) {
             resource.setCoverImageUrl(request.getCoverImageUrl());
+        }
+        // Handle cover image upload
+        if (coverImage != null && !coverImage.isEmpty()) {
+            resource.setCoverImageUrl(fileService.storeCoverImage(coverImage));
         }
         resource.setStatus("PUBLISHED");
         resourceMapper.updateById(resource);
