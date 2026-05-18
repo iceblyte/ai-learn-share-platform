@@ -1,15 +1,19 @@
 package com.learning.platform.service;
 
-import com.learning.platform.common.BusinessException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -17,11 +21,22 @@ import java.util.concurrent.TimeUnit;
 public class AiService {
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final ChatClient chatClient;
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
-    public AiService(RedisTemplate<String, Object> redisTemplate, ChatClient.Builder chatClientBuilder) {
+    @Value("${spring.ai.openai.api-key}")
+    private String apiKey;
+
+    @Value("${spring.ai.openai.base-url}")
+    private String baseUrl;
+
+    @Value("${spring.ai.openai.chat.options.model}")
+    private String model;
+
+    public AiService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
-        this.chatClient = chatClientBuilder.build();
+        this.restTemplate = new RestTemplate();
+        this.objectMapper = objectMapper;
     }
 
     private static final String CACHE_PREFIX_SUMMARY = "ai:summary:";
@@ -31,9 +46,6 @@ public class AiService {
     private static final long NL_TTL_HOURS = 1;
     private static final long REASON_TTL_HOURS = 6;
 
-    /**
-     * Generate AI summary for a resource description (cached)
-     */
     public String generateSummary(String title, String description) {
         String cacheKey = CACHE_PREFIX_SUMMARY + hash(title + "|" + description);
         String cached = getCached(cacheKey);
@@ -43,14 +55,11 @@ public class AiService {
                 "请为以下学习资源生成一段约100字的精准摘要，突出核心内容和学习价值：\n\n标题：%s\n描述：%s\n\n要求：简洁明了，突出重点，约100字。",
                 title, description.length() > 2000 ? description.substring(0, 2000) : description
         );
-        String result = callGemini(prompt);
+        String result = callDashscope(prompt);
         if (result != null) cache(cacheKey, result, SUMMARY_TTL_HOURS);
         return result;
     }
 
-    /**
-     * Parse natural language search query into structured parameters (cached)
-     */
     public String parseNaturalLanguageQuery(String query) {
         String cacheKey = CACHE_PREFIX_NL + hash(query);
         String cached = getCached(cacheKey);
@@ -67,14 +76,11 @@ public class AiService {
                 "- 例如用户说\"推荐关于Java并发且评分最高的前5个资源\"，keywords应为[\"Java并发\"]，而不是[\"推荐关于Java并发且评分最高的前5个资源\"]\n" +
                 "- sortBy默认为relevance，limit默认为10", query
         );
-        String result = callGemini(prompt);
+        String result = callDashscope(prompt);
         if (result != null) cache(cacheKey, result, NL_TTL_HOURS);
         return result;
     }
 
-    /**
-     * Generate personalized recommendation reason (cached)
-     */
     public String generateRecommendReason(String userInterests, String resourceTitle, String resourceDescription) {
         String cacheKey = CACHE_PREFIX_REASON + hash(userInterests + "|" + resourceTitle);
         String cached = getCached(cacheKey);
@@ -87,9 +93,61 @@ public class AiService {
                 userInterests, resourceTitle,
                 resourceDescription.length() > 200 ? resourceDescription.substring(0, 200) : resourceDescription
         );
-        String result = callGemini(prompt);
+        String result = callDashscope(prompt);
         if (result != null) cache(cacheKey, result, REASON_TTL_HOURS);
         return result;
+    }
+
+    private String callDashscope(String prompt) {
+        try {
+            String url = baseUrl + "/chat/completions";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            Map<String, Object> body = Map.of(
+                    "model", model,
+                    "messages", List.of(Map.of("role", "user", "content", prompt))
+            );
+
+            HttpEntity<String> request = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                log.warn("DashScope API returned status: {}", response.getStatusCode());
+                return null;
+            }
+
+            JsonNode root = objectMapper.readTree(response.getBody());
+            JsonNode choices = root.get("choices");
+            if (choices == null || !choices.isArray() || choices.isEmpty()) {
+                log.warn("DashScope API returned no choices");
+                return null;
+            }
+
+            String content = choices.get(0).path("message").path("content").asText(null);
+            if (content == null || content.isBlank()) {
+                log.warn("DashScope API returned empty content");
+                return null;
+            }
+            // Strip markdown code block / backtick wrapper — extract JSON between first { and last }
+            content = content.trim();
+            int jsonStart = content.indexOf('{');
+            int jsonEnd = content.lastIndexOf('}');
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                content = content.substring(jsonStart, jsonEnd + 1);
+            }
+            return content;
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            if (msg != null && (msg.contains("429") || msg.contains("quota") || msg.contains("RESOURCE_EXHAUSTED"))) {
+                log.warn("AI API quota exhausted (429), skipping: {}", msg.length() > 100 ? msg.substring(0, 100) : msg);
+            } else {
+                log.error("AI API call error: {}", msg);
+            }
+            return null;
+        }
     }
 
     private String getCached(String key) {
@@ -121,30 +179,6 @@ public class AiService {
             return sb.toString();
         } catch (NoSuchAlgorithmException e) {
             return String.valueOf(input.hashCode());
-        }
-    }
-
-    private String callGemini(String prompt) {
-        try {
-            ChatResponse response = chatClient.prompt()
-                    .user(prompt)
-                    .call()
-                    .chatResponse();
-
-            String result = response.getResult().getOutput().getText();
-            if (result == null || result.isBlank()) {
-                log.warn("AI returned empty response");
-                return null;
-            }
-            return result;
-        } catch (Exception e) {
-            String msg = e.getMessage();
-            if (msg != null && (msg.contains("429") || msg.contains("quota") || msg.contains("RESOURCE_EXHAUSTED"))) {
-                log.warn("AI API quota exhausted (429), skipping: {}", msg.length() > 100 ? msg.substring(0, 100) : msg);
-            } else {
-                log.error("AI API call error: {}", msg);
-            }
-            return null;
         }
     }
 }
