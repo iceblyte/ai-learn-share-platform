@@ -54,7 +54,7 @@ spring:
       api-key: ${AI_API_KEY:your-dashscope-api-key}
       chat:
         options:
-          model: ${AI_MODEL:qwen-plus-2025-07-28}
+          model: ${AI_MODEL:qwen3.6-plus}
 
 # MyBatis-Plus
 mybatis-plus:
