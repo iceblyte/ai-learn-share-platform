@@ -37,23 +37,27 @@ public class SearchService {
 
     /**
      * Search by multiple keywords (OR logic) — any keyword matches title or description.
+     * Compound keywords like "Java并发编程" are split into ["Java", "并发", "编程"] for better matching.
      */
     public PageResult<Resource> searchByKeywords(List<String> keywords, Long categoryId, List<String> tags,
                                                   Double minRating, String sortBy, int page, int size, Long userId) {
         if (keywords == null || keywords.isEmpty()) {
             return search(null, categoryId, tags, minRating, sortBy, page, size, userId);
         }
-        if (keywords.size() == 1) {
-            return search(keywords.get(0), categoryId, tags, minRating, sortBy, page, size, userId);
+
+        // Split compound keywords into sub-terms for better LIKE matching
+        List<String> expanded = expandKeywords(keywords);
+        if (expanded.size() == 1) {
+            return search(expanded.get(0), categoryId, tags, minRating, sortBy, page, size, userId);
         }
 
         QueryWrapper<Resource> wrapper = new QueryWrapper<>();
         wrapper.eq("status", "PUBLISHED");
 
-        // Match ANY keyword in title or description
+        // Match ANY sub-keyword in title or description
         wrapper.and(w -> {
-            for (int i = 0; i < keywords.size(); i++) {
-                String kw = keywords.get(i);
+            for (int i = 0; i < expanded.size(); i++) {
+                String kw = expanded.get(i);
                 if (i > 0) w.or();
                 w.and(inner -> inner.like("title", kw).or().like("description", kw));
             }
@@ -187,6 +191,33 @@ public class SearchService {
         } catch (Exception e) {
             log.warn("Redis unavailable for clearing search history: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Split compound keywords into smaller sub-terms for better LIKE matching.
+     * "Java并发编程" → ["Java", "并发", "编程"]
+     * "Python教程" → ["Python", "教程"]
+     * Keeps original keywords too, and deduplicates.
+     */
+    private List<String> expandKeywords(List<String> keywords) {
+        List<String> result = new ArrayList<>();
+        for (String kw : keywords) {
+            if (kw == null || kw.isBlank()) continue;
+            kw = kw.trim();
+            // Split on: Chinese/English boundary, common Chinese delimiters, camelCase
+            String[] parts = kw.split("(?<=[\\u4e00-\\u9fff])(?=[\\u4e00-\\u9fff])|(?<=[a-zA-Z])(?=[\\u4e00-\\u9fff])|(?<=[\\u4e00-\\u9fff])(?=[a-zA-Z])|(?<=[a-z])(?=[A-Z])|[_\\-\\s]+");
+            for (String part : parts) {
+                String t = part.trim();
+                if (t.length() >= 2 && !result.contains(t)) {
+                    result.add(t);
+                }
+            }
+            // Also keep the original keyword if it's different from all sub-parts
+            if (kw.length() >= 2 && !result.contains(kw)) {
+                result.add(kw);
+            }
+        }
+        return result.isEmpty() ? keywords : result;
     }
 
     private List<Long> getAllDescendantIds(Long categoryId) {
