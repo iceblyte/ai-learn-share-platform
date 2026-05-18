@@ -305,6 +305,17 @@ function getGradient(index: number) {
             我的收藏
           </button>
           <button
+            @click="editMode = false; loadDrafts()"
+            :class="[
+              'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              activeTab === 'drafts' && !editMode
+                ? 'bg-primary-500 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            ]"
+          >
+            草稿箱
+          </button>
+          <button
             @click="activeTab = 'stats'; editMode = false"
             :class="[
               'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
