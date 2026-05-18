@@ -110,10 +110,10 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Spring AI - Google Gemini -->
+        <!-- Spring AI - OpenAI Compatible (DashScope/Qwen) -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-google-genai</artifactId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
 
         <!-- Alibaba Cloud OSS -->

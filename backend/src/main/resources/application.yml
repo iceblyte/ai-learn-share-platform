@@ -47,14 +47,14 @@ spring:
     time-zone: Asia/Shanghai
     default-property-inclusion: non_null
 
-  # Spring AI - Google Gemini
+  # Spring AI - DashScope (Qwen) via OpenAI-compatible API
   ai:
-    google:
-      genai:
-        api-key: ${AI_API_KEY:your-gemini-api-key}
-        chat:
-          options:
-            model: ${AI_MODEL:gemini-2.0-flash}
+    openai:
+      base-url: ${AI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      api-key: ${AI_API_KEY:your-dashscope-api-key}
+      chat:
+        options:
+          model: ${AI_MODEL:qwen-plus-2025-07-28}
 
 # MyBatis-Plus
 mybatis-plus:
