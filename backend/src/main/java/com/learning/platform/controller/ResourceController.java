@@ -49,6 +49,17 @@ public class ResourceController {
         return Result.created(resourceService.create(request, files, userId));
     }
 
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    @PreAuthorize("hasAnyRole('PUBLISHER', 'ADMIN')")
+    public Result<Resource> update(
+            @PathVariable Long id,
+            @Valid @RequestPart("data") ResourceCreateRequest request,
+            @RequestPart(value = "files", required = false) MultipartFile[] files,
+            Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        return Result.success(resourceService.update(id, request, files, userId));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('PUBLISHER', 'ADMIN')")
     public Result<Void> delete(@PathVariable Long id, Authentication auth) {

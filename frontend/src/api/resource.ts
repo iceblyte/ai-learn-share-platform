@@ -13,8 +13,10 @@ export const resourceApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
-  update(id: number, data: Partial<ResourceCreateRequest>) {
-    return request.put<ApiResponse<Resource>>(`/resources/${id}`, data)
+  update(id: number, formData: FormData) {
+    return request.put<ApiResponse<Resource>>(`/resources/${id}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
   },
   delete(id: number) {
     return request.delete(`/resources/${id}`)

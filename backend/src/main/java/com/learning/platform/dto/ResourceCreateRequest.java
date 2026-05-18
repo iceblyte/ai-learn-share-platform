@@ -27,4 +27,6 @@ public class ResourceCreateRequest {
     private String resourceType;
 
     private String externalUrl;
+
+    private String coverImageUrl;
 }
