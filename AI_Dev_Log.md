@@ -96,7 +96,7 @@
 - **理由**: 无状态适合前后端分离，Redis 黑名单支持主动登出
 
 ### 5.3 AI 模块抽象
-- **决策**: AiService 接口化，当前 Gemini 实现可替换
+- **决策**: AiService 接口化，当前阿里云百炼 Qwen 实现可替换
 - **理由**: 兼容多种 LLM，通过配置切换模型
 
 ### 5.4 MySQL 全文索引
@@ -178,7 +178,7 @@
 
 | 模块 | 问题 | 修复方案 |
 |------|------|---------|
-| AI | 所有AI功能不可用 | 模型名 gemini-pro → gemini-2.0-flash (gemini-pro 已被 Google 废弃) |
+| AI | 所有AI功能不可用 | Google Gemini → 阿里云百炼 Qwen (DashScope OpenAI 兼容 API, qwen-plus-2025-07-28) |
 | 资源详情 | 评分不持久化 | getInteractions API 增加 myRating 字段，InteractionService 新增 getMyRating() |
 | 资源详情 | 点赞/收藏无反馈 | handleLike/handleFavorite/handleCommentLike 添加 toast.show() |
 | 发布 | 封面图片丢失 | Controller 增加 @RequestPart coverImage，FileService 新增 storeCoverImage() |

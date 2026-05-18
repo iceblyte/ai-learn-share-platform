@@ -5,13 +5,13 @@
   请调用 `sperpowers` 和 `ui-ux-pro-max` 技能（skills），严格按照底部的【执行工作流】一步步完成文档输出、代码编写和测试。
   
   ## 2. 项目背景
-  构建一个面向大学生的学习资源共享社区。用户可以上传、浏览笔记、视频、电子书等资源。平台需根据用户兴趣标签和历史行为，利用大模型（兼容 Gemini API）和推荐算法实现内容推荐及智能搜索。
+  构建一个面向大学生的学习资源共享社区。用户可以上传、浏览笔记、视频、电子书等资源。平台需根据用户兴趣标签和历史行为，利用大模型（阿里云百炼 Qwen）和推荐算法实现内容推荐及智能搜索。
   
   ## 3. 技术栈要求
   - **前端**：Vue 3 + TypeScript + Tailwind CSS
   - **后端**：Spring Boot (Java)
   - **数据库**：MySQL + Redis
-  - **AI 对接**：Spring AI (Google GenAI Starter)，支持多模型切换
+  - **AI 对接**：Spring AI (阿里云百炼 Qwen)，支持多模型切换
   - **测试**：基于 Python+Pytest/Postman 的接口测试，Playwright/Selenium 的 UI 测试
   
   ## 4. 核心功能需求

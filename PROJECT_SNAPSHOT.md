@@ -8,7 +8,7 @@
 
 ### 1.1 核心业务目标
 
-构建面向大学生的学习资源共享社区，利用 AI 技术（Spring AI + Google GenAI）实现：
+构建面向大学生的学习资源共享社区，利用 AI 技术（Spring AI + 阿里云百炼 Qwen）实现：
 
 | 目标 | 说明 |
 |------|------|
@@ -195,7 +195,7 @@ AI个性化学习资源分享平台/
 | 混合推荐 (标签0.6 + CF0.4) | ✅ | `RecommendationService` mergedScores |
 | AI 推荐理由生成 + 缓存 (6h) | ✅ | `AiService.generateRecommendReason()` |
 | 推荐结果 Redis 缓存 (30min) | ✅ | `RecommendationService` + Redis `recommend:user:{id}` |
-| Spring AI ChatClient 调用 | ✅ | `AiService.callGemini()` (Spring AI Google GenAI) |
+| Spring AI ChatClient 调用 | ✅ | `AiService.callGemini()` (Spring AI 阿里云百炼 Qwen) |
 
 ### 3.4 社区互动
 
@@ -385,7 +385,7 @@ AiService.java (核心 AI 服务 + Redis 缓存)
     └── 缓存未命中 → callGemini(prompt) → 写入缓存 (6h TTL)
 ```
 
-**调用方式**: Spring AI ChatClient 调用 Google GenAI (gemini-pro)
+**调用方式**: Spring AI ChatClient 调用阿里云百炼 Qwen (qwen-plus-2025-07-28)
 **降级策略**: Redis 不可用时跳过缓存直接调用 API；AI 调用失败时返回默认推荐理由
 
 ### 6.4 推荐算法 (RecommendationService - 混合推荐)
@@ -478,7 +478,7 @@ beforeEach:
 DB_PASSWORD=root            # MySQL 密码
 REDIS_HOST=localhost        # Redis 地址 (可选)
 JWT_SECRET=<32+字符密钥>     # JWT 签名密钥
-AI_API_KEY=<Gemini API Key> # AI 服务密钥 (Spring AI Google GenAI)
+AI_API_KEY=<DashScope API Key> # AI 服务密钥 (Spring AI 阿里云百炼 Qwen)
 STORAGE_TYPE=local          # 文件存储类型 (local 或 oss)
 STORAGE_PATH=./uploads      # 本地存储路径
 OSS_ENDPOINT=oss-cn-beijing.aliyuncs.com  # 阿里云 OSS Endpoint
@@ -595,7 +595,7 @@ af42c1b feat: init AI personalized learning resource sharing platform
 | JJWT | 0.12.5 | JWT 库 |
 | Hutool | 5.8.26 | Java 工具库 |
 | SpringDoc | 2.4.0 | Swagger UI |
-| Spring AI | 1.1.6 | AI 框架 (Google GenAI Starter) |
+| Spring AI | 1.1.6 | AI 框架 (阿里云百炼 Qwen, DashScope OpenAI) |
 | Aliyun OSS SDK | 3.17.4 | 阿里云对象存储 |
 | Lettuce | 6.3.2 | Redis 客户端 |
 | Vue | 3.4.21 | 前端框架 |

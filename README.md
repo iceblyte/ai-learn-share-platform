@@ -7,7 +7,7 @@
 - **前端**: Vue 3 + TypeScript + Tailwind CSS + marked (Markdown 渲染)
 - **后端**: Spring Boot 3 (Java 17) + MyBatis-Plus
 - **数据库**: MySQL 8.0 + Redis
-- **AI**: Spring AI 1.1.6 (Google GenAI)
+- **AI**: Spring AI 1.1.6 (阿里云百炼 Qwen)
 - **文件存储**: 阿里云 OSS (生产) / 本地文件系统 (开发回退)
 - **构建**: Vite (前端) / Maven (后端)
 
@@ -43,7 +43,7 @@ cd backend
 $env:DB_PASSWORD = "your_mysql_password"
 $env:REDIS_HOST = "localhost"
 $env:JWT_SECRET = "your_jwt_secret_key_at_least_32_chars"
-$env:AI_API_KEY = "your_gemini_api_key"
+$env:AI_API_KEY = "your_dashscope_api_key"
 
 # 阿里云 OSS 配置 (文件存储，密钥填写在 application-local.yml)
 $env:STORAGE_TYPE = "oss"   # 或 "local" 使用本地存储
@@ -126,7 +126,7 @@ AI个性化学习资源分享平台/
 
 1. **用户与权限管理**: JWT + RefreshToken 认证, Spring Security RBAC (USER/PUBLISHER/ADMIN), 头像上传 (阿里云 OSS)
 2. **资源管理**: 发布、浏览、搜索学习资源 (文件上传/外部链接), 分类树, 标签系统, Markdown 渲染 (marked)
-3. **AI 智能摘要**: 基于 Spring AI (Google GenAI) 自动生成约100字的精准资源摘要 (Redis 缓存 24h)
+3. **AI 智能摘要**: 基于 Spring AI (阿里云百炼 Qwen) 自动生成约100字的精准资源摘要 (Redis 缓存 24h)
 4. **自然语言搜索**: 支持自然语言查询，AI 解析为结构化搜索 (NL2API, 需登录)
 5. **个性化推荐**: 混合推荐算法 (标签权重 0.6 + 协同过滤 0.4), AI 生成推荐理由, Redis 缓存 30min
 6. **社区互动**: 点赞/收藏状态高亮、星级评分悬停预览、分享链接复制、多级评论点赞
