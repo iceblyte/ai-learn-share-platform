@@ -208,6 +208,13 @@
 - [x] 6.5.12 个人中心修复（头像显示、删除弹窗 AppModal）
 - [x] 6.5.13 发布资源修复（Markdown预览marked、草稿localStorage、封面图片FormData、编辑模式?edit=id、PUT更新接口）
 - [x] 6.5.14 管理后台修复（仪表盘todayActive、审核确认弹窗、用户分页、分类/标签删除弹窗）
+- [x] 6.5.15 AI功能修复（模型名 gemini-pro → gemini-2.0-flash）
+- [x] 6.5.16 评分持久化（getInteractions API 增加 myRating 字段）
+- [x] 6.5.17 点赞/收藏/评论操作 Toast 提示
+- [x] 6.5.18 资源封面图片上传（Controller 接收 coverImage，FileService.storeCoverImage()）
+- [x] 6.5.19 草稿功能（后端 DRAFT 状态持久化，Profile 草稿箱 tab，Publish 改用后端 API）
+- [x] 6.5.20 Markdown链接样式（@tailwindcss/typography 插件，链接 target=_blank）
+- [x] 6.5.21 首页分类内联筛选（替代跳转搜索页）
 
 ---
 
