@@ -137,7 +137,7 @@ AI个性化学习资源分享平台/
 │
 ├── tests/                            # 测试脚本
 │   ├── test_cases.md                 # 测试用例表
-│   ├── test_report_template.md       # 测试报告模板
+│   ├── test_report.md                # 测试报告
 │   ├── test_api.py                   # API 接口测试 (Python + Pytest)
 │   └── test_ui.py                    # UI 自动化测试 (Playwright)
 │
@@ -151,8 +151,7 @@ AI个性化学习资源分享平台/
 ├── .gemini/                          # Gemini CLI 配置
 ├── .trae/                            # Trae 配置
 ├── README.md                         # 项目说明 + 启动指南
-├── goal.md                           # 项目总目标定义
-├── prompt.md                         # AI 开发提示词模板
+├── docs/archive/                     # 过程文档归档
 └── AI_Dev_Log.md                     # AI 辅助开发日志
 ```
 
