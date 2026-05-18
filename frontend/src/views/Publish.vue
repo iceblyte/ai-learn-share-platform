@@ -122,7 +122,11 @@ function insertLink() { insertMarkdown('[', '](url)') }
 
 function renderMarkdown(text: string): string {
   if (!text) return ''
-  return marked.parse(text, { breaks: true }) as string
+  const renderer = new marked.Renderer()
+  renderer.link = function ({ href, text }: { href: string; text: string }) {
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`
+  }
+  return marked.parse(text, { breaks: true, renderer }) as string
 }
 
 function validateFile(file: File): string | null {
