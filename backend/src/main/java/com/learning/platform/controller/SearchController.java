@@ -58,7 +58,7 @@ public class SearchController {
             parsed = aiService.parseNaturalLanguageQuery(request.getQuery());
         } catch (Exception e) {
             log.warn("AI parse failed, falling back to keyword search: {}", e.getMessage());
-            PageResult<Resource> fallback = searchService.search(request.getQuery(), null, "relevance", 1, 10, userId);
+            PageResult<Resource> fallback = searchService.search(request.getQuery(), null, null, null, "relevance", 1, 10, userId);
             Map<String, Object> intent = Map.of("keywords", List.of(request.getQuery()), "sortBy", "relevance");
             return Result.success(new NlSearchResult(intent, fallback.getRecords(), fallback.getTotal()));
         }
@@ -68,7 +68,7 @@ public class SearchController {
             intent = objectMapper.readValue(parsed, new TypeReference<>() {});
         } catch (Exception e) {
             log.warn("Failed to parse AI JSON: {}", e.getMessage());
-            PageResult<Resource> fallback = searchService.search(request.getQuery(), null, "relevance", 1, 10, userId);
+            PageResult<Resource> fallback = searchService.search(request.getQuery(), null, null, null, "relevance", 1, 10, userId);
             Map<String, Object> fallbackIntent = Map.of("keywords", List.of(request.getQuery()), "sortBy", "relevance");
             return Result.success(new NlSearchResult(fallbackIntent, fallback.getRecords(), fallback.getTotal()));
         }

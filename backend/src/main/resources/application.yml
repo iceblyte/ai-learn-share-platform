@@ -84,6 +84,12 @@ storage:
   local:
     path: ${STORAGE_PATH:./uploads}
     url-prefix: /files
+  oss:
+    endpoint: ${OSS_ENDPOINT:oss-cn-beijing.aliyuncs.com}
+    bucket: ${OSS_BUCKET:ai-learn-share-platform}
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+    url-prefix: ${OSS_URL_PREFIX:https://ai-learn-share-platform.oss-cn-beijing.aliyuncs.com}
   max-size: 524288000  # 500MB
 
 # Springdoc
