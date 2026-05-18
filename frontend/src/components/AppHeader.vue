@@ -68,8 +68,9 @@ function handleLogout() {
                 @click="showUserMenu = !showUserMenu"
                 class="flex items-center gap-2"
               >
-                <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                  <span class="text-sm font-medium text-primary-600">
+                <div class="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden">
+                  <img v-if="userStore.userInfo?.avatarUrl || userStore.userInfo?.avatar" :src="userStore.userInfo.avatarUrl || userStore.userInfo.avatar" class="w-full h-full object-cover" />
+                  <span v-else class="text-sm font-medium text-primary-600">
                     {{ userStore.userInfo?.nickname?.[0] || userStore.userInfo?.username?.[0] || '用' }}
                   </span>
                 </div>

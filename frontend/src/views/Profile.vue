@@ -155,7 +155,7 @@ function getGradient(index: number) {
           <!-- Avatar -->
           <div class="text-center">
             <div class="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto overflow-hidden">
-              <img v-if="userStore.userInfo.avatar" :src="userStore.userInfo.avatar" class="w-full h-full object-cover" />
+              <img v-if="userStore.userInfo.avatarUrl || userStore.userInfo.avatar" :src="userStore.userInfo.avatarUrl || userStore.userInfo.avatar" class="w-full h-full object-cover" />
               <span v-else class="text-2xl font-bold text-primary-600">
                 {{ userStore.userInfo.nickname?.[0] || userStore.userInfo.username[0] }}
               </span>
@@ -472,7 +472,7 @@ function getGradient(index: number) {
                 <div class="flex items-center gap-4">
                   <div class="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                     <img v-if="avatarPreview" :src="avatarPreview" class="w-full h-full object-cover" />
-                    <img v-else-if="userStore.userInfo.avatar" :src="userStore.userInfo.avatar" class="w-full h-full object-cover" />
+                    <img v-else-if="userStore.userInfo.avatarUrl || userStore.userInfo.avatar" :src="userStore.userInfo.avatarUrl || userStore.userInfo.avatar" class="w-full h-full object-cover" />
                     <span v-else class="text-2xl font-bold text-primary-600">
                       {{ userStore.userInfo.nickname?.[0] || userStore.userInfo.username[0] }}
                     </span>
