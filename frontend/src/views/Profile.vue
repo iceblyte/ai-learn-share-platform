@@ -12,6 +12,7 @@ const router = useRouter()
 const activeTab = ref('published')
 const favorites = ref<Resource[]>([])
 const myResources = ref<Resource[]>([])
+const drafts = ref<Resource[]>([])
 const stats = ref({ publishedCount: 0, totalViews: 0, totalLikes: 0, avgRating: 0, totalFavorites: 0 })
 const loading = ref(false)
 
@@ -94,6 +95,21 @@ async function loadFavorites() {
   } catch {} finally {
     loading.value = false
   }
+}
+
+async function loadDrafts() {
+  activeTab.value = 'drafts'
+  loading.value = true
+  try {
+    const res = await userApi.getMyResources('DRAFT')
+    drafts.value = res.data.data || []
+  } catch {} finally {
+    loading.value = false
+  }
+}
+
+async function publishDraft(id: number) {
+  router.push(`/publish?edit=${id}`)
 }
 
 async function loadStats() {
@@ -215,6 +231,20 @@ function getGradient(index: number) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
               </svg>
               我的收藏
+            </button>
+            <button
+              @click="editMode = false; loadDrafts()"
+              :class="[
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm w-full transition-colors',
+                activeTab === 'drafts' && !editMode
+                  ? 'bg-primary-50 text-primary-600 font-medium'
+                  : 'text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              草稿箱
             </button>
             <button
               @click="activeTab = 'stats'; editMode = false"
@@ -408,6 +438,46 @@ function getGradient(index: number) {
                     {{ res.likeCount }}
                   </span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Drafts List -->
+        <div v-else-if="activeTab === 'drafts' && !editMode" class="space-y-3">
+          <div v-if="drafts.length === 0" class="text-center py-12 text-slate-400">
+            <p class="text-lg mb-2">暂无草稿</p>
+            <p class="text-sm">发布资源时点击"存为草稿"可保存未完成的内容</p>
+          </div>
+          <div
+            v-for="(res, index) in drafts"
+            :key="res.id"
+            class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow"
+          >
+            <div class="flex items-start gap-4">
+              <div :class="['w-16 h-16 bg-gradient-to-br rounded-lg flex items-center justify-center flex-shrink-0', getGradient(index + 4)]">
+                <svg class="w-8 h-8 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-medium">{{ res.title || '无标题草稿' }}</h3>
+                <p class="text-xs text-slate-500 mt-1">保存于 {{ res.updatedAt?.split('T')[0] || res.createdAt?.split('T')[0] }}</p>
+                <p v-if="res.description" class="text-xs text-slate-400 mt-1 line-clamp-2">{{ res.description }}</p>
+              </div>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button
+                  @click="publishDraft(res.id)"
+                  class="px-3 py-1.5 bg-primary-500 text-white text-xs rounded-lg hover:bg-primary-600 transition-colors"
+                >
+                  编辑发布
+                </button>
+                <button
+                  @click="confirmDelete(res.id)"
+                  class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
               </div>
             </div>
           </div>

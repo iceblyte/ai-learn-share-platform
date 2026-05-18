@@ -237,17 +237,43 @@ function handleDraft() {
   showDraftModal.value = true
 }
 
-function confirmDraft() {
+async function confirmDraft() {
   showDraftModal.value = false
-  // Save draft to localStorage
-  const draftKey = isEdit.value ? `draft_edit_${editId.value}` : 'draft_new'
-  localStorage.setItem(draftKey, JSON.stringify({
-    ...form.value,
-    coverPreview: coverPreview.value,
-    savedAt: new Date().toISOString(),
-  }))
+  loading.value = true
   error.value = ''
-  router.push('/profile')
+  try {
+    const formData = new FormData()
+    const data: any = {
+      title: form.value.title || '无标题草稿',
+      categoryId: form.value.categoryId,
+      tags: form.value.tags,
+      description: form.value.description || '',
+      resourceType: form.value.resourceType,
+      externalUrl: form.value.externalUrl || undefined,
+      status: 'DRAFT',
+    }
+    if (existingCoverUrl.value) {
+      data.coverImageUrl = existingCoverUrl.value
+    }
+    formData.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }))
+    if (form.value.resourceType === 'FILE' && selectedFiles.value.length > 0) {
+      selectedFiles.value.forEach(file => formData.append('files', file))
+    }
+    if (coverFile.value) {
+      formData.append('coverImage', coverFile.value)
+    }
+
+    if (isEdit.value && editId.value) {
+      await resourceApi.update(editId.value, formData)
+    } else {
+      await resourceApi.create(formData)
+    }
+    router.push('/profile')
+  } catch (e: any) {
+    error.value = e.message || '保存草稿失败'
+  } finally {
+    loading.value = false
+  }
 }
 
 function handlePreview() {

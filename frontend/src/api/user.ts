@@ -11,8 +11,8 @@ export const userApi = {
   getFavorites() {
     return request.get<ApiResponse<Resource[]>>('/users/favorites')
   },
-  getMyResources() {
-    return request.get<ApiResponse<Resource[]>>('/users/resources')
+  getMyResources(status?: string) {
+    return request.get<ApiResponse<Resource[]>>('/users/resources', { params: { status } })
   },
   getStatistics() {
     return request.get<ApiResponse<{

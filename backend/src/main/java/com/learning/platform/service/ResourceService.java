@@ -86,10 +86,30 @@ public class ResourceService {
 
     @Transactional
     public Resource create(ResourceCreateRequest request, MultipartFile[] files, MultipartFile coverImage, Long publisherId) {
-        // Validate category
-        Category category = categoryMapper.selectById(request.getCategoryId());
-        if (category == null) {
-            throw new BusinessException("分类不存在");
+        boolean isDraft = "DRAFT".equalsIgnoreCase(request.getStatus());
+
+        // Validate for published resources (skip for drafts)
+        if (!isDraft) {
+            if (request.getTitle() == null || request.getTitle().isBlank()) {
+                throw new BusinessException("标题不能为空");
+            }
+            if (request.getCategoryId() == null) {
+                throw new BusinessException("分类不能为空");
+            }
+            if (request.getDescription() == null || request.getDescription().isBlank()) {
+                throw new BusinessException("描述不能为空");
+            }
+            if (request.getResourceType() == null || request.getResourceType().isBlank()) {
+                throw new BusinessException("资源类型不能为空");
+            }
+        }
+
+        // Validate category if provided
+        if (request.getCategoryId() != null) {
+            Category category = categoryMapper.selectById(request.getCategoryId());
+            if (category == null) {
+                throw new BusinessException("分类不存在");
+            }
         }
 
         Resource resource = new Resource();
@@ -111,7 +131,7 @@ public class ResourceService {
         resource.setAvgRating(BigDecimal.ZERO);
         resource.setRatingCount(0);
         resource.setHotScore(0);
-        resource.setStatus("PUBLISHED"); // Can change to PENDING if review needed
+        resource.setStatus(isDraft ? "DRAFT" : "PUBLISHED");
         resourceMapper.insert(resource);
 
         // Handle tags

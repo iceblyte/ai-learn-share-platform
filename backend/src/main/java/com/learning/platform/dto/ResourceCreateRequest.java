@@ -29,4 +29,6 @@ public class ResourceCreateRequest {
     private String externalUrl;
 
     private String coverImageUrl;
+
+    private String status; // null or "PUBLISHED" = publish, "DRAFT" = save as draft
 }
