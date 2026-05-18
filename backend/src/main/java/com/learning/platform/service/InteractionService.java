@@ -155,4 +155,12 @@ public class InteractionService {
                         .eq("user_id", userId)
                         .eq("resource_id", resourceId)) > 0;
     }
+
+    public int getMyRating(Long userId, Long resourceId) {
+        Rating rating = ratingMapper.selectOne(
+                new QueryWrapper<Rating>()
+                        .eq("user_id", userId)
+                        .eq("resource_id", resourceId));
+        return rating != null ? rating.getScore() : 0;
+    }
 }

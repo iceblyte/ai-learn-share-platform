@@ -29,6 +29,7 @@ public class InteractionController {
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("liked", interactionService.isLiked(userId, id, "RESOURCE"));
         result.put("favorited", interactionService.isFavorited(userId, id));
+        result.put("myRating", interactionService.getMyRating(userId, id));
         return Result.success(result);
     }
 

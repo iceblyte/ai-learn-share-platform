@@ -44,6 +44,7 @@ onMounted(async () => {
         const intRes = await resourceApi.getInteractions(id)
         liked.value = intRes.data.data.liked
         favorited.value = intRes.data.data.favorited
+        myRating.value = intRes.data.data.myRating || 0
       } catch {}
     }
 
@@ -80,6 +81,7 @@ async function handleLike() {
   if (resource.value) {
     resource.value.likeCount = res.data.data.likeCount
   }
+  toast.value?.show(liked.value ? '点赞成功' : '已取消点赞', 'success')
 }
 
 async function handleFavorite() {
@@ -92,6 +94,7 @@ async function handleFavorite() {
   if (resource.value) {
     resource.value.favoriteCount = res.data.data.favoriteCount
   }
+  toast.value?.show(favorited.value ? '收藏成功' : '已取消收藏', 'success')
 }
 
 async function handleRate(score: number) {
@@ -135,6 +138,7 @@ async function handleCommentLike(commentId: number) {
   if (comment) {
     comment.likeCount = res.data.data.likeCount
   }
+  toast.value?.show(res.data.data.liked ? '点赞成功' : '已取消点赞', 'success')
 }
 
 async function submitComment() {
