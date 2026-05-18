@@ -54,7 +54,7 @@ spring:
         api-key: ${AI_API_KEY:your-gemini-api-key}
         chat:
           options:
-            model: ${AI_MODEL:gemini-pro}
+            model: ${AI_MODEL:gemini-2.0-flash}
 
 # MyBatis-Plus
 mybatis-plus:
