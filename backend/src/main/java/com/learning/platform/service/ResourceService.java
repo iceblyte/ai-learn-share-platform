@@ -10,8 +10,6 @@ import com.learning.platform.entity.*;
 import com.learning.platform.mapper.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -34,6 +32,7 @@ public class ResourceService {
     private final FileService fileService;
     private final ResourceFileMapper resourceFileMapper;
     private final AiService aiService;
+    private final ResourceSummaryAsyncService resourceSummaryAsyncService;
 
     public PageResult<Resource> list(String keyword, Long categoryId, List<String> tags,
                                      String sortBy, BigDecimal minRating, int page, int size) {
@@ -117,6 +116,7 @@ public class ResourceService {
         resource.setCategoryId(request.getCategoryId());
         resource.setPublisherId(publisherId);
         resource.setDescription(request.getDescription());
+        resource.setAiSummary(aiService.generateLocalSummary(request.getTitle(), request.getDescription()));
         resource.setResourceType(request.getResourceType());
         resource.setExternalUrl(request.getExternalUrl());
         resource.setCoverImageUrl(request.getCoverImageUrl());
@@ -169,25 +169,11 @@ public class ResourceService {
         }
 
         // Async AI summary generation
-        if (request.getDescription() != null && request.getDescription().length() > 100) {
-            generateSummaryAsync(resource.getId(), resource.getTitle(), request.getDescription());
+        if (request.getDescription() != null && !request.getDescription().isBlank()) {
+            resourceSummaryAsyncService.refreshSummary(resource.getId(), resource.getTitle(), request.getDescription());
         }
 
         return enrichResource(resource);
-    }
-
-    @Async
-    public void generateSummaryAsync(Long resourceId, String title, String description) {
-        try {
-            String summary = aiService.generateSummary(title, description);
-            Resource resource = resourceMapper.selectById(resourceId);
-            if (resource != null && summary != null) {
-                resource.setAiSummary(summary);
-                resourceMapper.updateById(resource);
-            }
-        } catch (Exception e) {
-            log.error("Failed to generate AI summary for resource {}: {}", resourceId, e.getMessage());
-        }
     }
 
     @Transactional
@@ -215,6 +201,7 @@ public class ResourceService {
         resource.setTitle(request.getTitle());
         resource.setCategoryId(request.getCategoryId());
         resource.setDescription(request.getDescription());
+        resource.setAiSummary(aiService.generateLocalSummary(request.getTitle(), request.getDescription()));
         resource.setResourceType(request.getResourceType());
         resource.setExternalUrl(request.getExternalUrl());
         if (request.getCoverImageUrl() != null) {
@@ -263,8 +250,8 @@ public class ResourceService {
         }
 
         // Re-generate AI summary if description changed
-        if (request.getDescription() != null && request.getDescription().length() > 100) {
-            generateSummaryAsync(resource.getId(), resource.getTitle(), request.getDescription());
+        if (request.getDescription() != null && !request.getDescription().isBlank()) {
+            resourceSummaryAsyncService.refreshSummary(resource.getId(), resource.getTitle(), request.getDescription());
         }
 
         return enrichResource(resource);
