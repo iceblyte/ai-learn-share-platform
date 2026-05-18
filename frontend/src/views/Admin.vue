@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 
-const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 
