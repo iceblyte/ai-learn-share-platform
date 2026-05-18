@@ -44,6 +44,8 @@ $env:DB_PASSWORD = "your_mysql_password"
 $env:REDIS_HOST = "localhost"
 $env:JWT_SECRET = "your_jwt_secret_key_at_least_32_chars"
 $env:AI_API_KEY = "your_dashscope_api_key"
+$env:AI_CONNECT_TIMEOUT_MS = "3000"
+$env:AI_READ_TIMEOUT_MS = "8000"
 
 # 阿里云 OSS 配置 (文件存储，密钥填写在 application-local.yml)
 $env:STORAGE_TYPE = "oss"   # 或 "local" 使用本地存储
@@ -114,11 +116,9 @@ AI个性化学习资源分享平台/
 │   ├── seed.sql               # 测试种子数据 (可选, 支持重复执行)
 │   └── seed_images.sql        # 更新种子数据为在线图片 URL (可选)
 │
-├── openspec/                   # 项目文档
-│   ├── proposal.md            # PRD 产品需求文档
-│   ├── design.md              # 系统设计文档
-│   └── tasks.md               # 开发任务拆解 (Phase 1-6 已完成, Phase 7 待完成)
-│
+├── problem4-plan.md            # AI 搜索/推荐问题修复计划
+├── PROJECT_SNAPSHOT.md         # 项目快照
+├── AI_Dev_Log.md               # AI 开发日志
 └── README.md
 ```
 
@@ -126,19 +126,32 @@ AI个性化学习资源分享平台/
 
 1. **用户与权限管理**: JWT + RefreshToken 认证, Spring Security RBAC (USER/PUBLISHER/ADMIN), 头像上传 (阿里云 OSS)
 2. **资源管理**: 发布、浏览、搜索学习资源 (文件上传/外部链接), 分类树, 标签系统, Markdown 渲染 (marked)
-3. **AI 智能摘要**: 基于 Spring AI (阿里云百炼 Qwen) 自动生成约100字的精准资源摘要 (Redis 缓存 24h)
-4. **自然语言搜索**: 支持自然语言查询，AI 解析为结构化搜索 (NL2API, 需登录)
-5. **个性化推荐**: 混合推荐算法 (标签权重 0.6 + 协同过滤 0.4), AI 生成推荐理由, Redis 缓存 30min
-6. **社区互动**: 点赞/收藏状态高亮、星级评分悬停预览、分享链接复制、多级评论点赞
-7. **管理后台**: 用户管理 (分页+角色修改)、资源审核 (确认弹窗+查看详情)、分类/标签 CRUD、平台统计仪表盘
-8. **文件存储**: 阿里云 OSS (生产环境) / 本地文件系统 (开发回退), 通过 `storage.type` 配置切换
-9. **Redis 缓存策略**: AI 响应缓存 + 推荐缓存 + 搜索历史 + Token 黑名单, 所有 Redis 操作均优雅降级
+3. **AI 智能摘要**: 基于阿里云百炼 Qwen 自动生成约100字摘要，支持 Redis 缓存 24h、HTTP 超时和未配置密钥快速降级
+4. **自然语言搜索**: 支持自然语言查询，AI 解析优先，本地规则兜底并在空结果时自动放宽过严筛选
+5. **个性化推荐**: 混合推荐算法 (标签权重 0.6 + 协同过滤 0.4)，推荐接口返回分页结构，AI 推荐理由失败时使用本地可解释理由兜底
+6. **AI 悬浮聊天窗**: 全局可拖动聊天按钮与悬浮窗，支持流式输出、页面上下文透传和失败重试
+7. **社区互动**: 点赞/收藏状态高亮、星级评分悬停预览、分享链接复制、多级评论点赞，评论提交与回复具备明确错误提示
+8. **管理后台**: 用户管理 (分页+角色修改)、资源审核 (确认弹窗+查看详情)、分类/标签 CRUD、平台统计仪表盘
+9. **文件存储**: 阿里云 OSS (生产环境) / 本地文件系统 (开发回退), 通过 `storage.type` 配置切换
+10. **Redis 缓存策略**: AI 响应缓存 + 推荐缓存 + 搜索历史 + Token 黑名单, 所有 Redis 操作均优雅降级
 
 ## API 接口
 
-详见 [design.md](openspec/design.md) 中的 RESTful API 设计部分。
-
 启动后端后可访问 Swagger 文档: http://localhost:8080/swagger-ui.html
+
+AI 相关接口：
+
+- `POST /api/v1/ai/summary`: 生成或刷新资源摘要。
+- `POST /api/v1/search/nl`: 自然语言搜索，返回解析意图、结果列表和总数。
+- `GET /api/v1/ai/recommendations?page=1&size=10`: 获取分页个性化推荐。
+- `POST /api/v1/ai/recommendations/reasons`: 批量生成推荐理由，AI 不可用时返回本地理由。
+- `POST /api/v1/ai/chat/stream`: AI 聊天流式输出接口，前端悬浮聊天窗使用。
+
+## 运行时说明
+
+- 如果 DashScope 账号对当前 `AI_MODEL` 没有额度或权限，聊天接口会返回明确失败提示，不再伪装为 AI 已回答。
+- 推荐、摘要、搜索都带本地降级路径；聊天功能会优先等待真实 AI 回复，并按配置进行重试。
+- 若历史种子数据中的点赞/收藏/评论统计与交互表不一致，请执行 `db/fix_interaction_counters_20260519.sql` 对齐计数。
 
 ## 许可证
 

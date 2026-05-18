@@ -56,10 +56,11 @@ AI个性化学习资源分享平台/
 │       │   ├── Comment, LikeRecord, Favorite, Rating
 │       │   └── ResourceTag, ResourceFile
 │       ├── mapper/                   # MyBatis-Plus Mapper 接口 (10 个)
-│       ├── service/                  # 业务逻辑层 (10 个)
+│       ├── service/                  # 业务逻辑层 (11 个)
 │       │   ├── AuthService.java              # 注册/登录/JWT 签发
 │       │   ├── ResourceService.java          # 资源 CRUD + 筛选 + 全文搜索
-│       │   ├── AiService.java                # Spring AI ChatClient 调用 (摘要/NL解析/推荐理由) + Redis 缓存
+│       │   ├── AiService.java                # DashScope OpenAI 兼容调用 (摘要/NL解析/推荐理由) + Redis 缓存
+│       │   ├── ResourceSummaryAsyncService.java # 资源摘要异步刷新
 │       │   ├── SearchService.java            # 关键词搜索 + NL2API 搜索 + Redis 热搜/历史
 │       │   ├── RecommendationService.java    # 标签推荐 + 协同过滤 + 热度推荐 + Redis 缓存
 │       │   ├── InteractionService.java       # 点赞/收藏/评分
@@ -70,7 +71,7 @@ AI个性化学习资源分享平台/
 │       │   ├── AuthController                # POST /auth/login, /register, /refresh, /logout, GET /auth/me
 │       │   ├── ResourceController            # CRUD /resources + 筛选 (@PreAuthorize)
 │       │   ├── SearchController              # GET /search + POST /search/nl
-│       │   ├── AiController                  # AI 摘要/推荐接口
+│       │   ├── AiController                  # AI 摘要/推荐/聊天流接口
 │       │   ├── InteractionController         # 点赞/收藏/评分 (@PreAuthorize)
 │       │   ├── UserController                # 个人信息 + 头像上传 (@PreAuthorize)
 │       │   ├── AdminController               # 管理后台 (@PreAuthorize hasRole ADMIN)
@@ -113,6 +114,7 @@ AI个性化学习资源分享平台/
 │       ├── components/               # 公共组件
 │       │   ├── AppHeader.vue                 # 顶部导航 (Logo + 搜索 + 用户菜单)
 │       │   ├── AppFooter.vue                 # 底部
+│       │   ├── AiChatWidget.vue              # 全局 AI 悬浮聊天窗 (可拖动 + 流式输出)
 │       │   ├── AppToast.vue                  # 全局 Toast 通知 (4种类型, 自动消失)
 │       │   └── AppModal.vue                  # 通用弹窗 (Teleport, 缩放动画, 插槽)
 │       ├── router/index.ts           # 路由 (含路由守卫: requiresAuth/requiresAdmin/requiresPublisher)
@@ -187,7 +189,7 @@ AI个性化学习资源分享平台/
 |------|------|---------|
 | AI 智能摘要生成 | ✅ | `AiService.generateSummary()` |
 | 摘要 Redis 缓存 (24h TTL) | ✅ | `AiService` + Redis `ai:summary:{md5}` |
-| 自然语言搜索 (NL2API) | ✅ | `AiService.parseNaturalLanguageQuery()` → `SearchService` (需登录, 前端 Toast 提示) |
+| 自然语言搜索 (NL2API) | ✅ | `AiService.parseNaturalLanguageQuery()` + 本地规则兜底 → `SearchService` (需登录, 前端 Toast 提示) |
 | NL 搜索 Redis 缓存 (1h TTL) | ✅ | `AiService` + Redis `ai:nl:{md5}` |
 | AI 搜索意图展示 | ✅ | `Search.vue` parsedIntent |
 | 个性化推荐 (标签+协同过滤+热度) | ✅ | `RecommendationService.getRecommendations()` |
@@ -195,7 +197,9 @@ AI个性化学习资源分享平台/
 | 混合推荐 (标签0.6 + CF0.4) | ✅ | `RecommendationService` mergedScores |
 | AI 推荐理由生成 + 缓存 (6h) | ✅ | `AiService.generateRecommendReason()` |
 | 推荐结果 Redis 缓存 (30min) | ✅ | `RecommendationService` + Redis `recommend:user:{id}` |
-| Spring AI ChatClient 调用 | ✅ | `AiService.callGemini()` (Spring AI 阿里云百炼 Qwen) |
+| DashScope OpenAI 兼容调用 | ✅ | `AiService.callDashscope()` (阿里云百炼 Qwen, 可配置超时和生成参数) |
+| AI 悬浮聊天窗 | ✅ | `AiChatWidget.vue` + `POST /api/v1/ai/chat/stream` |
+| 聊天真实回复优先 + 重试 | ✅ | `AiService.streamChat()` |
 
 ### 3.4 社区互动
 
@@ -206,6 +210,8 @@ AI个性化学习资源分享平台/
 | 1-5 星评分 (含平均分更新) | ✅ | `InteractionService.java` |
 | 多级评论 (一级+回复) | ✅ | `CommentService.java` |
 | 评论列表 (嵌套回复) | ✅ | `ResourceDetail.vue` |
+| 评论失败提示与回复反馈 | ✅ | `ResourceDetail.vue` |
+| 交互计数对齐脚本 | ✅ | `db/fix_interaction_counters_20260519.sql` |
 
 ### 3.5 管理后台
 
@@ -374,19 +380,20 @@ AiService.java (核心 AI 服务 + Redis 缓存)
 │
 ├── generateSummary(title, description)
 │   ├── 缓存检查: ai:summary:{md5(title+desc)} → 命中则返回
-│   └── 缓存未命中 → callGemini(prompt) → 写入缓存 (24h TTL)
+│   └── 缓存未命中 → callDashscope(prompt) → 写入缓存 (24h TTL)
 │
 ├── parseNaturalLanguageQuery(query)
 │   ├── 缓存检查: ai:nl:{md5(query)} → 命中则返回
-│   └── 缓存未命中 → callGemini(prompt) → 写入缓存 (1h TTL)
+│   └── 缓存未命中 → callDashscope(prompt) → 写入缓存 (1h TTL)
 │
 └── generateRecommendReason(userInterests, title, desc)
     ├── 缓存检查: ai:reason:{md5(interests+title)} → 命中则返回
-    └── 缓存未命中 → callGemini(prompt) → 写入缓存 (6h TTL)
+    └── 缓存未命中 → callDashscope(prompt) → 写入缓存 (6h TTL)
 ```
 
-**调用方式**: Spring AI ChatClient 调用阿里云百炼 Qwen (qwen-plus-2025-07-28)
-**降级策略**: Redis 不可用时跳过缓存直接调用 API；AI 调用失败时返回默认推荐理由
+**调用方式**: OpenAI 兼容 HTTP 调用阿里云百炼 Qwen，默认模型由 `AI_MODEL` 配置。
+**超时配置**: `AI_CONNECT_TIMEOUT_MS` 默认 3000ms，`AI_READ_TIMEOUT_MS` 默认 8000ms。
+**降级策略**: Redis 不可用时跳过缓存；AI key 未配置、超时或调用失败时，自然语言搜索使用本地意图解析并放宽空结果筛选，推荐理由使用本地可解释文案，聊天接口返回明确失败原因。
 
 ### 6.4 推荐算法 (RecommendationService - 混合推荐)
 
@@ -414,7 +421,7 @@ AiService.java (核心 AI 服务 + Redis 缓存)
     │
     ├── 取 Top N → 按合并分数排序
     │
-    ├── 前 5 条调用 AI 生成推荐理由 (缓存 6h)
+    ├── 前 5 条调用 AI 生成推荐理由 (缓存 6h)，失败则使用本地兴趣/评分/热度理由
     │
     └── 写入 Redis 缓存 (30min TTL)
 ```
@@ -479,6 +486,10 @@ DB_PASSWORD=root            # MySQL 密码
 REDIS_HOST=localhost        # Redis 地址 (可选)
 JWT_SECRET=<32+字符密钥>     # JWT 签名密钥
 AI_API_KEY=<DashScope API Key> # AI 服务密钥 (Spring AI 阿里云百炼 Qwen)
+AI_CONNECT_TIMEOUT_MS=3000     # AI 连接超时
+AI_READ_TIMEOUT_MS=8000        # AI 读取超时
+AI_TEMPERATURE=0.2             # AI 生成温度
+AI_MAX_TOKENS=512              # AI 最大输出 token
 STORAGE_TYPE=local          # 文件存储类型 (local 或 oss)
 STORAGE_PATH=./uploads      # 本地存储路径
 OSS_ENDPOINT=oss-cn-beijing.aliyuncs.com  # 阿里云 OSS Endpoint
