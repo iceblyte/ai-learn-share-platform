@@ -106,6 +106,21 @@ public class UserController {
         return Result.success(resources);
     }
 
+    @PostMapping("/upgrade-to-publisher")
+    public Result<String> upgradeToPublisher(Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            return Result.error(404, "用户不存在");
+        }
+        if ("PUBLISHER".equals(user.getRole()) || "ADMIN".equals(user.getRole())) {
+            return Result.error(400, "您已经是发布者或管理员");
+        }
+        user.setRole("PUBLISHER");
+        userMapper.updateById(user);
+        return Result.success("已升级为发布者");
+    }
+
     @GetMapping("/statistics")
     public Result<Map<String, Object>> getStatistics(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
