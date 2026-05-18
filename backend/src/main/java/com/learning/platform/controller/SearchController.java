@@ -17,9 +17,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @RestController
@@ -46,6 +48,14 @@ public class SearchController {
         return Result.success(searchService.search(keyword, categoryId, tags, minRating, sortBy, page, size, userId));
     }
 
+    // Chinese stop words and common words to strip from fallback search
+    private static final java.util.Set<String> STOP_WORDS = java.util.Set.of(
+            "推荐", "关于", "并且", "而且", "的", "了", "是", "在", "有", "和", "与",
+            "或", "但", "最", "比较", "一些", "几个", "哪些", "什么", "怎么", "如何",
+            "前", "后", "个", "条", "篇", "份", "资源", "资料", "学习", "教程",
+            "请", "帮我", "找", "查", "搜索", "看看", "需要", "想要", "我"
+    );
+
     @PostMapping("/nl")
     public Result<NlSearchResult> nlSearch(@Valid @RequestBody NlSearchRequest request, Authentication auth) {
         Long userId = auth != null ? (Long) auth.getPrincipal() : null;
@@ -55,9 +65,10 @@ public class SearchController {
 
         String parsed = aiService.parseNaturalLanguageQuery(request.getQuery());
         if (parsed == null) {
-            log.warn("AI parse returned null (quota exhausted or unavailable), falling back to keyword search");
-            PageResult<Resource> fallback = searchService.search(request.getQuery(), null, null, null, "relevance", 1, 10, userId);
-            Map<String, Object> intent = Map.of("keywords", List.of(request.getQuery()), "sortBy", "relevance");
+            log.warn("AI parse returned null, falling back to keyword extraction");
+            List<String> extracted = extractKeywords(request.getQuery());
+            PageResult<Resource> fallback = searchService.searchByKeywords(extracted.isEmpty() ? List.of(request.getQuery()) : extracted, null, null, null, "relevance", 1, 10, userId);
+            Map<String, Object> intent = Map.of("keywords", extracted.isEmpty() ? List.of(request.getQuery()) : extracted, "sortBy", "relevance");
             return Result.success(new NlSearchResult(intent, fallback.getRecords(), fallback.getTotal()));
         }
 
@@ -66,20 +77,15 @@ public class SearchController {
             intent = objectMapper.readValue(parsed, new TypeReference<>() {});
         } catch (Exception e) {
             log.warn("Failed to parse AI JSON: {}", e.getMessage());
-            PageResult<Resource> fallback = searchService.search(request.getQuery(), null, null, null, "relevance", 1, 10, userId);
-            Map<String, Object> fallbackIntent = Map.of("keywords", List.of(request.getQuery()), "sortBy", "relevance");
+            List<String> extracted = extractKeywords(request.getQuery());
+            PageResult<Resource> fallback = searchService.searchByKeywords(extracted.isEmpty() ? List.of(request.getQuery()) : extracted, null, null, null, "relevance", 1, 10, userId);
+            Map<String, Object> fallbackIntent = Map.of("keywords", extracted.isEmpty() ? List.of(request.getQuery()) : extracted, "sortBy", "relevance");
             return Result.success(new NlSearchResult(fallbackIntent, fallback.getRecords(), fallback.getTotal()));
         }
 
         // Extract parameters from parsed intent
-        String keyword = null;
+        @SuppressWarnings("unchecked")
         List<String> keywords = (List<String>) intent.get("keywords");
-        if (keywords != null && !keywords.isEmpty()) {
-            // Use the most specific keyword (longest one) for better matching
-            keyword = keywords.stream()
-                    .max(java.util.Comparator.comparingInt(String::length))
-                    .orElse(keywords.get(0));
-        }
 
         Long categoryId = null;
         String categoryName = (String) intent.get("category");
@@ -104,8 +110,30 @@ public class SearchController {
         String sortBy = (String) intent.getOrDefault("sortBy", "relevance");
         int limit = intent.get("limit") instanceof Number ? ((Number) intent.get("limit")).intValue() : 10;
 
-        PageResult<Resource> results = searchService.search(keyword, categoryId, tags, minRating, sortBy, 1, limit, userId);
+        PageResult<Resource> results = searchService.searchByKeywords(
+                keywords != null && !keywords.isEmpty() ? keywords : List.of(request.getQuery()),
+                categoryId, tags, minRating, sortBy, 1, limit, userId);
         return Result.success(new NlSearchResult(intent, results.getRecords(), results.getTotal()));
+    }
+
+    /**
+     * Extract meaningful keywords from Chinese text by stripping stop words and punctuation.
+     * Splits on common delimiters, filters stop words, returns by length descending.
+     */
+    private List<String> extractKeywords(String text) {
+        if (text == null || text.isBlank()) return List.of();
+        // Split on punctuation, spaces, and common delimiters
+        String[] tokens = text.split("[，。！？、；：\"\"''（）【】\\s,.!?;:\"'()\\[\\]]+");
+        List<String> keywords = new ArrayList<>();
+        for (String token : tokens) {
+            String t = token.trim();
+            if (t.length() >= 2 && !STOP_WORDS.contains(t)) {
+                keywords.add(t);
+            }
+        }
+        // Sort by length descending — longer tokens are more specific
+        keywords.sort((a, b) -> Integer.compare(b.length(), a.length()));
+        return keywords;
     }
 
     @GetMapping("/hot")
