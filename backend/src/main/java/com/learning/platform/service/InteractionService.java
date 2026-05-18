@@ -30,9 +30,11 @@ public class InteractionService {
         LikeRecord existing = likeRecordMapper.selectOne(wrapper);
 
         boolean liked;
+        int delta;
         if (existing != null) {
             likeRecordMapper.deleteById(existing.getId());
             liked = false;
+            delta = -1;
         } else {
             LikeRecord record = new LikeRecord();
             record.setUserId(userId);
@@ -40,21 +42,24 @@ public class InteractionService {
             record.setTargetType(targetType);
             likeRecordMapper.insert(record);
             liked = true;
+            delta = 1;
         }
 
-        int likeCount = Math.toIntExact(likeRecordMapper.selectCount(
-                new QueryWrapper<LikeRecord>().eq("target_id", targetId).eq("target_type", targetType)));
-
         // Update count on target
+        int likeCount = 0;
         if ("RESOURCE".equals(targetType)) {
             Resource resource = resourceMapper.selectById(targetId);
             if (resource != null) {
+                int current = resource.getLikeCount() == null ? 0 : resource.getLikeCount();
+                likeCount = Math.max(0, current + delta);
                 resource.setLikeCount(likeCount);
                 resourceMapper.updateById(resource);
             }
         } else if ("COMMENT".equals(targetType)) {
             Comment comment = commentMapper.selectById(targetId);
             if (comment != null) {
+                int current = comment.getLikeCount() == null ? 0 : comment.getLikeCount();
+                likeCount = Math.max(0, current + delta);
                 comment.setLikeCount(likeCount);
                 commentMapper.updateById(comment);
             }
