@@ -13,8 +13,6 @@ const latestResources = ref<Resource[]>([])
 const recommendations = ref<Recommendation[]>([])
 const loading = ref(true)
 const activeCategory = ref<number | null>(null)
-const hotTimeFilter = ref('week')
-
 const gradients = [
   'from-blue-400 to-blue-600',
   'from-green-400 to-emerald-600',
@@ -169,42 +167,12 @@ function formatTimeAgo(dateStr: string): string {
             </svg>
             <h2 class="text-lg font-semibold">热门资源</h2>
           </div>
-          <div class="flex items-center gap-2">
-            <button
-              @click="hotTimeFilter = 'week'"
-              :class="[
-                'text-xs px-3 py-1 rounded-full transition-colors',
-                hotTimeFilter === 'week'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              ]"
-            >
-              本周
-            </button>
-            <button
-              @click="hotTimeFilter = 'month'"
-              :class="[
-                'text-xs px-3 py-1 rounded-full transition-colors',
-                hotTimeFilter === 'month'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              ]"
-            >
-              本月
-            </button>
-            <button
-              @click="hotTimeFilter = 'all'"
-              :class="[
-                'text-xs px-3 py-1 rounded-full transition-colors',
-                hotTimeFilter === 'all'
-                  ? 'bg-primary-500 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              ]"
-            >
-              全部
-            </button>
-            <a href="#" class="text-sm text-primary-500 hover:text-primary-600 ml-2">查看更多</a>
-          </div>
+          <button
+            @click="router.push({ name: 'Search', query: { sortBy: 'hot' } })"
+            class="text-sm text-primary-500 hover:text-primary-600"
+          >
+            查看更多 &rarr;
+          </button>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div
@@ -213,8 +181,9 @@ function formatTimeAgo(dateStr: string): string {
             class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
             @click="goToResource(res.id)"
           >
-            <div :class="['h-32 bg-gradient-to-br flex items-center justify-center', getGradient(index)]">
-              <svg class="w-12 h-12 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="h-32 bg-gradient-to-br flex items-center justify-center overflow-hidden" :class="getGradient(index)">
+              <img v-if="res.coverImageUrl" :src="res.coverImageUrl" :alt="res.title" class="w-full h-full object-cover" loading="lazy"/>
+              <svg v-else class="w-12 h-12 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
             </div>
@@ -263,7 +232,12 @@ function formatTimeAgo(dateStr: string): string {
       <section>
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-semibold">最新资源</h2>
-          <a href="#" class="text-sm text-primary-500 hover:text-primary-600">查看更多</a>
+          <button
+            @click="router.push({ name: 'Search', query: { sortBy: 'latest' } })"
+            class="text-sm text-primary-500 hover:text-primary-600"
+          >
+            查看更多 &rarr;
+          </button>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div
@@ -272,8 +246,9 @@ function formatTimeAgo(dateStr: string): string {
             class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
             @click="goToResource(res.id)"
           >
-            <div :class="['h-32 bg-gradient-to-br flex items-center justify-center', getGradient(index + 3)]">
-              <svg class="w-12 h-12 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="h-32 bg-gradient-to-br flex items-center justify-center overflow-hidden" :class="getGradient(index + 3)">
+              <img v-if="res.coverImageUrl" :src="res.coverImageUrl" :alt="res.title" class="w-full h-full object-cover" loading="lazy"/>
+              <svg v-else class="w-12 h-12 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
               </svg>
             </div>

@@ -27,7 +27,7 @@ function showToast(message: string, type: 'info' | 'error' | 'success' = 'info')
   setTimeout(() => { toast.value = null }, 3000)
 }
 const minRating = ref<number | null>(null)
-const selectedTypes = ref<string[]>([])
+const selectedTags = ref<string[]>([])
 const searchHistory = ref<string[]>([])
 const parsedIntent = ref<Record<string, any> | null>(null)
 
@@ -70,12 +70,14 @@ async function handleSearch() {
       const res = await searchApi.nlSearch(keyword.value)
       const data = res.data.data as any
       results.value = data.results || []
-      total.value = results.value.length
+      total.value = data.total || results.value.length
       parsedIntent.value = data.parsedIntent || null
     } else {
       const params: SearchParams = {
         keyword: keyword.value || undefined,
         categoryId: selectedCategory.value || undefined,
+        tags: selectedTags.value.length > 0 ? selectedTags.value : undefined,
+        minRating: minRating.value || undefined,
         sortBy: sortBy.value as any,
         page: page.value,
         size: 12,
@@ -98,6 +100,16 @@ async function handleSearch() {
 
 function goToResource(id: number) {
   router.push(`/resource/${id}`)
+}
+
+function toggleTag(tagName: string) {
+  const idx = selectedTags.value.indexOf(tagName)
+  if (idx >= 0) {
+    selectedTags.value.splice(idx, 1)
+  } else {
+    selectedTags.value.push(tagName)
+  }
+  handleSearch()
 }
 
 function getIntentLabel(key: string): string {
@@ -268,10 +280,10 @@ function getIntentValue(key: string, value: any): string {
               <button
                 v-for="tag in hotTags.slice(0, 10)"
                 :key="tag.id"
-                @click="keyword = tag.name; handleSearch()"
+                @click="toggleTag(tag.name)"
                 :class="[
                   'px-2 py-1 text-xs rounded-md cursor-pointer transition-colors',
-                  keyword === tag.name
+                  selectedTags.includes(tag.name)
                     ? 'bg-primary-100 text-primary-600'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 ]"
@@ -306,26 +318,7 @@ function getIntentValue(key: string, value: any): string {
             </div>
           </div>
 
-          <!-- Resource Type Filter -->
-          <div class="mb-4">
-            <h4 class="text-xs font-medium text-slate-500 mb-2">资源类型</h4>
-            <div class="space-y-1.5">
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" value="笔记" v-model="selectedTypes" @change="handleSearch()" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
-                <span>笔记</span>
-              </label>
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" value="视频" v-model="selectedTypes" @change="handleSearch()" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
-                <span>视频</span>
-              </label>
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" value="电子书" v-model="selectedTypes" @change="handleSearch()" class="w-4 h-4 text-primary-500 rounded border-slate-300 focus:ring-primary-500">
-                <span>电子书</span>
-              </label>
-            </div>
-          </div>
-
-          <button @click="selectedCategory = null; minRating = null; selectedTypes = []; sortBy = 'hot'; handleSearch()" class="w-full text-xs text-primary-500 border border-primary-300 py-1.5 rounded-lg hover:bg-primary-50">清除所有筛选</button>
+          <button @click="selectedCategory = null; minRating = null; selectedTags = []; sortBy = 'hot'; handleSearch()" class="w-full text-xs text-primary-500 border border-primary-300 py-1.5 rounded-lg hover:bg-primary-50">清除所有筛选</button>
         </div>
       </aside>
 
@@ -370,7 +363,7 @@ function getIntentValue(key: string, value: any): string {
             <span v-if="selectedCategory" class="font-medium text-slate-500">{{ categories.flatMap(c => c.children || [c]).find(c => c.id === selectedCategory)?.name || '该分类' }}</span>
           </p>
           <button
-            @click="keyword = ''; selectedCategory = null; minRating = null; sortBy = 'hot'; handleSearch()"
+            @click="keyword = ''; selectedCategory = null; minRating = null; selectedTags = []; sortBy = 'hot'; handleSearch()"
             class="px-4 py-2 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50 transition-colors"
           >
             清除所有筛选
@@ -385,8 +378,9 @@ function getIntentValue(key: string, value: any): string {
             @click="goToResource(res.id)"
           >
             <div class="flex items-start gap-4">
-              <div class="w-20 h-20 rounded-lg bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center flex-shrink-0">
-                <svg class="w-10 h-10 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-20 h-20 rounded-lg bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <img v-if="res.coverImageUrl" :src="res.coverImageUrl" :alt="res.title" class="w-full h-full object-cover"/>
+                <svg v-else class="w-10 h-10 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
               </div>
