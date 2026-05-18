@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { resourceApi } from '@/api/resource'
@@ -13,7 +13,7 @@ import type { Resource, Comment, Tag } from '@/types'
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const id = Number(route.params.id)
+const id = computed(() => Number(route.params.id))
 
 const resource = ref<Resource | null>(null)
 const comments = ref<Comment[]>([])
@@ -29,38 +29,45 @@ const relatedResources = ref<Resource[]>([])
 const hotTags = ref<Tag[]>([])
 const toast = ref<InstanceType<typeof AppToast>>()
 
-onMounted(async () => {
+async function loadResource() {
+  loading.value = true
   try {
     const [resRes, comRes] = await Promise.all([
-      resourceApi.getDetail(id),
-      commentApi.getList(id),
+      resourceApi.getDetail(id.value),
+      commentApi.getList(id.value),
     ])
     resource.value = resRes.data.data
     comments.value = comRes.data.data.records
 
-    // Fetch user interaction status if logged in
     if (userStore.isLoggedIn) {
       try {
-        const intRes = await resourceApi.getInteractions(id)
+        const intRes = await resourceApi.getInteractions(id.value)
         liked.value = intRes.data.data.liked
         favorited.value = intRes.data.data.favorited
         myRating.value = intRes.data.data.myRating || 0
       } catch {}
     }
 
-    // Load related recommendations and hot tags
     try {
       const [recRes, tagRes] = await Promise.all([
         aiApi.getRecommendations(),
         tagApi.getHot(),
       ])
-      relatedResources.value = (recRes.data.data?.records || []).map((r: any) => r.resource).filter((r: Resource) => r.id !== id).slice(0, 4)
+      relatedResources.value = normalizeRecommendations(recRes.data.data).map((r: any) => r.resource).filter((r: Resource) => r.id !== id.value).slice(0, 4)
       hotTags.value = tagRes.data.data || []
     } catch {}
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadResource)
+watch(id, loadResource)
+
+function normalizeRecommendations(data: any): any[] {
+  if (Array.isArray(data)) return data
+  return data?.records || []
+}
 
 function renderMarkdown(text: string): string {
   if (!text) return ''
@@ -80,7 +87,7 @@ async function handleLike() {
     toast.value?.show('请先登录后再操作', 'warning')
     return
   }
-  const res = await resourceApi.like(id)
+  const res = await resourceApi.like(id.value)
   liked.value = res.data.data.liked
   if (resource.value) {
     resource.value.likeCount = res.data.data.likeCount
@@ -93,7 +100,7 @@ async function handleFavorite() {
     toast.value?.show('请先登录后再操作', 'warning')
     return
   }
-  const res = await resourceApi.favorite(id)
+  const res = await resourceApi.favorite(id.value)
   favorited.value = res.data.data.favorited
   if (resource.value) {
     resource.value.favoriteCount = res.data.data.favoriteCount
@@ -107,7 +114,7 @@ async function handleRate(score: number) {
     return
   }
   myRating.value = score
-  const res = await resourceApi.rate(id, score)
+  const res = await resourceApi.rate(id.value, score)
   if (resource.value) {
     resource.value.avgRating = res.data.data.avgRating
     resource.value.ratingCount = res.data.data.ratingCount
@@ -146,20 +153,43 @@ async function handleCommentLike(commentId: number) {
 }
 
 async function submitComment() {
+  if (!userStore.isLoggedIn) {
+    toast.value?.show('请先登录后再评论', 'warning')
+    return
+  }
   if (!newComment.value.trim()) return
-  const res = await commentApi.create(id, newComment.value)
-  comments.value.unshift(res.data.data)
-  newComment.value = ''
-  if (resource.value) resource.value.commentCount++
+  try {
+    const res = await commentApi.create(id.value, newComment.value)
+    comments.value.unshift(res.data.data)
+    newComment.value = ''
+    if (resource.value) {
+      resource.value.commentCount = (resource.value.commentCount || 0) + 1
+    }
+    toast.value?.show('评论成功', 'success')
+  } catch (error: any) {
+    toast.value?.show(error?.message || '评论失败', 'error')
+  }
 }
 
 async function submitReply(parentId: number) {
+  if (!userStore.isLoggedIn) {
+    toast.value?.show('请先登录后再回复', 'warning')
+    return
+  }
   if (!replyContent.value.trim()) return
-  const res = await commentApi.create(id, replyContent.value, parentId)
-  const parent = comments.value.find(c => c.id === parentId)
-  if (parent) {
-    if (!parent.replies) parent.replies = []
-    parent.replies.push(res.data.data)
+  try {
+    const res = await commentApi.create(id.value, replyContent.value, parentId)
+    const parent = comments.value.find(c => c.id === parentId)
+    if (parent) {
+      if (!parent.replies) parent.replies = []
+      parent.replies.push(res.data.data)
+    }
+    if (resource.value) {
+      resource.value.commentCount = (resource.value.commentCount || 0) + 1
+    }
+    toast.value?.show('回复成功', 'success')
+  } catch (error: any) {
+    toast.value?.show(error?.message || '回复失败', 'error')
   }
   replyTo.value = null
   replyContent.value = ''

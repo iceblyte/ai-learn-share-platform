@@ -278,9 +278,22 @@ class TestSearch:
     def test_nl_search(self, user_token):
         """TC-AI-002: 自然语言搜索"""
         resp = requests.post(f"{BASE_URL}/search/nl",
-                             json={"query": "推荐关于Java的资源"},
+                             json={"query": "推荐关于Java并发编程且评分最高的前5个资源"},
                              headers=auth_header(user_token))
         assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert "parsedIntent" in data
+        assert "results" in data
+
+    def test_ai_recommendations(self, user_token):
+        """TC-AI-003: 个性化推荐分页列表"""
+        resp = requests.get(f"{BASE_URL}/ai/recommendations",
+                            params={"page": 1, "size": 10},
+                            headers=auth_header(user_token))
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert "records" in data
+        assert "total" in data
 
 
 # ==================== 管理员模块测试 ====================

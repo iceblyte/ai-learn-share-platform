@@ -5,24 +5,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 @Slf4j
 @Service
 public class AiService {
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final RestTemplate restTemplate;
+    private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
+    private final int readTimeoutMs;
 
     @Value("${spring.ai.openai.api-key}")
     private String apiKey;
@@ -33,10 +40,31 @@ public class AiService {
     @Value("${spring.ai.openai.chat.options.model}")
     private String model;
 
-    public AiService(RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper) {
+    @Value("${ai.client.temperature:0.2}")
+    private double temperature;
+
+    @Value("${ai.client.max-tokens:512}")
+    private int maxTokens;
+
+    @Value("${ai.chat.timeout-ms:120000}")
+    private int chatTimeoutMs;
+
+    @Value("${ai.chat.retries:2}")
+    private int chatRetries;
+
+    @Value("${ai.chat.retry-delay-ms:1500}")
+    private long chatRetryDelayMs;
+
+    public AiService(RedisTemplate<String, Object> redisTemplate,
+                     ObjectMapper objectMapper,
+                     @Value("${ai.client.connect-timeout-ms:3000}") int connectTimeoutMs,
+                     @Value("${ai.client.read-timeout-ms:8000}") int readTimeoutMs) {
         this.redisTemplate = redisTemplate;
-        this.restTemplate = new RestTemplate();
         this.objectMapper = objectMapper;
+        this.readTimeoutMs = readTimeoutMs;
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+                .build();
     }
 
     private static final String CACHE_PREFIX_SUMMARY = "ai:summary:";
@@ -56,8 +84,15 @@ public class AiService {
                 title, description.length() > 2000 ? description.substring(0, 2000) : description
         );
         String result = callDashscope(prompt);
+        if (result == null) {
+            result = buildLocalSummary(title, description);
+        }
         if (result != null) cache(cacheKey, result, SUMMARY_TTL_HOURS);
         return result;
+    }
+
+    public String generateLocalSummary(String title, String description) {
+        return buildLocalSummary(title, description);
     }
 
     public String parseNaturalLanguageQuery(String query) {
@@ -98,47 +133,62 @@ public class AiService {
         return result;
     }
 
+    public void streamChat(String message, String route, String pageTitle, Consumer<String> onChunk) {
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
+            onChunk.accept("AI 服务未配置，请先设置有效的 AI_API_KEY。");
+            return;
+        }
+
+        String systemPrompt = buildChatSystemPrompt(route, pageTitle);
+        Exception lastError = null;
+
+        for (int attempt = 1; attempt <= Math.max(chatRetries, 1); attempt++) {
+            try {
+                String answer = callDashscopeMessages(List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", message)
+                ), Math.min(Math.max(maxTokens, 384), 512), Math.max(chatTimeoutMs, 30000));
+
+                if (answer != null && !answer.isBlank()) {
+                    for (String chunk : splitForStreaming(answer, 24)) {
+                        onChunk.accept(chunk);
+                    }
+                    return;
+                }
+            } catch (Exception e) {
+                lastError = e;
+                log.error("AI stream chat attempt {} failed: {}", attempt, e.getMessage());
+            }
+
+            if (attempt < Math.max(chatRetries, 1)) {
+                try {
+                    Thread.sleep(chatRetryDelayMs);
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
+        if (lastError != null) {
+            String msg = lastError.getMessage();
+            if (msg != null && msg.contains("403")) {
+                onChunk.accept("AI 服务鉴权失败（403）。请检查 AI_API_KEY、AI_MODEL，以及 DashScope 账号是否已开通对应模型权限。");
+                return;
+            }
+            onChunk.accept("AI 服务请求失败，已进行重试，但仍未拿到模型回复。请稍后再试。");
+            return;
+        }
+        onChunk.accept("AI 服务没有返回有效内容，请稍后再试。");
+    }
+
     private String callDashscope(String prompt) {
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
+            log.warn("AI API key is not configured, skipping remote call");
+            return null;
+        }
         try {
-            String url = baseUrl + "/chat/completions";
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(apiKey);
-
-            Map<String, Object> body = Map.of(
-                    "model", model,
-                    "messages", List.of(Map.of("role", "user", "content", prompt))
-            );
-
-            HttpEntity<String> request = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
-
-            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
-                log.warn("DashScope API returned status: {}", response.getStatusCode());
-                return null;
-            }
-
-            JsonNode root = objectMapper.readTree(response.getBody());
-            JsonNode choices = root.get("choices");
-            if (choices == null || !choices.isArray() || choices.isEmpty()) {
-                log.warn("DashScope API returned no choices");
-                return null;
-            }
-
-            String content = choices.get(0).path("message").path("content").asText(null);
-            if (content == null || content.isBlank()) {
-                log.warn("DashScope API returned empty content");
-                return null;
-            }
-            // Strip markdown code block / backtick wrapper — extract JSON between first { and last }
-            content = content.trim();
-            int jsonStart = content.indexOf('{');
-            int jsonEnd = content.lastIndexOf('}');
-            if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                content = content.substring(jsonStart, jsonEnd + 1);
-            }
-            return content;
+            return callDashscopeMessages(List.of(Map.of("role", "user", "content", prompt)), maxTokens, readTimeoutMs);
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg != null && (msg.contains("429") || msg.contains("quota") || msg.contains("RESOURCE_EXHAUSTED"))) {
@@ -148,6 +198,57 @@ public class AiService {
             }
             return null;
         }
+    }
+
+    private String callDashscopeMessages(List<Map<String, Object>> messages, int requestedMaxTokens, int timeoutMs) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/chat/completions"))
+                .timeout(Duration.ofMillis(timeoutMs))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + apiKey)
+                .POST(HttpRequest.BodyPublishers.ofString(buildRequestBody(messages, requestedMaxTokens), StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() != 200 || response.body() == null || response.body().isBlank()) {
+            String body = response.body();
+            String snippet = body == null ? "" : body.replaceAll("\\s+", " ").trim();
+            if (snippet.length() > 400) {
+                snippet = snippet.substring(0, 400);
+            }
+            log.warn("DashScope API returned status: {}, body: {}", response.statusCode(), snippet);
+            throw new IllegalStateException("DashScope API returned status " + response.statusCode() + (snippet.isBlank() ? "" : (": " + snippet)));
+        }
+
+        JsonNode root = objectMapper.readTree(response.body());
+        JsonNode choices = root.path("choices");
+        if (!choices.isArray() || choices.isEmpty()) {
+            log.warn("DashScope API returned no choices");
+            return null;
+        }
+
+        String content = choices.get(0).path("message").path("content").asText(null);
+        if (content == null || content.isBlank()) {
+            log.warn("DashScope API returned empty content");
+            return null;
+        }
+
+        content = content.trim();
+        int jsonStart = content.indexOf('{');
+        int jsonEnd = content.lastIndexOf('}');
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            content = content.substring(jsonStart, jsonEnd + 1);
+        }
+        return content;
+    }
+
+    private String buildRequestBody(List<Map<String, Object>> messages, int requestedMaxTokens) throws Exception {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("messages", messages);
+        body.put("temperature", temperature);
+        body.put("max_tokens", requestedMaxTokens);
+        return objectMapper.writeValueAsString(body);
     }
 
     private String getCached(String key) {
@@ -181,4 +282,58 @@ public class AiService {
             return String.valueOf(input.hashCode());
         }
     }
+
+    private String buildLocalSummary(String title, String description) {
+        if ((title == null || title.isBlank()) && (description == null || description.isBlank())) {
+            return null;
+        }
+
+        String normalized = description == null ? "" : description
+                .replaceAll("```[\\s\\S]*?```", " ")
+                .replaceAll("`", " ")
+                .replaceAll("#{1,6}\\s*", " ")
+                .replaceAll("\\[(.*?)]\\((.*?)\\)", "$1")
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        List<String> parts = new ArrayList<>();
+        if (title != null && !title.isBlank()) {
+            parts.add(title.trim());
+        }
+        if (!normalized.isBlank()) {
+            int firstBreak = Math.min(normalized.length(), 80);
+            parts.add(normalized.substring(0, firstBreak));
+        }
+
+        String summary = String.join("：", parts);
+        summary = summary.replaceAll("\\s+", " ").trim();
+        if (summary.length() > 110) {
+            summary = summary.substring(0, 110);
+        }
+        return summary;
+    }
+
+    private List<String> splitForStreaming(String text, int chunkSize) {
+        List<String> parts = new ArrayList<>();
+        if (text == null || text.isBlank()) {
+            return parts;
+        }
+        for (int i = 0; i < text.length(); i += chunkSize) {
+            parts.add(text.substring(i, Math.min(i + chunkSize, text.length())));
+        }
+        return parts;
+    }
+
+    private String buildChatSystemPrompt(String route, String pageTitle) {
+        String currentRoute = route == null || route.isBlank() ? "/" : route;
+        String currentPageTitle = pageTitle == null || pageTitle.isBlank() ? "AI学习平台" : pageTitle;
+        return """
+                你是 AI 学习平台内的学习助手。回答要直接、清楚、简洁，优先帮助用户理解学习资源、学习路径、技术概念和平台内功能。
+                如果用户的问题与当前页面有关，可以参考页面上下文。
+                当前页面标题：%s
+                当前页面路由：%s
+                不要输出 markdown 标题，不要使用过度客套。
+                """.formatted(currentPageTitle, currentRoute);
+    }
+
 }

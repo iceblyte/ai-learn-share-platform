@@ -54,7 +54,18 @@ spring:
       api-key: ${AI_API_KEY:your-dashscope-api-key}
       chat:
         options:
-          model: ${AI_MODEL:qwen3.6-plus}
+          model: ${AI_MODEL:qwen3.6-flash}
+
+ai:
+  client:
+    connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${AI_READ_TIMEOUT_MS:20000}
+    temperature: ${AI_TEMPERATURE:0.2}
+    max-tokens: ${AI_MAX_TOKENS:512}
+  chat:
+    timeout-ms: ${AI_CHAT_TIMEOUT_MS:120000}
+    retries: ${AI_CHAT_RETRIES:2}
+    retry-delay-ms: ${AI_CHAT_RETRY_DELAY_MS:1500}
 
 # MyBatis-Plus
 mybatis-plus:

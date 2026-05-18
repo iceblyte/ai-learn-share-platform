@@ -57,7 +57,7 @@ async function clearHistory() {
 }
 
 async function handleSearch() {
-  if (!keyword.value.trim() && !selectedCategory.value) return
+  if (!keyword.value.trim() && !selectedCategory.value && selectedTags.value.length === 0) return
   loading.value = true
   parsedIntent.value = null
   try {
@@ -119,6 +119,9 @@ function getIntentLabel(key: string): string {
     sortBy: '排序',
     limit: '数量',
     tags: '标签',
+    minRating: '最低评分',
+    source: '解析来源',
+    relaxed: '已放宽条件',
   }
   return labels[key] || key
 }
@@ -134,6 +137,9 @@ function getIntentValue(key: string, value: any): string {
     return sortLabels[value] || value
   }
   if (key === 'limit') return `前 ${value} 个`
+  if (key === 'minRating' && value) return `${value} 分以上`
+  if (key === 'source') return value === 'ai+local' ? 'AI + 本地校验' : '本地校验'
+  if (key === 'relaxed') return value ? '是' : '否'
   if (Array.isArray(value)) return value.join(', ')
   return String(value)
 }
@@ -182,7 +188,7 @@ function getIntentValue(key: string, value: any): string {
           @click="isNlMode = true"
           :class="['px-4 py-2 rounded-lg text-sm font-medium transition-colors', isNlMode ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600']"
         >
-          🤖 AI 自然语言搜索
+          AI 自然语言搜索
         </button>
       </div>
       <div class="flex gap-3">
@@ -232,6 +238,7 @@ function getIntentValue(key: string, value: any): string {
         <div>
           <h3 class="text-sm font-semibold text-purple-800">AI 搜索解析</h3>
           <p class="text-xs text-purple-600 mt-1">已将你的自然语言查询解析为以下结构化条件：</p>
+          <p v-if="parsedIntent.relaxed" class="text-xs text-amber-600 mt-1">严格条件无结果时已自动放宽筛选，优先保留核心关键词和排序。</p>
           <div class="flex flex-wrap items-center gap-2 mt-2">
             <span
               v-for="(value, key) in parsedIntent"
@@ -356,6 +363,7 @@ function getIntentValue(key: string, value: any): string {
         <div v-else-if="results.length === 0" class="text-center py-20 text-slate-400">
           <svg class="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <p class="text-lg mb-2">暂无搜索结果</p>
+          <p v-if="isNlMode" class="text-sm mb-4">AI 解析和本地兜底都没有匹配到资源，可以减少限定词后再试。</p>
           <p v-if="selectedCategory || keyword" class="text-sm mb-4">
             当前筛选：
             <span v-if="keyword" class="font-medium text-slate-500">"{{ keyword }}"</span>

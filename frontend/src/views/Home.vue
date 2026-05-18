@@ -37,7 +37,7 @@ onMounted(async () => {
 
     try {
       const recRes = await aiApi.getRecommendations()
-      recommendations.value = recRes.data.data.records
+      recommendations.value = normalizeRecommendations(recRes.data.data)
     } catch {}
   } finally {
     loading.value = false
@@ -67,6 +67,11 @@ async function goToCategory(id: number | null) {
 
 function getGradient(index: number) {
   return gradients[index % gradients.length]
+}
+
+function normalizeRecommendations(data: any): Recommendation[] {
+  if (Array.isArray(data)) return data
+  return data?.records || []
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -195,8 +200,9 @@ function formatTimeAgo(dateStr: string): string {
             @click="goToResource(rec.resource.id)"
           >
             <div class="flex items-start gap-3">
-              <div class="w-16 h-16 bg-gradient-to-br from-purple-100 to-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <svg class="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-16 h-16 bg-gradient-to-br from-purple-100 to-primary-100 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <img v-if="rec.resource.coverImageUrl" :src="rec.resource.coverImageUrl" :alt="rec.resource.title" class="w-full h-full object-cover" loading="lazy"/>
+                <svg v-else class="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
                 </svg>
               </div>
