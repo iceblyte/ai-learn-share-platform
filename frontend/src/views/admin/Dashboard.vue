@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import request from '@/api/request'
 import { categoryApi, tagApi } from '@/api/category'
 import type { Category, Tag } from '@/types'
+import AppModal from '@/components/AppModal.vue'
 
 const router = useRouter()
 
@@ -20,12 +21,16 @@ const categories = ref<Category[]>([])
 const tags = ref<Tag[]>([])
 const loading = ref(true)
 
+const showAuditModal = ref(false)
+const auditTarget = ref<any>(null)
+const auditAction = ref<'APPROVE' | 'REJECT'>('APPROVE')
+
 onMounted(async () => {
   try {
     const [statsRes, pendingRes, usersRes, catRes, tagRes] = await Promise.all([
       request.get('/admin/statistics'),
-      request.get('/admin/resources?status=PENDING&size=5'),
-      request.get('/admin/users?size=4&sort=latest'),
+      request.get('/admin/resources', { params: { status: 'PENDING', size: 5 } }),
+      request.get('/admin/users', { params: { size: 4, sort: 'latest' } }),
       categoryApi.getTree(),
       tagApi.getHot(),
     ])
@@ -39,20 +44,21 @@ onMounted(async () => {
   }
 })
 
-async function approveResource(id: number) {
-  try {
-    await request.put(`/admin/resources/${id}/approve`)
-    pendingList.value = pendingList.value.filter(r => r.id !== id)
-    stats.value.pendingResources--
-  } catch {}
+function confirmAudit(item: any, action: 'APPROVE' | 'REJECT') {
+  auditTarget.value = item
+  auditAction.value = action
+  showAuditModal.value = true
 }
 
-async function rejectResource(id: number) {
+async function executeAudit() {
+  if (!auditTarget.value) return
   try {
-    await request.put(`/admin/resources/${id}/reject`)
-    pendingList.value = pendingList.value.filter(r => r.id !== id)
+    await request.put(`/admin/resources/${auditTarget.value.id}/audit`, { action: auditAction.value })
+    pendingList.value = pendingList.value.filter(r => r.id !== auditTarget.value.id)
     stats.value.pendingResources--
   } catch {}
+  showAuditModal.value = false
+  auditTarget.value = null
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -121,7 +127,7 @@ function formatTimeAgo(dateStr: string): string {
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-slate-500">今日活跃</p>
+            <p class="text-sm text-slate-500">今日新增</p>
             <p class="text-2xl font-bold mt-1">{{ stats.todayActive }}</p>
           </div>
           <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
@@ -155,8 +161,9 @@ function formatTimeAgo(dateStr: string): string {
               <p class="text-xs text-slate-400">{{ item.publisher?.nickname }} &middot; {{ formatTimeAgo(item.createdAt) }}</p>
             </div>
             <div class="flex items-center gap-1">
-              <button @click="approveResource(item.id)" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">通过</button>
-              <button @click="rejectResource(item.id)" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">拒绝</button>
+              <button @click="router.push(`/resource/${item.id}`)" class="px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded hover:bg-slate-200">查看</button>
+              <button @click="confirmAudit(item, 'APPROVE')" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">通过</button>
+              <button @click="confirmAudit(item, 'REJECT')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">拒绝</button>
             </div>
           </div>
         </div>
@@ -168,10 +175,16 @@ function formatTimeAgo(dateStr: string): string {
           <h2 class="font-semibold">最近注册用户</h2>
           <router-link to="/admin/users" class="text-sm text-primary-500 hover:text-primary-600">查看全部</router-link>
         </div>
-        <div class="divide-y divide-slate-100">
+        <div v-if="recentUsers.length === 0" class="p-8 text-center text-slate-400 text-sm">
+          暂无用户
+        </div>
+        <div v-else class="divide-y divide-slate-100">
           <div v-for="user in recentUsers" :key="user.id" class="flex items-center gap-3 p-4">
-            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <span class="text-xs font-medium text-blue-600">{{ user.nickname?.[0] || '用' }}</span>
+            <div class="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+              <img v-if="user.avatarUrl" :src="user.avatarUrl" class="w-full h-full object-cover" />
+              <div v-else class="w-full h-full bg-blue-100 flex items-center justify-center">
+                <span class="text-xs font-medium text-blue-600">{{ user.nickname?.[0] || '用' }}</span>
+              </div>
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium">{{ user.nickname || user.username }}</p>
@@ -235,4 +248,27 @@ function formatTimeAgo(dateStr: string): string {
       </div>
     </div>
   </div>
+
+  <!-- Audit Confirmation Modal -->
+  <AppModal
+    :visible="showAuditModal"
+    :title="auditAction === 'APPROVE' ? '确认通过' : '确认拒绝'"
+    @close="showAuditModal = false"
+    @confirm="executeAudit"
+  >
+    <template #body>
+      <p class="text-sm text-slate-600">
+        确定要{{ auditAction === 'APPROVE' ? '通过' : '拒绝' }}资源「{{ auditTarget?.title }}」吗？
+      </p>
+    </template>
+    <template #footer>
+      <button @click="showAuditModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+      <button
+        @click="executeAudit"
+        :class="['px-4 py-2 text-sm text-white rounded-lg', auditAction === 'APPROVE' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600']"
+      >
+        {{ auditAction === 'APPROVE' ? '确认通过' : '确认拒绝' }}
+      </button>
+    </template>
+  </AppModal>
 </template>

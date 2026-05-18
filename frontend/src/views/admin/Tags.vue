@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { tagApi } from '@/api/category'
 import type { Tag } from '@/types'
+import AppModal from '@/components/AppModal.vue'
 
 const tags = ref<Tag[]>([])
 const loading = ref(true)
@@ -9,6 +10,8 @@ const showAdd = ref(false)
 const newName = ref('')
 const editingId = ref<number | null>(null)
 const editingName = ref('')
+const showDeleteModal = ref(false)
+const deleteTargetId = ref<number | null>(null)
 
 onMounted(async () => {
   await loadTags()
@@ -43,12 +46,19 @@ async function updateTag(id: number) {
   } catch {}
 }
 
-async function deleteTag(id: number) {
-  if (!confirm('确定删除此标签？')) return
+function confirmDelete(id: number) {
+  deleteTargetId.value = id
+  showDeleteModal.value = true
+}
+
+async function executeDelete() {
+  if (!deleteTargetId.value) return
   try {
-    await tagApi.delete(id)
+    await tagApi.delete(deleteTargetId.value)
     await loadTags()
   } catch {}
+  showDeleteModal.value = false
+  deleteTargetId.value = null
 }
 
 function startEdit(tag: Tag) {
@@ -100,7 +110,7 @@ function startEdit(tag: Tag) {
             <button @click="startEdit(tag)" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-primary-500 transition-opacity">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
             </button>
-            <button @click="deleteTag(tag.id)" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
+            <button @click="confirmDelete(tag.id)" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-opacity">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
           </template>
@@ -116,4 +126,15 @@ function startEdit(tag: Tag) {
       </div>
     </div>
   </div>
+
+  <!-- Delete Confirmation Modal -->
+  <AppModal :visible="showDeleteModal" title="确认删除" @close="showDeleteModal = false" @confirm="executeDelete">
+    <template #body>
+      <p class="text-sm text-slate-600">确定删除此标签吗？此操作不可撤销。</p>
+    </template>
+    <template #footer>
+      <button @click="showDeleteModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+      <button @click="executeDelete" class="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600">确认删除</button>
+    </template>
+  </AppModal>
 </template>
