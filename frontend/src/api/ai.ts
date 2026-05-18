@@ -6,12 +6,12 @@ export const aiApi = {
     return request.post<ApiResponse<{ summary: string }>>(`/ai/summary`, { resourceId })
   },
   getRecommendations(page = 1, size = 10) {
-    return request.get<ApiResponse<PageData<Recommendation>>>('/ai/recommendations', {
+    return request.get<ApiResponse<PageData<Recommendation> | Recommendation[]>>('/ai/recommendations', {
       params: { page, size },
     })
   },
   getRecommendReasons(resourceIds: number[]) {
-    return request.post<ApiResponse<Record<number, string>>>(
+    return request.post<ApiResponse<string[]>>(
       '/ai/recommendations/reasons',
       { resourceIds }
     )

@@ -53,13 +53,20 @@ public class SearchService {
 
         QueryWrapper<Resource> wrapper = new QueryWrapper<>();
         wrapper.eq("status", "PUBLISHED");
+        wrapper.eq("is_deleted", 0);
 
         // Match ANY sub-keyword in title or description
         wrapper.and(w -> {
-            for (int i = 0; i < expanded.size(); i++) {
-                String kw = expanded.get(i);
-                if (i > 0) w.or();
-                w.and(inner -> inner.like("title", kw).or().like("description", kw));
+            boolean first = true;
+            for (String kw : expanded) {
+                if (kw == null || kw.isBlank()) {
+                    continue;
+                }
+                if (!first) {
+                    w.or();
+                }
+                w.like("title", kw).or().like("description", kw);
+                first = false;
             }
         });
 
@@ -100,6 +107,7 @@ public class SearchService {
                                        String sortBy, int page, int size, Long userId) {
         QueryWrapper<Resource> wrapper = new QueryWrapper<>();
         wrapper.eq("status", "PUBLISHED");
+        wrapper.eq("is_deleted", 0);
 
         if (keyword != null && !keyword.isBlank()) {
             wrapper.and(w -> w.like("title", keyword).or().like("description", keyword));

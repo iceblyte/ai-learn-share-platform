@@ -142,13 +142,13 @@ public class RecommendationService {
             if (i < 5) {
                 try {
                     String reason = aiService.generateRecommendReason(userInterests, r.getTitle(), r.getDescription());
-                    item.put("recommendReason", reason != null ? reason : DEFAULT_REASON);
+                    item.put("recommendReason", reason != null ? reason : buildLocalReason(userInterests, r));
                 } catch (Exception e) {
                     log.warn("Failed to generate reason for resource {}: {}", r.getId(), e.getMessage());
-                    item.put("recommendReason", DEFAULT_REASON);
+                    item.put("recommendReason", buildLocalReason(userInterests, r));
                 }
             } else {
-                item.put("recommendReason", DEFAULT_REASON);
+                item.put("recommendReason", buildLocalReason(userInterests, r));
             }
             results.add(item);
         }
@@ -257,9 +257,9 @@ public class RecommendationService {
             }
             try {
                 String reason = aiService.generateRecommendReason(userInterests, r.getTitle(), r.getDescription());
-                reasons.add(reason != null ? reason : DEFAULT_REASON);
+                reasons.add(reason != null ? reason : buildLocalReason(userInterests, r));
             } catch (Exception e) {
-                reasons.add(DEFAULT_REASON);
+                reasons.add(buildLocalReason(userInterests, r));
             }
         }
         return reasons;
@@ -279,12 +279,31 @@ public class RecommendationService {
         List<Map<String, Object>> results = new ArrayList<>();
         for (int i = 0; i < hot.size(); i++) {
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("resource", hot.get(i));
-            item.put("recommendReason", DEFAULT_REASON);
+            Resource resource = hot.get(i);
+            item.put("resource", resource);
+            item.put("recommendReason", buildLocalReason("", resource));
             item.put("algorithm", "HOT");
             item.put("score", 1.0 - (i * 0.05));
             results.add(item);
         }
         return results;
+    }
+
+    private String buildLocalReason(String userInterests, Resource resource) {
+        List<String> parts = new ArrayList<>();
+        if (userInterests != null && !userInterests.isBlank()) {
+            parts.add("匹配你关注的" + userInterests);
+        }
+        if (resource.getAvgRating() != null && resource.getAvgRating().doubleValue() >= 4.7) {
+            parts.add("评分" + String.format("%.1f", resource.getAvgRating()) + "分");
+        }
+        if (resource.getHotScore() != null && resource.getHotScore().doubleValue() > 0) {
+            parts.add("近期热度较高");
+        }
+        if (parts.isEmpty()) {
+            parts.add(DEFAULT_REASON);
+        }
+        String reason = String.join("，", parts);
+        return reason.length() > 50 ? reason.substring(0, 50) : reason;
     }
 }

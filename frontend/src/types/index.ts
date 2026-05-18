@@ -61,6 +61,7 @@ export interface Resource {
   aiSummary: string
   resourceType: 'FILE' | 'LINK'
   externalUrl: string
+  files?: ResourceFile[]
   coverImageUrl: string
   viewCount: number
   likeCount: number
@@ -72,6 +73,15 @@ export interface Resource {
   status: 'DRAFT' | 'PENDING' | 'PUBLISHED' | 'REJECTED'
   createdAt: string
   updatedAt: string
+}
+
+export interface ResourceFile {
+  id: number
+  resourceId: number
+  fileName: string
+  fileUrl: string
+  fileSize: number
+  fileType: string
 }
 
 export interface ResourceCreateRequest {
@@ -124,13 +134,9 @@ export interface SearchParams {
 }
 
 export interface NlSearchResult {
-  parsedIntent: {
-    keywords: string[]
-    sortBy: string
-    limit: number
-    filters: Record<string, any>
-  }
+  parsedIntent: Record<string, any>
   results: Resource[]
+  total: number
 }
 
 // Recommendation types
