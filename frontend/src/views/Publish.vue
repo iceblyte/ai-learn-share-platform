@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, nextTick } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { resourceApi } from '@/api/resource'
 import { categoryApi, tagApi } from '@/api/category'
+import { useUserStore } from '@/store/user'
 import type { Category, Tag } from '@/types'
+import { marked } from 'marked'
+import AppModal from '@/components/AppModal.vue'
 
 const router = useRouter()
+const route = useRoute()
+const userStore = useUserStore()
 const categories = ref<Category[]>([])
 const tags = ref<Tag[]>([])
 const loading = ref(false)
 const error = ref('')
+const isEdit = ref(false)
+const editId = ref<number | null>(null)
 
 const form = ref({
   title: '',
@@ -23,9 +30,11 @@ const form = ref({
 const selectedFiles = ref<File[]>([])
 const coverFile = ref<File | null>(null)
 const coverPreview = ref('')
+const existingCoverUrl = ref('')
 const uploadProgress = ref(0)
 const isDragging = ref(false)
 const showPreview = ref(false)
+const showDraftModal = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 const tagInput = ref('')
@@ -40,7 +49,37 @@ onMounted(async () => {
   ])
   categories.value = catRes.data.data
   tags.value = tagRes.data.data
+
+  // Edit mode: load existing resource
+  const editParam = route.query.edit
+  if (editParam) {
+    isEdit.value = true
+    editId.value = Number(editParam)
+    await loadResource(editId.value)
+  }
 })
+
+async function loadResource(id: number) {
+  loading.value = true
+  try {
+    const res = await resourceApi.getDetail(id)
+    const data = res.data.data
+    form.value.title = data.title
+    form.value.categoryId = data.category?.id || null
+    form.value.tags = data.tags?.map(t => t.name) || []
+    form.value.description = data.description
+    form.value.resourceType = data.resourceType
+    form.value.externalUrl = data.externalUrl || ''
+    if (data.coverImageUrl) {
+      existingCoverUrl.value = data.coverImageUrl
+      coverPreview.value = data.coverImageUrl
+    }
+  } catch (e: any) {
+    error.value = '加载资源失败: ' + (e.message || '未知错误')
+  } finally {
+    loading.value = false
+  }
+}
 
 function addTag(tag: string) {
   if (tag && !form.value.tags.includes(tag) && form.value.tags.length < 10) {
@@ -80,6 +119,11 @@ function insertItalic() { insertMarkdown('*', '*') }
 function insertList() { insertMarkdown('\n- ') }
 function insertCode() { insertMarkdown('`', '`') }
 function insertLink() { insertMarkdown('[', '](url)') }
+
+function renderMarkdown(text: string): string {
+  if (!text) return ''
+  return marked.parse(text, { breaks: true }) as string
+}
 
 function validateFile(file: File): string | null {
   const ext = '.' + file.name.split('.').pop()?.toLowerCase()
@@ -127,12 +171,14 @@ function handleCoverSelect(event: Event) {
   if (input.files?.[0]) {
     coverFile.value = input.files[0]
     coverPreview.value = URL.createObjectURL(input.files[0])
+    existingCoverUrl.value = ''
   }
 }
 
 function removeCover() {
   coverFile.value = null
   coverPreview.value = ''
+  existingCoverUrl.value = ''
 }
 
 function formatSize(bytes: number): string {
@@ -146,7 +192,7 @@ async function handleSubmit() {
     error.value = '请填写必填字段'
     return
   }
-  if (form.value.resourceType === 'FILE' && selectedFiles.value.length === 0) {
+  if (form.value.resourceType === 'FILE' && selectedFiles.value.length === 0 && !isEdit.value) {
     error.value = '请上传至少一个文件'
     return
   }
@@ -155,7 +201,7 @@ async function handleSubmit() {
   uploadProgress.value = 0
   try {
     const formData = new FormData()
-    const data = {
+    const data: any = {
       title: form.value.title,
       categoryId: form.value.categoryId,
       tags: form.value.tags,
@@ -163,11 +209,22 @@ async function handleSubmit() {
       resourceType: form.value.resourceType,
       externalUrl: form.value.externalUrl || undefined,
     }
+    if (existingCoverUrl.value) {
+      data.coverImageUrl = existingCoverUrl.value
+    }
     formData.append('data', new Blob([JSON.stringify(data)], { type: 'application/json' }))
-    if (form.value.resourceType === 'FILE') {
+    if (form.value.resourceType === 'FILE' && selectedFiles.value.length > 0) {
       selectedFiles.value.forEach(file => formData.append('files', file))
     }
-    await resourceApi.create(formData)
+    if (coverFile.value) {
+      formData.append('coverImage', coverFile.value)
+    }
+
+    if (isEdit.value && editId.value) {
+      await resourceApi.update(editId.value, formData)
+    } else {
+      await resourceApi.create(formData)
+    }
     router.push('/')
   } catch (e: any) {
     error.value = e.message || '发布失败'
@@ -175,17 +232,42 @@ async function handleSubmit() {
     loading.value = false
   }
 }
+
+function handleDraft() {
+  showDraftModal.value = true
+}
+
+function confirmDraft() {
+  showDraftModal.value = false
+  // Save draft to localStorage
+  const draftKey = isEdit.value ? `draft_edit_${editId.value}` : 'draft_new'
+  localStorage.setItem(draftKey, JSON.stringify({
+    ...form.value,
+    coverPreview: coverPreview.value,
+    savedAt: new Date().toISOString(),
+  }))
+  error.value = ''
+  router.push('/profile')
+}
+
+function handlePreview() {
+  showPreview.value = !showPreview.value
+}
 </script>
 
 <template>
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <h1 class="text-2xl font-bold text-slate-800 mb-6">发布资源</h1>
+    <h1 class="text-2xl font-bold text-slate-800 mb-6">{{ isEdit ? '编辑资源' : '发布资源' }}</h1>
 
     <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
       {{ error }}
     </div>
 
-    <form @submit.prevent="handleSubmit" class="space-y-6">
+    <div v-if="loading && isEdit" class="flex justify-center py-20">
+      <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+    </div>
+
+    <form v-else @submit.prevent="handleSubmit" class="space-y-6">
       <!-- Title -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <label class="block text-sm font-medium text-slate-700 mb-2">
@@ -339,7 +421,7 @@ async function handleSubmit() {
             <div class="w-px h-5 bg-slate-300 mx-1"></div>
             <button
               type="button"
-              @click="showPreview = !showPreview"
+              @click="handlePreview"
               :class="['p-1.5 rounded transition-colors', showPreview ? 'bg-primary-100 text-primary-600' : 'hover:bg-slate-200 text-slate-600']"
               title="预览"
             >
@@ -362,7 +444,7 @@ async function handleSubmit() {
           <div
             v-else
             class="px-4 py-3 min-h-[240px] prose prose-sm max-w-none"
-            v-html="form.description"
+            v-html="renderMarkdown(form.description)"
           ></div>
         </div>
       </div>
@@ -506,18 +588,31 @@ async function handleSubmit() {
 
       <!-- Submit -->
       <div class="flex items-center justify-between pt-4">
-        <button type="button" class="px-6 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50">存为草稿</button>
+        <button type="button" @click="handleDraft" class="px-6 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50">存为草稿</button>
         <div class="flex items-center gap-3">
-          <button type="button" class="px-6 py-2.5 border border-primary-300 text-primary-600 rounded-lg text-sm hover:bg-primary-50">预览</button>
+          <button type="button" @click="handlePreview" class="px-6 py-2.5 border border-primary-300 text-primary-600 rounded-lg text-sm hover:bg-primary-50">
+            {{ showPreview ? '编辑' : '预览' }}
+          </button>
           <button
             type="submit"
             class="px-8 py-2.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="loading"
           >
-            {{ loading ? '发布中...' : '发布资源' }}
+            {{ loading ? '发布中...' : (isEdit ? '保存修改' : '发布资源') }}
           </button>
         </div>
       </div>
     </form>
+
+    <!-- Draft Confirmation Modal -->
+    <AppModal :visible="showDraftModal" title="存为草稿" @close="showDraftModal = false" @confirm="confirmDraft">
+      <template #body>
+        <p class="text-sm text-slate-600">确定将当前内容保存为草稿吗？你可以在个人中心的"我的发布"中找到它。</p>
+      </template>
+      <template #footer>
+        <button @click="showDraftModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+        <button @click="confirmDraft" class="px-4 py-2 text-sm text-white bg-primary-500 rounded-lg hover:bg-primary-600">确认保存</button>
+      </template>
+    </AppModal>
   </div>
 </template>

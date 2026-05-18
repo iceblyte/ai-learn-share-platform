@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -43,7 +44,9 @@ public class ResourceService {
             wrapper.and(w -> w.like("title", keyword).or().like("description", keyword));
         }
         if (categoryId != null) {
-            wrapper.eq("category_id", categoryId);
+            List<Long> categoryIds = getAllDescendantIds(categoryId);
+            categoryIds.add(categoryId);
+            wrapper.in("category_id", categoryIds);
         }
         if (minRating != null) {
             wrapper.ge("avg_rating", minRating);
@@ -96,6 +99,7 @@ public class ResourceService {
         resource.setDescription(request.getDescription());
         resource.setResourceType(request.getResourceType());
         resource.setExternalUrl(request.getExternalUrl());
+        resource.setCoverImageUrl(request.getCoverImageUrl());
         resource.setViewCount(0);
         resource.setLikeCount(0);
         resource.setFavoriteCount(0);
@@ -174,6 +178,70 @@ public class ResourceService {
         resourceMapper.deleteById(id);
     }
 
+    @Transactional
+    public Resource update(Long id, ResourceCreateRequest request, MultipartFile[] files, Long userId) {
+        Resource resource = resourceMapper.selectById(id);
+        if (resource == null) {
+            throw BusinessException.notFound("资源不存在");
+        }
+        if (!resource.getPublisherId().equals(userId)) {
+            throw BusinessException.forbidden("无权编辑此资源");
+        }
+
+        resource.setTitle(request.getTitle());
+        resource.setCategoryId(request.getCategoryId());
+        resource.setDescription(request.getDescription());
+        resource.setResourceType(request.getResourceType());
+        resource.setExternalUrl(request.getExternalUrl());
+        if (request.getCoverImageUrl() != null) {
+            resource.setCoverImageUrl(request.getCoverImageUrl());
+        }
+        resource.setStatus("PUBLISHED");
+        resourceMapper.updateById(resource);
+
+        // Update tags: remove old, add new
+        resourceTagMapper.delete(new QueryWrapper<ResourceTag>().eq("resource_id", id));
+        if (request.getTags() != null) {
+            for (String tagName : request.getTags()) {
+                Tag tag = tagMapper.selectOne(new QueryWrapper<Tag>().eq("name", tagName));
+                if (tag == null) {
+                    tag = new Tag();
+                    tag.setName(tagName);
+                    tag.setUsageCount(0);
+                    tagMapper.insert(tag);
+                }
+                tag.setUsageCount(tag.getUsageCount() + 1);
+                tagMapper.updateById(tag);
+
+                ResourceTag rt = new ResourceTag();
+                rt.setResourceId(resource.getId());
+                rt.setTagId(tag.getId());
+                resourceTagMapper.insert(rt);
+            }
+        }
+
+        // Handle new file uploads
+        if (files != null && files.length > 0) {
+            for (MultipartFile file : files) {
+                FileService.StoredFile stored = fileService.store(file);
+                ResourceFile rf = new ResourceFile();
+                rf.setResourceId(resource.getId());
+                rf.setFileName(stored.fileName());
+                rf.setFileUrl(stored.fileUrl());
+                rf.setFileSize(stored.fileSize());
+                rf.setFileType(stored.fileType());
+                resourceFileMapper.insert(rf);
+            }
+        }
+
+        // Re-generate AI summary if description changed
+        if (request.getDescription() != null && request.getDescription().length() > 100) {
+            generateSummaryAsync(resource.getId(), resource.getTitle(), request.getDescription());
+        }
+
+        return enrichResource(resource);
+    }
+
     public List<Resource> getHot(int limit) {
         List<Resource> resources = resourceMapper.selectHotResources(limit);
         resources.forEach(this::enrichResource);
@@ -213,5 +281,16 @@ public class ResourceService {
             resource.setTags(tagMapper.selectBatchIds(tagIds));
         }
         return resource;
+    }
+
+    private List<Long> getAllDescendantIds(Long categoryId) {
+        List<Category> children = categoryMapper.selectList(
+                new QueryWrapper<Category>().eq("parent_id", categoryId));
+        List<Long> ids = new ArrayList<>();
+        for (Category child : children) {
+            ids.add(child.getId());
+            ids.addAll(getAllDescendantIds(child.getId()));
+        }
+        return ids;
     }
 }

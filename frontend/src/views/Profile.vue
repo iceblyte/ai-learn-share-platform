@@ -5,6 +5,7 @@ import { userApi } from '@/api/user'
 import { resourceApi } from '@/api/resource'
 import type { Resource } from '@/types'
 import { useRouter } from 'vue-router'
+import AppModal from '@/components/AppModal.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -21,6 +22,8 @@ const profileForm = ref({
 const editMode = ref(false)
 const avatarFile = ref<File | null>(null)
 const avatarPreview = ref('')
+const showDeleteModal = ref(false)
+const deleteTargetId = ref<number | null>(null)
 
 function handleAvatarSelect(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -40,12 +43,19 @@ async function uploadAvatar() {
   } catch {}
 }
 
-async function deleteResource(id: number) {
-  if (!confirm('确定要删除这个资源吗？')) return
+function confirmDelete(id: number) {
+  deleteTargetId.value = id
+  showDeleteModal.value = true
+}
+
+async function executeDelete() {
+  if (!deleteTargetId.value) return
   try {
-    await resourceApi.delete(id)
-    myResources.value = myResources.value.filter(r => r.id !== id)
+    await resourceApi.delete(deleteTargetId.value)
+    myResources.value = myResources.value.filter(r => r.id !== deleteTargetId.value)
   } catch {}
+  showDeleteModal.value = false
+  deleteTargetId.value = null
 }
 
 function editResource(id: number) {
@@ -144,8 +154,9 @@ function getGradient(index: number) {
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sticky top-24">
           <!-- Avatar -->
           <div class="text-center">
-            <div class="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto">
-              <span class="text-2xl font-bold text-primary-600">
+            <div class="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto overflow-hidden">
+              <img v-if="userStore.userInfo.avatar" :src="userStore.userInfo.avatar" class="w-full h-full object-cover" />
+              <span v-else class="text-2xl font-bold text-primary-600">
                 {{ userStore.userInfo.nickname?.[0] || userStore.userInfo.username[0] }}
               </span>
             </div>
@@ -348,7 +359,7 @@ function getGradient(index: number) {
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                 </button>
                 <button
-                  @click.stop="deleteResource(res.id)"
+                  @click.stop="confirmDelete(res.id)"
                   class="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -461,6 +472,7 @@ function getGradient(index: number) {
                 <div class="flex items-center gap-4">
                   <div class="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                     <img v-if="avatarPreview" :src="avatarPreview" class="w-full h-full object-cover" />
+                    <img v-else-if="userStore.userInfo.avatar" :src="userStore.userInfo.avatar" class="w-full h-full object-cover" />
                     <span v-else class="text-2xl font-bold text-primary-600">
                       {{ userStore.userInfo.nickname?.[0] || userStore.userInfo.username[0] }}
                     </span>
@@ -527,5 +539,16 @@ function getGradient(index: number) {
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <AppModal :visible="showDeleteModal" title="确认删除" @close="showDeleteModal = false" @confirm="executeDelete">
+      <template #body>
+        <p class="text-sm text-slate-600">确定要删除这个资源吗？此操作不可撤销。</p>
+      </template>
+      <template #footer>
+        <button @click="showDeleteModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+        <button @click="executeDelete" class="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600">确认删除</button>
+      </template>
+    </AppModal>
   </div>
 </template>
