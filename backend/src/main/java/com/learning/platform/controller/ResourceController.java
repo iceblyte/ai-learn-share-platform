@@ -42,7 +42,7 @@ public class ResourceController {
     @PostMapping(consumes = {"multipart/form-data"})
     @PreAuthorize("hasAnyRole('PUBLISHER', 'ADMIN')")
     public Result<Resource> create(
-            @Valid @RequestPart("data") ResourceCreateRequest request,
+            @RequestPart("data") ResourceCreateRequest request,
             @RequestPart(value = "files", required = false) MultipartFile[] files,
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
             Authentication auth) {

@@ -91,10 +91,17 @@ public class UserController {
     }
 
     @GetMapping("/resources")
-    public Result<List<Resource>> getMyResources(Authentication auth) {
+    public Result<List<Resource>> getMyResources(Authentication auth,
+                                                  @RequestParam(required = false) String status) {
         Long userId = (Long) auth.getPrincipal();
-        List<Resource> resources = resourceMapper.selectList(
-                new QueryWrapper<Resource>().eq("publisher_id", userId).orderByDesc("created_at"));
+        QueryWrapper<Resource> wrapper = new QueryWrapper<Resource>()
+                .eq("publisher_id", userId)
+                .eq("is_deleted", 0);
+        if (status != null && !status.isBlank()) {
+            wrapper.eq("status", status);
+        }
+        wrapper.orderByDesc("created_at");
+        List<Resource> resources = resourceMapper.selectList(wrapper);
         resources.forEach(resourceService::enrichResource);
         return Result.success(resources);
     }
