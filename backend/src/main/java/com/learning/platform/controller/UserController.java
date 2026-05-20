@@ -14,10 +14,15 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
@@ -31,6 +36,7 @@ public class UserController {
     private final LikeRecordMapper likeRecordMapper;
     private final RatingMapper ratingMapper;
     private final FileService fileService;
+    private final PublisherApplicationMapper publisherApplicationMapper;
 
     @GetMapping("/profile")
     public Result<User> getProfile(Authentication auth) {
@@ -70,8 +76,13 @@ public class UserController {
         if (user == null) {
             return Result.error(404, "用户不存在");
         }
+        if (user.getLastAvatarUploadAt() != null
+                && user.getLastAvatarUploadAt().toLocalDate().equals(LocalDate.now())) {
+            return Result.error(400, "每天只能上传一次头像，请明天再试");
+        }
         String avatarUrl = fileService.storeAvatar(file);
         user.setAvatarUrl(avatarUrl);
+        user.setLastAvatarUploadAt(LocalDateTime.now());
         userMapper.updateById(user);
         return Result.success(Map.of("avatarUrl", avatarUrl));
     }
@@ -99,15 +110,18 @@ public class UserController {
                 .eq("is_deleted", 0);
         if (status != null && !status.isBlank()) {
             wrapper.eq("status", status);
+        } else {
+            wrapper.ne("status", "DRAFT");
         }
         wrapper.orderByDesc("created_at");
         List<Resource> resources = resourceMapper.selectList(wrapper);
+        log.info("getMyResources userId={} status={} count={} ids={}", userId, status, resources.size(), resources.stream().map(Resource::getId).toList());
         resources.forEach(resourceService::enrichResource);
         return Result.success(resources);
     }
 
-    @PostMapping("/upgrade-to-publisher")
-    public Result<String> upgradeToPublisher(Authentication auth) {
+    @PostMapping("/publisher-applications")
+    public Result<String> submitPublisherApplication(@RequestBody Map<String, String> body, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         User user = userMapper.selectById(userId);
         if (user == null) {
@@ -116,9 +130,30 @@ public class UserController {
         if ("PUBLISHER".equals(user.getRole()) || "ADMIN".equals(user.getRole())) {
             return Result.error(400, "您已经是发布者或管理员");
         }
-        user.setRole("PUBLISHER");
-        userMapper.updateById(user);
-        return Result.success("已升级为发布者");
+        Long pendingCount = publisherApplicationMapper.selectCount(
+                new QueryWrapper<PublisherApplication>()
+                        .eq("user_id", userId)
+                        .eq("status", "PENDING"));
+        if (pendingCount > 0) {
+            return Result.error(400, "您已有待审核的申请，请耐心等待");
+        }
+        PublisherApplication app = new PublisherApplication();
+        app.setUserId(userId);
+        app.setReason(body.getOrDefault("reason", ""));
+        app.setStatus("PENDING");
+        publisherApplicationMapper.insert(app);
+        return Result.success("申请已提交，请等待管理员审核");
+    }
+
+    @GetMapping("/publisher-applications")
+    public Result<PublisherApplication> getMyApplication(Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        PublisherApplication app = publisherApplicationMapper.selectOne(
+                new QueryWrapper<PublisherApplication>()
+                        .eq("user_id", userId)
+                        .orderByDesc("created_at")
+                        .last("LIMIT 1"));
+        return Result.success(app);
     }
 
     @GetMapping("/statistics")
@@ -126,7 +161,7 @@ public class UserController {
         Long userId = (Long) auth.getPrincipal();
 
         List<Resource> myResources = resourceMapper.selectList(
-                new QueryWrapper<Resource>().eq("publisher_id", userId).eq("is_deleted", 0));
+                new QueryWrapper<Resource>().eq("publisher_id", userId).eq("is_deleted", 0).ne("status", "DRAFT"));
 
         int totalViews = myResources.stream().mapToInt(Resource::getViewCount).sum();
         int totalLikes = myResources.stream().mapToInt(Resource::getLikeCount).sum();

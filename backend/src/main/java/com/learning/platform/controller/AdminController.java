@@ -7,8 +7,10 @@ import com.learning.platform.common.BusinessException;
 import com.learning.platform.common.PageResult;
 import com.learning.platform.common.Result;
 import com.learning.platform.dto.AuditRequest;
+import com.learning.platform.entity.PublisherApplication;
 import com.learning.platform.entity.Resource;
 import com.learning.platform.entity.User;
+import com.learning.platform.mapper.PublisherApplicationMapper;
 import com.learning.platform.mapper.ResourceMapper;
 import com.learning.platform.mapper.UserMapper;
 import jakarta.validation.Valid;
@@ -31,6 +33,7 @@ public class AdminController {
 
     private final UserMapper userMapper;
     private final ResourceMapper resourceMapper;
+    private final PublisherApplicationMapper publisherApplicationMapper;
 
     @GetMapping("/users")
     public Result<PageResult<User>> userList(
@@ -97,6 +100,65 @@ public class AdminController {
         return Result.success(null);
     }
 
+    @GetMapping("/publisher-applications")
+    public Result<PageResult<Map<String, Object>>> publisherApplications(
+            @RequestParam(required = false, defaultValue = "PENDING") String status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        QueryWrapper<PublisherApplication> wrapper = new QueryWrapper<PublisherApplication>()
+                .eq("status", status)
+                .orderByDesc("created_at");
+        IPage<PublisherApplication> result = publisherApplicationMapper.selectPage(new Page<>(page, size), wrapper);
+        List<Map<String, Object>> records = result.getRecords().stream().map(app -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", app.getId());
+            item.put("userId", app.getUserId());
+            item.put("reason", app.getReason());
+            item.put("status", app.getStatus());
+            item.put("rejectReason", app.getRejectReason());
+            item.put("createdAt", app.getCreatedAt());
+            User user = userMapper.selectById(app.getUserId());
+            if (user != null) {
+                item.put("username", user.getUsername());
+                item.put("nickname", user.getNickname());
+                item.put("avatarUrl", user.getAvatarUrl());
+            }
+            return item;
+        }).toList();
+        PageResult<Map<String, Object>> pageResult = new PageResult<>();
+        pageResult.setRecords(records);
+        pageResult.setTotal(result.getTotal());
+        pageResult.setPage(result.getCurrent());
+        pageResult.setSize(result.getSize());
+        pageResult.setPages(result.getPages());
+        return Result.success(pageResult);
+    }
+
+    @PutMapping("/publisher-applications/{id}/audit")
+    public Result<Void> auditPublisherApplication(@PathVariable Long id, @Valid @RequestBody AuditRequest request) {
+        PublisherApplication app = publisherApplicationMapper.selectById(id);
+        if (app == null) throw BusinessException.notFound("申请不存在");
+        if (!"PENDING".equals(app.getStatus())) {
+            return Result.error("该申请已处理");
+        }
+        if ("APPROVE".equals(request.getAction())) {
+            app.setStatus("APPROVED");
+            publisherApplicationMapper.updateById(app);
+            User user = userMapper.selectById(app.getUserId());
+            if (user != null && "USER".equals(user.getRole())) {
+                user.setRole("PUBLISHER");
+                userMapper.updateById(user);
+            }
+        } else if ("REJECT".equals(request.getAction())) {
+            app.setStatus("REJECTED");
+            app.setRejectReason(request.getReason() != null ? request.getReason() : "");
+            publisherApplicationMapper.updateById(app);
+        } else {
+            return Result.error("无效的审核动作");
+        }
+        return Result.success(null);
+    }
+
     @GetMapping("/statistics")
     public Result<Map<String, Object>> statistics() {
         Map<String, Object> stats = new HashMap<>();
@@ -105,7 +167,8 @@ public class AdminController {
                 new QueryWrapper<Resource>().eq("status", "PUBLISHED")));
         stats.put("pendingResources", resourceMapper.selectCount(
                 new QueryWrapper<Resource>().eq("status", "PENDING")));
-        // Today active: users who registered today as a proxy
+        stats.put("pendingApplications", publisherApplicationMapper.selectCount(
+                new QueryWrapper<PublisherApplication>().eq("status", "PENDING")));
         Long todayActive = userMapper.selectCount(
                 new QueryWrapper<User>().ge("created_at", LocalDate.now().toString()));
         stats.put("todayActive", todayActive);

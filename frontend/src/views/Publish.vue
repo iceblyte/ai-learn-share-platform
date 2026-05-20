@@ -12,9 +12,11 @@ const route = useRoute()
 const categories = ref<Category[]>([])
 const tags = ref<Tag[]>([])
 const loading = ref(false)
+const isDrafting = ref(false)
 const error = ref('')
 const isEdit = ref(false)
 const editId = ref<number | null>(null)
+const editStatus = ref('')
 
 const form = ref({
   title: '',
@@ -68,6 +70,8 @@ async function loadResource(id: number) {
     form.value.description = data.description
     form.value.resourceType = data.resourceType
     form.value.externalUrl = data.externalUrl || ''
+    editStatus.value = data.status
+    console.log('[Publish] loadResource - status from API:', data.status, 'editStatus:', editStatus.value)
     if (data.coverImageUrl) {
       existingCoverUrl.value = data.coverImageUrl
       coverPreview.value = data.coverImageUrl
@@ -190,6 +194,8 @@ function formatSize(bytes: number): string {
 }
 
 async function handleSubmit() {
+  console.log('[Publish] >>> handleSubmit called, isDrafting:', isDrafting.value)
+  if (isDrafting.value) return
   if (!form.value.title || !form.value.categoryId || !form.value.description) {
     error.value = '请填写必填字段'
     return
@@ -211,6 +217,14 @@ async function handleSubmit() {
       resourceType: form.value.resourceType,
       externalUrl: form.value.externalUrl || undefined,
     }
+    // 编辑已有资源时，始终显式设置状态
+    // 草稿 → PUBLISHED，已发布资源保持 PUBLISHED
+    if (isEdit.value && editStatus.value === 'DRAFT') {
+      data.status = 'PUBLISHED'
+    } else if (isEdit.value) {
+      data.status = editStatus.value || 'PUBLISHED'
+    }
+    console.log('[Publish] handleSubmit - isEdit:', isEdit.value, 'editStatus:', editStatus.value, 'sendStatus:', data.status)
     if (existingCoverUrl.value) {
       data.coverImageUrl = existingCoverUrl.value
     }
@@ -240,6 +254,9 @@ function handleDraft() {
 }
 
 async function confirmDraft() {
+  console.log('[Publish] >>> confirmDraft called, isDrafting:', isDrafting.value)
+  if (isDrafting.value) return
+  isDrafting.value = true
   showDraftModal.value = false
   loading.value = true
   error.value = ''
@@ -275,6 +292,7 @@ async function confirmDraft() {
     error.value = e.message || '保存草稿失败'
   } finally {
     loading.value = false
+    isDrafting.value = false
   }
 }
 
@@ -616,7 +634,9 @@ function handlePreview() {
 
       <!-- Submit -->
       <div class="flex items-center justify-between pt-4">
-        <button type="button" @click="handleDraft" class="px-6 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50">存为草稿</button>
+        <button type="button" @click="handleDraft" class="px-6 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50">
+          {{ isEdit && editStatus === 'DRAFT' ? '保存更改，暂不发布' : '存为草稿' }}
+        </button>
         <div class="flex items-center gap-3">
           <button type="button" @click="handlePreview" class="px-6 py-2.5 border border-primary-300 text-primary-600 rounded-lg text-sm hover:bg-primary-50">
             {{ showPreview ? '编辑' : '预览' }}
@@ -626,16 +646,16 @@ function handlePreview() {
             class="px-8 py-2.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="loading"
           >
-            {{ loading ? '发布中...' : (isEdit ? '保存修改' : '发布资源') }}
+            {{ loading ? '发布中...' : (isEdit && editStatus !== 'DRAFT' ? '保存修改' : '发布资源') }}
           </button>
         </div>
       </div>
     </form>
 
     <!-- Draft Confirmation Modal -->
-    <AppModal :visible="showDraftModal" title="存为草稿" @close="showDraftModal = false" @confirm="confirmDraft">
+    <AppModal :visible="showDraftModal" :title="isEdit && editStatus === 'DRAFT' ? '保存更改' : '存为草稿'" @close="showDraftModal = false">
       <template #body>
-        <p class="text-sm text-slate-600">确定将当前内容保存为草稿吗？你可以在个人中心的"我的发布"中找到它。</p>
+        <p class="text-sm text-slate-600">{{ isEdit && editStatus === 'DRAFT' ? '确定保存当前更改吗？资源将保持草稿状态。' : '确定将当前内容保存为草稿吗？你可以在个人中心的"草稿箱"中找到它。' }}</p>
       </template>
       <template #footer>
         <button @click="showDraftModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>

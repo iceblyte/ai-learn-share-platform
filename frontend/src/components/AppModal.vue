@@ -47,6 +47,7 @@ const emit = defineEmits<{
 
             <!-- Body -->
             <div class="px-6 py-4">
+              <slot name="body" />
               <slot />
             </div>
 

@@ -6,36 +6,23 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("user")
-public class User {
+@TableName("publisher_application")
+public class PublisherApplication {
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private String username;
+    private Long userId;
 
-    private String email;
+    private String reason;
 
-    private String passwordHash;
+    private String status;
 
-    private String nickname;
-
-    private String avatarUrl;
-
-    private String bio;
-
-    private String role;
-
-    private LocalDateTime lastAvatarUploadAt;
-
-    private Integer points;
+    private String rejectReason;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 
     @TableField(fill = FieldFill.INSERT_UPDATE)
     private LocalDateTime updatedAt;
-
-    @TableLogic
-    private Integer isDeleted;
 }

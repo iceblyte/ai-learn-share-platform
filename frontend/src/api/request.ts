@@ -25,6 +25,14 @@ request.interceptors.request.use(
 // Response interceptor - handle errors
 request.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
+    // 检测后端返回的新 JWT（角色变更时）
+    const newToken = response.headers['x-new-token']
+    const newRefreshToken = response.headers['x-new-refresh-token']
+    if (newToken && newRefreshToken) {
+      const userStore = useUserStore()
+      userStore.setToken(newToken, newRefreshToken)
+      userStore.fetchUserInfo()
+    }
     const { data } = response
     if (data.code === 200 || data.code === 201) {
       return response
@@ -33,11 +41,11 @@ request.interceptors.response.use(
   },
   async (error) => {
     const { response } = error
-    if (response?.status === 401) {
+    if (response?.status === 401 || response?.status === 403) {
       const userStore = useUserStore()
       try {
         await userStore.refreshToken()
-        // Retry original request
+        // Retry original request with new token
         error.config.headers.Authorization = `Bearer ${userStore.token}`
         return request(error.config)
       } catch {

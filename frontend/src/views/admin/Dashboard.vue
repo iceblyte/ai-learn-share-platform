@@ -12,6 +12,7 @@ const stats = ref({
   totalUsers: 0,
   totalResources: 0,
   pendingResources: 0,
+  pendingApplications: 0,
   todayActive: 0,
 })
 
@@ -21,24 +22,32 @@ const categories = ref<Category[]>([])
 const tags = ref<Tag[]>([])
 const loading = ref(true)
 
+const pendingApps = ref<any[]>([])
 const showAuditModal = ref(false)
 const auditTarget = ref<any>(null)
 const auditAction = ref<'APPROVE' | 'REJECT'>('APPROVE')
 
+const showAppAuditModal = ref(false)
+const appAuditTarget = ref<any>(null)
+const appAuditAction = ref('')
+const appRejectReason = ref('')
+
 onMounted(async () => {
   try {
-    const [statsRes, pendingRes, usersRes, catRes, tagRes] = await Promise.all([
+    const [statsRes, pendingRes, usersRes, catRes, tagRes, appsRes] = await Promise.all([
       request.get('/admin/statistics'),
       request.get('/admin/resources', { params: { status: 'PENDING', size: 5 } }),
       request.get('/admin/users', { params: { size: 4, sort: 'latest' } }),
       categoryApi.getTree(),
       tagApi.getHot(),
+      request.get('/admin/publisher-applications', { params: { status: 'PENDING', size: 5 } }),
     ])
     stats.value = statsRes.data.data
     pendingList.value = pendingRes.data.data?.records || []
     recentUsers.value = usersRes.data.data?.records || []
     categories.value = catRes.data.data || []
     tags.value = tagRes.data.data || []
+    pendingApps.value = appsRes.data.data?.records || []
   } catch {} finally {
     loading.value = false
   }
@@ -59,6 +68,28 @@ async function executeAudit() {
   } catch {}
   showAuditModal.value = false
   auditTarget.value = null
+}
+
+function confirmAppAudit(app: any, action: string) {
+  appAuditTarget.value = app
+  appAuditAction.value = action
+  appRejectReason.value = ''
+  showAppAuditModal.value = true
+}
+
+async function executeAppAudit() {
+  if (!appAuditTarget.value) return
+  try {
+    const body: any = { action: appAuditAction.value }
+    if (appAuditAction.value === 'REJECT' && appRejectReason.value.trim()) {
+      body.reason = appRejectReason.value.trim()
+    }
+    await request.put(`/admin/publisher-applications/${appAuditTarget.value.id}/audit`, body)
+    pendingApps.value = pendingApps.value.filter(a => a.id !== appAuditTarget.value.id)
+    stats.value.pendingApplications--
+  } catch {}
+  showAppAuditModal.value = false
+  appAuditTarget.value = null
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -114,8 +145,8 @@ function formatTimeAgo(dateStr: string): string {
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-slate-500">待审核</p>
-            <p class="text-2xl font-bold mt-1 text-amber-500">{{ stats.pendingResources }}</p>
-            <p class="text-xs text-slate-400 mt-1">需要处理</p>
+            <p class="text-2xl font-bold mt-1 text-amber-500">{{ stats.pendingResources + (stats.pendingApplications || 0) }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ stats.pendingResources }} 资源 / {{ stats.pendingApplications || 0 }} 申请</p>
           </div>
           <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
             <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,7 +170,7 @@ function formatTimeAgo(dateStr: string): string {
       </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Pending Resources -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200">
         <div class="flex items-center justify-between p-4 border-b border-slate-100">
@@ -164,6 +195,35 @@ function formatTimeAgo(dateStr: string): string {
               <button @click="router.push(`/resource/${item.id}`)" class="px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded hover:bg-slate-200">查看</button>
               <button @click="confirmAudit(item, 'APPROVE')" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">通过</button>
               <button @click="confirmAudit(item, 'REJECT')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">拒绝</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending Publisher Applications -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between p-4 border-b border-slate-100">
+          <h2 class="font-semibold">待审核申请</h2>
+          <router-link to="/admin/users" class="text-sm text-primary-500 hover:text-primary-600">查看全部</router-link>
+        </div>
+        <div v-if="pendingApps.length === 0" class="p-8 text-center text-slate-400 text-sm">
+          暂无待审核申请
+        </div>
+        <div v-else class="divide-y divide-slate-100">
+          <div v-for="app in pendingApps" :key="app.id" class="flex items-center gap-3 p-4">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+              <img v-if="app.avatarUrl" :src="app.avatarUrl" class="w-full h-full object-cover" />
+              <div v-else class="w-full h-full bg-amber-100 flex items-center justify-center">
+                <span class="text-xs font-medium text-amber-600">{{ app.nickname?.[0] || '用' }}</span>
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium truncate">{{ app.nickname || app.username }}</p>
+              <p class="text-xs text-slate-400 truncate">{{ app.reason || '未填写理由' }}</p>
+            </div>
+            <div class="flex items-center gap-1">
+              <button @click="confirmAppAudit(app, 'APPROVE')" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">通过</button>
+              <button @click="confirmAppAudit(app, 'REJECT')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">拒绝</button>
             </div>
           </div>
         </div>
@@ -268,6 +328,36 @@ function formatTimeAgo(dateStr: string): string {
         :class="['px-4 py-2 text-sm text-white rounded-lg', auditAction === 'APPROVE' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600']"
       >
         {{ auditAction === 'APPROVE' ? '确认通过' : '确认拒绝' }}
+      </button>
+    </template>
+  </AppModal>
+
+  <!-- Publisher Application Audit Modal -->
+  <AppModal
+    :visible="showAppAuditModal"
+    :title="appAuditAction === 'APPROVE' ? '确认通过' : '确认拒绝'"
+    @close="showAppAuditModal = false"
+    @confirm="executeAppAudit"
+  >
+    <template #body>
+      <p class="text-sm text-slate-600 mb-2">
+        确定{{ appAuditAction === 'APPROVE' ? '通过' : '拒绝' }} <strong>{{ appAuditTarget?.nickname || appAuditTarget?.username }}</strong> 的发布者申请吗？
+      </p>
+      <textarea
+        v-if="appAuditAction === 'REJECT'"
+        v-model="appRejectReason"
+        rows="3"
+        placeholder="请输入拒绝原因（可选）..."
+        class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none mt-2"
+      ></textarea>
+    </template>
+    <template #footer>
+      <button @click="showAppAuditModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+      <button
+        @click="executeAppAudit"
+        :class="['px-4 py-2 text-sm text-white rounded-lg', appAuditAction === 'APPROVE' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600']"
+      >
+        {{ appAuditAction === 'APPROVE' ? '确认通过' : '确认拒绝' }}
       </button>
     </template>
   </AppModal>

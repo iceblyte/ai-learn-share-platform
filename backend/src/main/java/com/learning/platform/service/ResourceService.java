@@ -211,8 +211,13 @@ public class ResourceService {
         if (coverImage != null && !coverImage.isEmpty()) {
             resource.setCoverImageUrl(fileService.storeCoverImage(coverImage));
         }
-        resource.setStatus("PUBLISHED");
+        log.info("Update {} - reqStatus='{}', curStatus='{}'", id, request.getStatus(), resource.getStatus());
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            resource.setStatus(request.getStatus());
+        }
         resourceMapper.updateById(resource);
+        Resource after = resourceMapper.selectById(id);
+        log.info("Update {} - afterStatus='{}'", id, after.getStatus());
 
         // Update tags: remove old, add new
         resourceTagMapper.delete(new QueryWrapper<ResourceTag>().eq("resource_id", id));

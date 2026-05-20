@@ -28,7 +28,10 @@ export const userApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
-  upgradeToPublisher() {
-    return request.post<ApiResponse<string>>('/users/upgrade-to-publisher')
+  submitPublisherApplication(reason: string) {
+    return request.post<ApiResponse<string>>('/users/publisher-applications', { reason })
+  },
+  getPublisherApplication() {
+    return request.get<ApiResponse<{ id: number; userId: number; reason: string; status: string; rejectReason: string; createdAt: string } | null>>('/users/publisher-applications')
   },
 }
