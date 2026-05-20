@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `user` (
     `avatar_url` VARCHAR(500) DEFAULT NULL COMMENT '头像URL',
     `bio` VARCHAR(500) DEFAULT '' COMMENT '个人简介',
     `role` VARCHAR(20) NOT NULL DEFAULT 'USER' COMMENT '角色: USER/PUBLISHER/ADMIN',
+    `last_avatar_upload_at` DATETIME DEFAULT NULL COMMENT '上次头像上传时间(每天限一次)',
     `points` INT NOT NULL DEFAULT 0 COMMENT '积分',
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -225,6 +226,22 @@ CREATE TABLE IF NOT EXISTS `recommendation_log` (
     KEY `idx_rec_user` (`user_id`),
     KEY `idx_rec_created` (`created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='推荐日志表';
+
+-- ============================================
+-- 14. 发布者申请表
+-- ============================================
+CREATE TABLE IF NOT EXISTS `publisher_application` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '申请ID',
+    `user_id` BIGINT NOT NULL COMMENT '申请人ID',
+    `reason` VARCHAR(500) DEFAULT '' COMMENT '申请理由',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT '状态: PENDING/APPROVED/REJECTED',
+    `reject_reason` VARCHAR(500) DEFAULT '' COMMENT '拒绝原因',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_pa_user` (`user_id`),
+    KEY `idx_pa_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='发布者申请表';
 
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正

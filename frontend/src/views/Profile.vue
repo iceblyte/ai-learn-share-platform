@@ -23,26 +23,49 @@ const profileForm = ref({
 const editMode = ref(false)
 const avatarFile = ref<File | null>(null)
 const avatarPreview = ref('')
+const avatarUploading = ref(false)
+const avatarError = ref('')
 const showDeleteModal = ref(false)
 const deleteTargetId = ref<number | null>(null)
-const upgrading = ref(false)
+const showApplyModal = ref(false)
+const applyReason = ref('')
+const applying = ref(false)
+const applicationStatus = ref<{ status: string; rejectReason: string } | null>(null)
+
+const AVATAR_MAX_SIZE = 5 * 1024 * 1024
 
 function handleAvatarSelect(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
   if (!file) return
+  avatarError.value = ''
+  if (file.size > AVATAR_MAX_SIZE) {
+    avatarError.value = '头像大小不能超过5MB，请重新选择'
+    input.value = ''
+    return
+  }
   avatarFile.value = file
   avatarPreview.value = URL.createObjectURL(file)
+  uploadAvatar()
 }
 
 async function uploadAvatar() {
   if (!avatarFile.value) return
+  avatarUploading.value = true
+  avatarError.value = ''
   const formData = new FormData()
   formData.append('file', avatarFile.value)
   try {
     await userApi.uploadAvatar(formData)
     await userStore.fetchUserInfo()
     avatarFile.value = null
-  } catch {}
+  } catch (e: any) {
+    avatarError.value = e.message || '上传失败'
+    avatarPreview.value = ''
+    avatarFile.value = null
+  } finally {
+    avatarUploading.value = false
+  }
 }
 
 function confirmDelete(id: number) {
@@ -55,6 +78,8 @@ async function executeDelete() {
   try {
     await resourceApi.delete(deleteTargetId.value)
     myResources.value = myResources.value.filter(r => r.id !== deleteTargetId.value)
+    drafts.value = drafts.value.filter(r => r.id !== deleteTargetId.value)
+    loadStats()
   } catch {}
   showDeleteModal.value = false
   deleteTargetId.value = null
@@ -74,6 +99,7 @@ onMounted(async () => {
   profileForm.value.bio = userStore.userInfo?.bio || ''
   loadMyResources()
   loadStats()
+  loadApplication()
 })
 
 async function loadMyResources() {
@@ -135,13 +161,23 @@ function goToResource(id: number) {
   router.push(`/resource/${id}`)
 }
 
-async function upgradeToPublisher() {
-  upgrading.value = true
+async function loadApplication() {
   try {
-    await userApi.upgradeToPublisher()
-    await userStore.fetchUserInfo()
+    const res = await userApi.getPublisherApplication()
+    applicationStatus.value = res.data.data
+  } catch {}
+}
+
+async function submitApplication() {
+  if (!applyReason.value.trim()) return
+  applying.value = true
+  try {
+    await userApi.submitPublisherApplication(applyReason.value.trim())
+    showApplyModal.value = false
+    applyReason.value = ''
+    await loadApplication()
   } catch {} finally {
-    upgrading.value = false
+    applying.value = false
   }
 }
 
@@ -192,14 +228,21 @@ function getGradient(index: number) {
             <span class="inline-block text-xs bg-primary-100 text-primary-600 px-2 py-0.5 rounded-full mt-2">
               {{ userStore.userInfo.role === 'ADMIN' ? '管理员' : userStore.userInfo.role === 'PUBLISHER' ? '资源发布者' : '普通用户' }}
             </span>
-            <button
-              v-if="userStore.userInfo.role === 'USER'"
-              @click="upgradeToPublisher"
-              :disabled="upgrading"
-              class="mt-2 text-xs bg-amber-500 text-white px-3 py-1 rounded-full hover:bg-amber-600 transition-colors disabled:opacity-50"
-            >
-              {{ upgrading ? '升级中...' : '成为发布者' }}
-            </button>
+            <template v-if="userStore.userInfo.role === 'USER'">
+              <span v-if="applicationStatus?.status === 'PENDING'" class="mt-2 inline-block text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full">
+                审核中
+              </span>
+              <button
+                v-else
+                @click="showApplyModal = true"
+                class="mt-2 text-xs bg-amber-500 text-white px-3 py-1 rounded-full hover:bg-amber-600 transition-colors"
+              >
+                {{ applicationStatus?.status === 'REJECTED' ? '重新申请' : '申请成为发布者' }}
+              </button>
+              <p v-if="applicationStatus?.status === 'REJECTED' && applicationStatus.rejectReason" class="text-xs text-red-400 mt-1">
+                拒绝原因: {{ applicationStatus.rejectReason }}
+              </p>
+            </template>
           </div>
           <p v-if="userStore.userInfo.bio" class="text-sm text-slate-600 text-center mt-3">
             {{ userStore.userInfo.bio }}
@@ -582,17 +625,12 @@ function getGradient(index: number) {
                   </div>
                   <div>
                     <label class="cursor-pointer bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded-lg text-sm hover:bg-slate-50 transition-colors inline-block">
-                      选择图片
-                      <input type="file" accept="image/*" class="hidden" @change="handleAvatarSelect" />
+                      <span v-if="avatarUploading">上传中...</span>
+                      <span v-else>选择图片</span>
+                      <input type="file" accept="image/*" class="hidden" :disabled="avatarUploading" @change="handleAvatarSelect" />
                     </label>
-                    <button
-                      v-if="avatarFile"
-                      @click="uploadAvatar"
-                      class="ml-2 bg-primary-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-600 transition-colors"
-                    >
-                      上传
-                    </button>
-                    <p class="text-xs text-slate-400 mt-1">支持 JPG、PNG，建议 200x200</p>
+                    <p class="text-xs text-slate-400 mt-1">支持 JPG、PNG/GIF/WEBP，不超过 5MB，每天限传一次</p>
+                    <p v-if="avatarError" class="text-xs text-red-500 mt-1">{{ avatarError }}</p>
                   </div>
                 </div>
               </div>
@@ -651,6 +689,25 @@ function getGradient(index: number) {
       <template #footer>
         <button @click="showDeleteModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
         <button @click="executeDelete" class="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600">确认删除</button>
+      </template>
+    </AppModal>
+
+    <!-- Publisher Application Modal -->
+    <AppModal :visible="showApplyModal" title="申请成为发布者" @close="showApplyModal = false" @confirm="submitApplication">
+      <template #body>
+        <p class="text-sm text-slate-600 mb-3">请填写申请理由，管理员审核通过后您即可发布资源。</p>
+        <textarea
+          v-model="applyReason"
+          rows="4"
+          placeholder="请输入申请理由..."
+          class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+        ></textarea>
+      </template>
+      <template #footer>
+        <button @click="showApplyModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+        <button @click="submitApplication" :disabled="applying || !applyReason.trim()" class="px-4 py-2 text-sm text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50">
+          {{ applying ? '提交中...' : '提交申请' }}
+        </button>
       </template>
     </AppModal>
   </div>
