@@ -120,11 +120,8 @@ AI个性化学习资源分享平台/
 │
 ├── docs/                       # 最终交付文档
 │   ├── PRD.md                 # 产品需求文档
-│   ├── 设计文档.md            # 系统设计与数据库/API说明
-│   └── 交付清单.md            # 交付物总览
+│   └── 设计文档.md            # 系统设计与数据库/API说明
 │
-├── AI_Dev_Log.md               # AI 开发日志
-├── docs/archive/               # 历史过程文档归档
 └── README.md
 ```
 
@@ -162,7 +159,6 @@ AI 相关接口：
 
 - 产品需求文档：`docs/PRD.md`
 - 系统设计文档：`docs/设计文档.md`
-- 交付物清单：`docs/交付清单.md`
 - 需求原型：`prototypes/README.md`
 - Spec 文档：`openspec/proposal.md`、`openspec/design.md`、`openspec/tasks.md`
 - 测试资产：`tests/test_cases.md`、`tests/test_api.py`、`tests/test_ui.py`、`tests/test_report.md`
