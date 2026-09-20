@@ -1,0 +1,39 @@
+# ============================================================
+# 本地开发配置模板 —— 本文件只含占位符，可安全提交
+#
+# 用法：复制为同目录下的 application-local.yml 后填入自己的真实值
+#   PowerShell:  Copy-Item application-local.yml.example application-local.yml
+#   bash:        cp application-local.yml.example application-local.yml
+#
+# application-local.yml 已被 .gitignore 忽略，任何真实凭据都不应提交。
+# 也可以不建这个文件，全部改用环境变量（见 README「后端启动」一节）。
+# ============================================================
+
+spring:
+  # MySQL
+  datasource:
+    password: "<your-mysql-password>"
+
+  # Redis
+  data:
+    redis:
+      host: localhost
+      password: "<your-redis-password>"   # 无密码就留空字符串
+      database: 0
+
+  # Spring AI - DashScope (Qwen) 兼容模式
+  ai:
+    openai:
+      api-key: "<your-dashscope-api-key>"
+
+# File Storage
+# type: local → 存到 ./uploads；type: oss → 需要下面的 access-key-*
+storage:
+  type: local
+  oss:
+    access-key-id: "<your-oss-access-key-id>"
+    access-key-secret: "<your-oss-access-key-secret>"
+
+# JWT 签名密钥：至少 32 字节，缺失 / 过短 / 使用示例值时应用拒绝启动
+jwt:
+  secret: "<your-jwt-secret-at-least-32-chars>"

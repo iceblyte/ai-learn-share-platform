@@ -36,7 +36,12 @@ mysql -u root -p --default-character-set=utf8mb4 < db/seed.sql
 ```powershell
 cd backend
 
+# 首次启动：复制本地配置模板后填入自己的值
+# （application-local.yml 已被 .gitignore 忽略，绝不要提交它）
+Copy-Item src\main\resources\application-local.yml.example src\main\resources\application-local.yml
+
 # 配置环境变量（可选，也可直接修改 application.yml）
+# 注意：JWT_SECRET 为必填项 —— 未配置或少于 32 字节时后端启动会直接失败
 $env:DB_PASSWORD = "your_mysql_password"
 $env:REDIS_HOST = "localhost"
 $env:JWT_SECRET = "your_jwt_secret_key_at_least_32_chars"

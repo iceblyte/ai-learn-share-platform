@@ -1,5 +1,5 @@
 # ==================== Java / Maven ====================
-backend/target/
+target/
 *.class
 *.jar
 *.war
@@ -21,24 +21,56 @@ hs_err_pid*
 *~
 
 # ==================== Node / Frontend ====================
-frontend/node_modules/
-frontend/dist/
+node_modules/
+dist/
+build/
+out/
+coverage/
 frontend/.vite/
+.turbo/
+.cache/
+.parcel-cache/
+.eslintcache
 *.tsbuildinfo
+
+# ==================== Python / Test ====================
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
 
 # ==================== OS ====================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
 desktop.ini
 
 # ==================== Environment / Secrets ====================
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
 application-local.yml
 application-local.yaml
 application-dev.yml
 application-dev.yaml
+application-prod.yml
+application-prod.yaml
+.npmrc
+
+# ==================== Local database files ====================
+*.sqlite
+*.sqlite3
+*.db
+
+# ==================== IDE / Tooling working dirs ====================
+.workbuddy/
 
 # ==================== Uploads ====================
 uploads/
@@ -60,3 +92,7 @@ npm-debug.log*
 
 # ==================== openspec working files ====================
 openspec/changes/
+
+# ==================== 构建产物 ====================
+backend/target/
+frontend/dist/
