@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>数据库实体关系图 · AI 个性化学习资源分享平台</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --bg:#f4f6f9; --panel:#ffffff; --ink:#1f2328; --ink2:#57606a; --ink3:#8b949e;
+  --line:#d6dce3; --line2:#b4bfcc; --soft:#eef1f5;
+  --du:#2f6feb; --dr:#12805c; --ds:#8250df;
+  --du-bg:#eaf1ff; --dr-bg:#e6f6ef; --ds-bg:#f3ecff;
+  --pk:#b54708; --pk-bg:#fdf1e3; --uk:#8250df; --uk-bg:#f3ecff;
+  --fk:#2f6feb; --fk-bg:#eaf1ff; --en:#5c6773; --en-bg:#eef1f5;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"Courier New",monospace;
+}
+html,body{margin:0;padding:0;background:var(--bg)}
+body{font:14px/1.62 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1440px;margin:0 auto;padding:30px 24px 72px}
+
+/* ── 页头 ───────────────────────────── */
+.hd{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 28px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.hd h1{margin:0;font-size:23px;letter-spacing:.2px}
+.hd .sub{margin:6px 0 0;font-size:13px;color:var(--ink2)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:12px;color:var(--ink2)}
+.chip b{color:var(--ink);font-weight:600}
+.chip i{width:6px;height:6px;border-radius:50%;background:var(--dr);font-style:normal}
+
+/* ── 工具条 ─────────────────────────── */
+.tools{position:sticky;top:0;z-index:60;display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:18px 0 0;padding:10px 12px;background:rgba(255,255,255,.88);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:10px}
+.tools .lbl{font-size:12px;color:var(--ink3);margin-right:2px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{appearance:none;border:0;background:var(--panel);color:var(--ink2);font:inherit;font-size:12.5px;padding:5px 13px;cursor:pointer;transition:.15s}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button:hover{background:var(--soft);color:var(--ink)}
+.seg button.on{background:var(--ink);color:#fff}
+.btn{appearance:none;border:1px solid var(--line);background:var(--panel);color:var(--ink2);font:inherit;font-size:12.5px;padding:5px 13px;border-radius:8px;cursor:pointer;transition:.15s}
+.btn:hover{background:var(--soft);color:var(--ink)}
+.tools .hint{margin-left:auto;font-size:12px;color:var(--ink3)}
+
+/* ── 图例 ───────────────────────────── */
+.legend{display:flex;flex-wrap:wrap;gap:10px 22px;margin:16px 0 14px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.legend .grp{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.legend .grp .k{font-size:11.5px;font-weight:700;color:var(--ink3);letter-spacing:.06em}
+.legend .it{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2)}
+.bdg{display:inline-block;font:700 10px/1.5 var(--mono);padding:0 5px;border-radius:4px;letter-spacing:.04em}
+.bdg.pk{background:var(--pk-bg);color:var(--pk)}
+.bdg.uk{background:var(--uk-bg);color:var(--uk)}
+.bdg.fk{background:var(--fk-bg);color:var(--fk)}
+.bdg.en{background:var(--en-bg);color:var(--en)}
+.swatch{width:12px;height:12px;border-radius:3px;display:inline-block}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;border:1.5px solid #fff;box-shadow:0 0 0 1px var(--line2)}
+.rel-demo{width:44px;height:14px;flex:0 0 auto}
+
+/* ── 图舞台 ─────────────────────────── */
+.stage{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 10px 26px;overflow:auto;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.canvas{position:relative;display:inline-block;min-width:100%}
+#lines{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.grid{display:flex;gap:84px;align-items:flex-start;padding:6px 58px 6px 16px;position:relative;z-index:1}
+.col{display:flex;flex-direction:column;gap:24px;width:372px;flex:0 0 auto}
+.col-hd{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:700;letter-spacing:.1em;color:var(--ink3)}
+.col-hd::after{content:"";flex:1;height:1px;background:var(--line)}
+/* ── 表卡片 ─────────────────────────── */
+.tbl{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.05);transition:box-shadow .16s,border-color .16s,opacity .16s}
+.tbl-hd{display:flex;align-items:baseline;gap:8px;padding:8px 12px;border-bottom:1px solid var(--soft);cursor:default}
+.tbl-hd .nm{font:700 13px/1.5 var(--mono);letter-spacing:.01em}
+.tbl-hd .cn{font-size:11.5px;color:var(--ink2)}
+.tbl-hd .more{margin-left:auto;font-size:10.5px;color:var(--ink3);background:var(--soft);border-radius:4px;padding:0 5px;line-height:1.6}
+.tbl[data-dom="user"] .tbl-hd{background:linear-gradient(90deg,var(--du-bg),#fff 82%)}
+.tbl[data-dom="user"] .tbl-hd .nm{color:var(--du)}
+.tbl[data-dom="res"] .tbl-hd{background:linear-gradient(90deg,var(--dr-bg),#fff 82%)}
+.tbl[data-dom="res"] .tbl-hd .nm{color:var(--dr)}
+.tbl[data-dom="soc"] .tbl-hd{background:linear-gradient(90deg,var(--ds-bg),#fff 82%)}
+.tbl[data-dom="soc"] .tbl-hd .nm{color:var(--ds)}
+.tbl-bd{list-style:none;margin:0;padding:5px 0}
+.fld{display:flex;align-items:center;gap:7px;height:24px;padding:0 12px;font-size:12.5px}
+.fld .fn{flex:0 0 112px;font-family:var(--mono);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fld .ft{flex:0 0 80px;font-family:var(--mono);font-size:10.5px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fld .bg{flex:0 0 auto}
+.fld .fc{flex:1 1 auto;font-size:11px;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fld.is-fk .fn{font-weight:600}
+.tbl-ft{padding:5px 12px 6px;border-top:1px solid var(--soft);font-size:10.5px;color:var(--ink3);font-family:var(--mono);line-height:1.5;background:#fcfdfe}
+.tbl.is-dim{opacity:.34}
+.tbl.is-focus{border-color:var(--ink3);box-shadow:0 3px 12px rgba(16,24,40,.13)}
+.tbl.is-pin{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink),0 4px 14px rgba(16,24,40,.15)}
+.fld.dim{opacity:.3}
+
+/* 连线 */
+.rel{fill:none;stroke:var(--line2);stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round;pointer-events:stroke;cursor:pointer;transition:opacity .14s,stroke .14s}
+.rel.is-dim{opacity:.1}
+.rel.is-hot{stroke:var(--c,#0b6bcb);stroke-width:2.3;opacity:1}
+.rel.is-pin{stroke:var(--c,#0b6bcb);stroke-width:2.6;opacity:1}
+.rel.dash{stroke-dasharray:5 4}
+.cf,.tick{fill:none;stroke:var(--line2);stroke-width:1.35;stroke-linecap:round;pointer-events:none;transition:opacity .14s,stroke .14s}
+.cf.is-dim,.tick.is-dim{opacity:.1}
+.cf.is-hot,.tick.is-hot{stroke:var(--c,#0b6bcb);stroke-width:2.1;opacity:1}
+.cf.is-pin,.tick.is-pin{stroke:var(--c,#0b6bcb);stroke-width:2.4;opacity:1}
+.rl{font:600 10.5px/1 var(--mono);fill:var(--ink3);paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round;pointer-events:none;transition:opacity .14s,fill .14s}
+.rl.is-dim{opacity:.12}
+.rl.is-hot,.rl.is-pin{fill:var(--c,#0b6bcb);opacity:1}
+
+/* ── 通用区块 ───────────────────────── */
+.sec{margin-top:38px}
+.sec>h2{margin:0 0 14px;font-size:16px;letter-spacing:.1px}
+.sec>h2 span{font-weight:400;font-size:12.5px;color:var(--ink3);margin-left:8px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table.tb{width:100%;border-collapse:collapse;font-size:12.5px}
+table.tb th{position:sticky;top:0;background:#f8fafc;text-align:left;font-weight:600;font-size:11.5px;color:var(--ink2);padding:9px 12px;border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.03em}
+table.tb td{padding:7px 12px;border-bottom:1px solid var(--soft);vertical-align:top}
+table.tb tbody tr:last-child td{border-bottom:0}
+table.tb tbody tr{transition:background .12s,opacity .12s}
+table.tb tbody tr.is-dim{opacity:.3}
+table.tb tbody tr.is-hot{background:#f5f9ff}
+table.tb tbody tr.is-pin{background:#eef5ff;box-shadow:inset 3px 0 0 var(--ink)}
+table.tb code{font-family:var(--mono);font-size:11.5px;background:var(--soft);padding:1px 5px;border-radius:4px;color:var(--ink)}
+table.tb .mut{color:var(--ink3)}
+table.tb .num{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink3);width:44px}
+.card-note{font-size:11.5px;color:var(--ink3);padding:9px 12px;border-top:1px solid var(--soft);background:#fcfdfe}
+.clickable{cursor:pointer}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.note h3{margin:0 0 8px;font-size:13px;display:flex;align-items:center;gap:7px}
+.note h3::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--ink)}
+.note ul{margin:0;padding-left:18px;font-size:12.5px;color:var(--ink2)}
+.note li{margin:4px 0}
+.note code,.mm code{font-family:var(--mono);font-size:11.5px;background:var(--soft);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.mm{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.mm summary{cursor:pointer;padding:12px 16px;font-size:13px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px}
+.mm summary::-webkit-details-marker{display:none}
+.mm summary::before{content:"";width:0;height:0;border-left:5px solid var(--ink3);border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s}
+.mm[open] summary::before{transform:rotate(90deg)}
+.mm pre{margin:0;padding:14px 16px;border-top:1px solid var(--soft);background:#fbfcfd;font-family:var(--mono);font-size:11.5px;line-height:1.6;color:var(--ink);overflow:auto;max-height:520px;white-space:pre}
+.ft{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink3);display:flex;flex-wrap:wrap;gap:6px 18px}
+
+/* 字段密度模式 */
+.canvas.d-key .fld:not(.is-key){display:none}
+.canvas.d-all .tbl-hd .more{display:none}
+.canvas.d-key .tbl-ft{display:none}
+
+@media (max-width:1280px){.grid{gap:60px}}
+@media (max-width:900px){.grid{gap:40px}.col{width:320px}}
+@media print{
+  body{background:#fff}
+  .tools{display:none}
+  .stage{box-shadow:none;overflow:visible;padding:8px}
+  .grid{padding:4px}
+  .panel,.mm pre{max-height:none}
+  .tbl,.note,.panel{break-inside:avoid}
+  .sec{break-inside:avoid}
+}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hd">
+    <div>
+      <h1>数据库实体关系图</h1>
+      <p class="sub">AI 个性化学习资源分享平台 · 数据模型设计（ER 图）</p>
+    </div>
+    <div class="chips">
+      <span class="chip"><i></i>MySQL <b>8.0</b></span>
+      <span class="chip">字符集 <b>utf8mb4</b></span>
+      <span class="chip">存储引擎 <b>InnoDB</b></span>
+      <span class="chip">实体 <b id="mTables">—</b> 张</span>
+      <span class="chip">关联 <b id="mRels">—</b> 条</span>
+    </div>
+  </header>
+
+  <div class="tools">
+    <span class="lbl">字段密度</span>
+    <div class="seg" id="segDensity">
+      <button class="on" data-mode="key">关键字段</button>
+      <button data-mode="all">全部字段</button>
+    </div>
+    <button class="btn" id="btnReset">重置高亮</button>
+    <span class="hint">悬停卡片高亮其全部关联 · 单击卡片钉住 · 悬停连线或下方表格行同样联动</span>
+  </div>
+
+  <div class="legend">
+    <div class="grp">
+      <span class="k">字段标记</span>
+      <span class="it"><span class="bdg pk">PK</span>主键</span>
+      <span class="it"><span class="bdg uk">UK</span>唯一键</span>
+      <span class="it"><span class="bdg fk">FK</span>外键字段</span>
+      <span class="it"><span class="bdg en">ENUM</span>枚举取值</span>
+    </div>
+    <div class="grp">
+      <span class="k">基数</span>
+      <span class="it">
+        <svg class="rel-demo" viewBox="0 0 54 14" aria-hidden="true">
+          <path d="M8 7 H50" stroke="#8b949e" fill="none" stroke-width="1.4"/>
+          <path d="M8 1.5 V12.5" stroke="#8b949e" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M38 7 L50 1.5 M38 7 L50 7 M38 7 L50 12.5" stroke="#8b949e" fill="none" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        一对多（左端 <b>1</b>，右端 <b>N</b>）
+      </span>
+      <span class="it">
+        <svg class="rel-demo" viewBox="0 0 54 14" aria-hidden="true">
+          <path d="M6 7 H48" stroke="#8250df" fill="none" stroke-width="1.4" stroke-dasharray="5 4"/>
+          <path d="M36 7 L48 1.5 M36 7 L48 7 M36 7 L48 12.5" stroke="#8250df" fill="none" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        多态关联（无物理外键）
+      </span>
+    </div>
+    <div class="grp">
+      <span class="k">主题域</span>
+      <span class="it"><span class="swatch" style="background:#eaf1ff;border:1px solid #2f6feb"></span>用户域</span>
+      <span class="it"><span class="swatch" style="background:#e6f6ef;border:1px solid #12805c"></span>资源域</span>
+      <span class="it"><span class="swatch" style="background:#f3ecff;border:1px solid #8250df"></span>互动域</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="canvas" id="canvas">
+      <svg id="lines"></svg>
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <section class="sec">
+    <h2>关系明细<span>共 <b id="mRels2">—</b> 条 · 子表字段 → 父表字段</span></h2>
+    <div class="panel">
+      <table class="tb">
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>子表 · 字段</th>
+            <th>父表 · 字段</th>
+            <th>基数</th>
+            <th>语义</th>
+            <th>支撑索引</th>
+          </tr>
+        </thead>
+        <tbody id="tbRel"></tbody>
+      </table>
+      <div class="card-note">
+        脚本未声明数据库级 <code>FOREIGN KEY</code> 约束，上述关系由外键字段 + 索引在应用层维护；
+        「支撑索引」列为 <code>db/init.sql</code> 中为该外键建立的索引键名。
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>表清单<span>14 张业务表 · 字段数与唯一约束</span></h2>
+    <div class="panel">
+      <table class="tb">
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>表名</th>
+            <th>中文名</th>
+            <th class="num">字段</th>
+            <th>主键</th>
+            <th>唯一约束</th>
+            <th>职责说明</th>
+          </tr>
+        </thead>
+        <tbody id="tbMeta"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>设计约定与说明</h2>
+    <div class="notes" id="notes"></div>
+  </section>
+
+  <section class="sec">
+    <details class="mm">
+      <summary>Mermaid 源码（可直接粘贴到 Markdown 文档）</summary>
+      <pre id="mermaid"></pre>
+    </details>
+  </section>
+
+  <div class="ft">
+    <span>数据模型依据 <code style="font-family:var(--mono)">db/init.sql</code> 整理</span>
+    <span>实体 14 张 · 关联 22 条</span>
+    <span>图中 <code style="font-family:var(--mono)">publisher_application</code> 为发布者申请审批所需的实体</span>
+  </div>
+
+</div>
+<script>
+/* ═══════════════════════════════════════════════════════════
+   1. 数据模型定义（单一事实来源：db/init.sql）
+   ═══════════════════════════════════════════════════════════ */
+const DOMAINS = {
+  user: { cn: '用户域', c: '#2f6feb' },
+  res:  { cn: '资源域', c: '#12805c' },
+  soc:  { cn: '互动域', c: '#8250df' }
+};
+
+const COLUMNS = [
+  { dom: 'user', tables: ['user', 'publisher_application', 'search_history', 'user_interest', 'recommendation_log'] },
+  { dom: 'res',  tables: ['category', 'resource', 'resource_tag', 'resource_file', 'tag'] },
+  { dom: 'soc',  tables: ['comment', 'favorite', 'rating', 'like_record'] }
+];
+
+/* 字段： [名称, 类型, 标记, 注释]    标记 ∈ PK / UK / FK / ENUM / '' */
+const SCHEMA = [
+  { t: 'user', cn: '用户表', dom: 'user', desc: '账号、角色与积分',
+    key: ['id', 'username', 'email', 'role', 'points'],
+    uk: 'idx_user_username (username)<br>idx_user_email (email)',
+    f: [
+      ['id', 'BIGINT', 'PK', '用户 ID'],
+      ['username', 'VARCHAR(50)', 'UK', '用户名（唯一索引 idx_user_username）'],
+      ['email', 'VARCHAR(100)', 'UK', '邮箱（唯一索引 idx_user_email）'],
+      ['password_hash', 'VARCHAR(255)', '', '密码哈希（BCrypt）'],
+      ['nickname', 'VARCHAR(50)', '', '昵称'],
+      ['avatar_url', 'VARCHAR(500)', '', '头像 URL'],
+      ['bio', 'VARCHAR(500)', '', '个人简介'],
+      ['role', 'VARCHAR(20)', 'ENUM', 'USER / PUBLISHER / ADMIN'],
+      ['last_avatar_upload_at', 'DATETIME', '', '上次头像上传时间（每天限一次）'],
+      ['points', 'INT', '', '积分'],
+      ['created_at', 'DATETIME', '', '创建时间'],
+      ['updated_at', 'DATETIME', '', '更新时间'],
+      ['is_deleted', 'TINYINT', '', '逻辑删除 0-正常 / 1-已删除']
+    ] },
+
+  { t: 'publisher_application', cn: '发布者申请表', dom: 'user', desc: '发布者资格申请与审批流水',
+    key: ['id', 'user_id', 'status'], uk: '—',
+    f: [
+      ['id', 'BIGINT', 'PK', '申请 ID'],
+      ['user_id', 'BIGINT', 'FK', '申请人 ID → user.id'],
+      ['reason', 'VARCHAR(500)', '', '申请理由'],
+      ['status', 'VARCHAR(20)', 'ENUM', 'PENDING / APPROVED / REJECTED'],
+      ['reject_reason', 'VARCHAR(500)', '', '拒绝原因'],
+      ['created_at', 'DATETIME', '', '创建时间'],
+      ['updated_at', 'DATETIME', '', '更新时间']
+    ] },
+
+  { t: 'search_history', cn: '搜索历史表', dom: 'user', desc: '关键词与自然语言搜索行为',
+    key: ['id', 'user_id', 'keyword', 'search_type'], uk: '—',
+    f: [
+      ['id', 'BIGINT', 'PK', 'ID'],
+      ['user_id', 'BIGINT', 'FK', '用户 ID → user.id'],
+      ['keyword', 'VARCHAR(200)', '', '搜索关键词'],
+      ['search_type', 'VARCHAR(10)', 'ENUM', 'KEYWORD / NL（自然语言搜索）'],
+      ['created_at', 'DATETIME', '', '创建时间']
+    ] },
+
+  { t: 'user_interest', cn: '用户兴趣标签表', dom: 'user', desc: '用户兴趣标签及权重',
+    key: ['id', 'user_id', 'tag_id', 'weight'],
+    uk: 'idx_interest_unique (user_id, tag_id)',
+    ft: '索引 idx_interest_user (user_id)',
+    f: [
+      ['id', 'BIGINT', 'PK', 'ID'],
+      ['user_id', 'BIGINT', 'FK', '用户 ID → user.id'],
+      ['tag_id', 'BIGINT', 'FK', '标签 ID → tag.id'],
+      ['weight', 'FLOAT', '', '兴趣权重（默认 1.0）'],
+      ['updated_at', 'DATETIME', '', '更新时间']
+    ] },
+
+  { t: 'recommendation_log', cn: '推荐日志表', dom: 'user', desc: '推荐结果与推荐理由留痕',
+    key: ['id', 'user_id', 'resource_id', 'algorithm'], uk: '—',
+    ft: '索引 idx_rec_user (user_id)、idx_rec_created (created_at DESC)',
+    f: [
+      ['id', 'BIGINT', 'PK', 'ID'],
+      ['user_id', 'BIGINT', 'FK', '用户 ID → user.id'],
+      ['resource_id', 'BIGINT', 'FK', '被推荐的资源 ID → resource.id'],
+      ['reason', 'VARCHAR(500)', '', '推荐理由'],
+      ['algorithm', 'VARCHAR(50)', '', '推荐算法标识'],
+      ['created_at', 'DATETIME', '', '创建时间']
+    ] },
+
+  { t: 'category', cn: '资源分类表', dom: 'res', desc: '资源分类树，支持父子层级',
+    key: ['id', 'name', 'parent_id', 'sort_order'], uk: '—',
+    ft: '索引 idx_category_parent (parent_id)、idx_category_sort (sort_order)',
+    f: [
+      ['id', 'BIGINT', 'PK', '分类 ID'],
+      ['name', 'VARCHAR(50)', '', '分类名称'],
+      ['parent_id', 'BIGINT', 'FK', '父分类 ID → category.id（NULL 为顶级）'],
+      ['sort_order', 'INT', '', '排序序号'],
+      ['is_active', 'TINYINT', '', '是否启用 0-禁用 / 1-启用'],
+      ['created_at', 'DATETIME', '', '创建时间']
+    ] },
+
+  { t: 'resource', cn: '资源表', dom: 'res', desc: '核心实体：资源元信息与统计字段',
+    key: ['id', 'title', 'category_id', 'publisher_id', 'resource_type', 'status', 'hot_score'],
+    uk: '—',
+    ft: '全文索引 ft_resource_title_desc (title, description) WITH PARSER ngram',
+    f: [
+      ['id', 'BIGINT', 'PK', '资源 ID'],
+      ['title', 'VARCHAR(200)', '', '资源标题'],
+      ['category_id', 'BIGINT', 'FK', '分类 ID → category.id（草稿可为空）'],
+      ['publisher_id', 'BIGINT', 'FK', '发布者 ID → user.id'],
+      ['description', 'TEXT', '', '资源描述（支持 Markdown）'],
+      ['ai_summary', 'VARCHAR(500)', '', 'AI 生成的摘要'],
+      ['resource_type', 'VARCHAR(10)', 'ENUM', 'FILE / LINK'],
+      ['external_url', 'VARCHAR(500)', '', '外部链接'],
+      ['cover_image_url', 'VARCHAR(500)', '', '封面图片 URL'],
+      ['view_count', 'INT', '', '浏览次数'],
+      ['like_count', 'INT', '', '点赞数'],
+      ['favorite_count', 'INT', '', '收藏数'],
+      ['comment_count', 'INT', '', '评论数'],
+      ['avg_rating', 'DECIMAL(3,2)', '', '平均评分'],
+      ['rating_count', 'INT', '', '评分人数'],
+      ['hot_score', 'INT', '', '热度分'],
+      ['status', 'VARCHAR(20)', 'ENUM', 'DRAFT / PENDING / PUBLISHED / REJECTED'],
+      ['created_at', 'DATETIME', '', '创建时间'],
+      ['updated_at', 'DATETIME', '', '更新时间'],
+      ['is_deleted', 'TINYINT', '', '逻辑删除']
+    ] },
+
+  { t: 'resource_tag', cn: '资源-标签关联表', dom: 'res', desc: '资源 ↔ 标签 多对多中间表',
+    key: ['id', 'resource_id', 'tag_id'],
+    uk: 'idx_rt_unique (resource_id, tag_id)', ft: '索引 idx_rt_tag (tag_id)',
+    f: [
+      ['id', 'BIGINT', 'PK', 'ID'],
+      ['resource_id', 'BIGINT', 'FK', '资源 ID → resource.id'],
+      ['tag_id', 'BIGINT', 'FK', '标签 ID → tag.id'],
+      ['created_at', 'DATETIME', '', '创建时间']
+    ] },
+
+  { t: 'resource_file', cn: '资源文件表', dom: 'res', desc: '资源附件（本地或 OSS 存储）',
+    key: ['id', 'resource_id', 'file_name', 'file_url'], uk: '—',
+    ft: '索引 idx_rf_resource (resource_id)',
+    f: [
+      ['id', 'BIGINT', 'PK', '文件 ID'],
+      ['resource_id', 'BIGINT', 'FK', '资源 ID → resource.id'],
+      ['file_name', 'VARCHAR(255)', '', '文件名'],
+      ['file_url', 'VARCHAR(500)', '', '文件 URL'],
+      ['file_size', 'BIGINT', '', '文件大小（字节）'],
+      ['file_type', 'VARCHAR(50)', '', '文件类型'],
+      ['uploaded_at', 'DATETIME', '', '上传时间']
+    ] },
+
+  { t: 'tag', cn: '标签表', dom: 'res', desc: '资源标签与使用热度',
+    key: ['id', 'name', 'usage_count'], uk: 'idx_tag_name (name)',
+    ft: '索引 idx_tag_usage (usage_count DESC)',
+    f: [
+      ['id', 'BIGINT', 'PK', '标签 ID'],
+      ['name', 'VARCHAR(50)', 'UK', '标签名称（唯一索引 idx_tag_name）'],
+      ['usage_count', 'INT', '', '使用次数'],
+      ['created_at', 'DATETIME', '', '创建时间']
+    ] },
+
+  { t: 'comment', cn: '评论表', dom: 'soc', desc: '资源评论，支持多级回复',
+    key: ['id', 'resource_id', 'user_id', 'parent_id', 'like_count', 'status'], uk: '—',
+    ft: '索引 idx_comment_resource / idx_comment_user / idx_comment_parent',
+    f: [
+      ['id', 'BIGINT', 'PK', '评论 ID'],
+      ['resource_id', 'BIGINT', 'FK', '资源 ID → resource.id'],
+      ['user_id', 'BIGINT', 'FK', '评论者 ID → user.id'],
+      ['parent_id', 'BIGINT', 'FK', '父评论 ID → comment.id（NULL 为一级评论）'],
+      ['content', 'TEXT', '', '评论内容'],
+      ['like_count', 'INT', '', '点赞数'],
+      ['status', 'VARCHAR(20)', 'ENUM', 'PENDING / APPROVED / REJECTED'],
+      ['created_at', 'DATETIME', '', '创建时间'],
+      ['updated_at', 'DATETIME', '', '更新时间'],
+      ['is_deleted', 'TINYINT', '', '逻辑删除']
+    ] },
+
+  { t: 'favorite', cn: '收藏表', dom: 'soc', desc: '用户收藏关系',
+    key: ['id', 'user_id', 'resource_id'], uk: 'idx_fav_unique (user_id, resource_id)',
+    ft: '索引 idx_fav_resource (resource_id)',
+    f: [
+      ['id', 'BIGINT', 'PK', 'ID'],
+      ['user_id', 'BIGINT', 'FK', '用户 ID → user.id'],
+      ['resource_id', 'BIGINT', 'FK', '资源 ID → resource.id'],
+      ['created_at', 'DATETIME', '', '创建时间']
+    ] },
+
+  { t: 'rating', cn: '评分表', dom: 'soc', desc: '用户对资源的 1–5 分评分',
+    key: ['id', 'user_id', 'resource_id', 'score'], uk: 'idx_rating_unique (user_id, resource_id)',
+    ft: '索引 idx_rating_resource (resource_id)',
+    f: [
+      ['id', 'BIGINT', 'PK', 'ID'],
+      ['user_id', 'BIGINT', 'FK', '用户 ID → user.id'],
+      ['resource_id', 'BIGINT', 'FK', '资源 ID → resource.id'],
+      ['score', 'INT', '', '评分（1-5）'],
+      ['created_at', 'DATETIME', '', '创建时间'],
+      ['updated_at', 'DATETIME', '', '更新时间']
+    ] },
+
+  { t: 'like_record', cn: '点赞记录表', dom: 'soc', desc: '通用点赞记录（资源 / 评论）',
+    key: ['id', 'user_id', 'target_id', 'target_type'],
+    uk: 'idx_like_unique (user_id, target_id, target_type)',
+    ft: '索引 idx_like_target (target_id, target_type)',
+    f: [
+      ['id', 'BIGINT', 'PK', 'ID'],
+      ['user_id', 'BIGINT', 'FK', '用户 ID → user.id'],
+      ['target_id', 'BIGINT', 'FK', '目标 ID（资源或评论，多态）'],
+      ['target_type', 'VARCHAR(10)', 'ENUM', 'RESOURCE / COMMENT'],
+      ['created_at', 'DATETIME', '', '创建时间']
+    ] }
+];
+
+/* 关联： [父表, 父字段, 子表, 子字段, 基数, 语义, 支撑索引, 虚线?] */
+const RELS = [
+  ['user', 'id', 'resource', 'publisher_id', '1 : N', '用户作为发布者上架资源', 'idx_resource_publisher'],
+  ['user', 'id', 'publisher_application', 'user_id', '1 : N', '提交发布者资格申请', 'idx_pa_user'],
+  ['user', 'id', 'comment', 'user_id', '1 : N', '发表的评论（含回复）', 'idx_comment_user'],
+  ['user', 'id', 'favorite', 'user_id', '1 : N', '用户收藏的资源', 'idx_fav_unique'],
+  ['user', 'id', 'rating', 'user_id', '1 : N', '用户对资源的评分', 'idx_rating_unique'],
+  ['user', 'id', 'like_record', 'user_id', '1 : N', '用户对资源 / 评论的点赞', 'idx_like_unique'],
+  ['user', 'id', 'search_history', 'user_id', '1 : N', '搜索行为记录', 'idx_search_user'],
+  ['user', 'id', 'user_interest', 'user_id', '1 : N', '用户兴趣标签权重', 'idx_interest_unique'],
+  ['user', 'id', 'recommendation_log', 'user_id', '1 : N', '推荐投放记录', 'idx_rec_user'],
+
+  ['category', 'id', 'resource', 'category_id', '1 : N', '资源所属分类（草稿可为空）', 'idx_resource_category'],
+  ['category', 'id', 'category', 'parent_id', '1 : N', '分类树自关联；NULL 为顶级', 'idx_category_parent'],
+  ['tag', 'id', 'resource_tag', 'tag_id', 'M : N', '标签 ↔ 资源（经中间表）', 'idx_rt_tag'],
+  ['tag', 'id', 'user_interest', 'tag_id', '1 : N', '标签被纳入的用户兴趣', 'idx_interest_unique'],
+
+  ['resource', 'id', 'resource_tag', 'resource_id', 'M : N', '资源 ↔ 标签（经中间表）', 'idx_rt_unique'],
+  ['resource', 'id', 'resource_file', 'resource_id', '1 : N', '资源关联的文件', 'idx_rf_resource'],
+  ['resource', 'id', 'comment', 'resource_id', '1 : N', '资源下的一级评论与回复', 'idx_comment_resource'],
+  ['resource', 'id', 'favorite', 'resource_id', '1 : N', '资源被收藏记录', 'idx_fav_resource'],
+  ['resource', 'id', 'rating', 'resource_id', '1 : N', '资源收到的评分', 'idx_rating_resource'],
+  ['resource', 'id', 'recommendation_log', 'resource_id', '1 : N', '资源被推荐投放', '（无独立索引）'],
+
+  ['comment', 'id', 'comment', 'parent_id', '1 : N', '评论回复自关联；NULL 为一级评论', 'idx_comment_parent'],
+
+  ['resource', 'id', 'like_record', 'target_id', '多态', 'target_type = RESOURCE 时的点赞目标', 'idx_like_target (target_id, target_type)', true],
+  ['comment', 'id', 'like_record', 'target_id', '多态', 'target_type = COMMENT 时的点赞目标', 'idx_like_target (target_id, target_type)', true]
+].map(r => ({ p: r[0], pf: r[1], c: r[2], cf: r[3], card: r[4], desc: r[5], idx: r[6], dash: !!r[7] }));
+
+/* ═══════════════════════════════════════════════════════════
+   2. 渲染
+   ═══════════════════════════════════════════════════════════ */
+const byName = Object.fromEntries(SCHEMA.map(s => [s.t, s]));
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+const REL_LABEL = {
+  'user>resource': '发布',
+  'user>publisher_application': '申请',
+  'user>comment': '发表评论',
+  'user>favorite': '收藏',
+  'user>rating': '评分',
+  'user>like_record': '点赞',
+  'user>search_history': '搜索',
+  'user>user_interest': '兴趣标签',
+  'user>recommendation_log': '被推荐',
+  'category>resource': '归类',
+  'category>category': '父子分类',
+  'tag>resource_tag': '被打标',
+  'tag>user_interest': '被偏好',
+  'resource>resource_tag': '打标',
+  'resource>resource_file': '含附件',
+  'resource>comment': '被评论',
+  'resource>favorite': '被收藏',
+  'resource>rating': '被评分',
+  'resource>recommendation_log': '被推荐',
+  'comment>comment': '回复',
+  'resource>like_record': '被点赞（多态）',
+  'comment>like_record': '被点赞（多态）'
+};
+
+function renderCards() {
+  document.getElementById('grid').innerHTML = COLUMNS.map(col => {
+    const cards = col.tables.map(t => {
+      const s = byName[t];
+      const rows = s.f.map(([n, ty, bg, cm]) => {
+        const isKey = s.key.includes(n);
+        const cls = 'fld' + (isKey ? ' is-key' : '') + (bg === 'FK' ? ' is-fk' : '');
+        const badge = bg ? '<span class="bdg ' + bg.toLowerCase() + '">' + bg + '</span>' : '';
+        return '<li class="' + cls + '" data-field="' + n + '" title="' + esc(n + ' · ' + ty + (cm ? ' · ' + cm : '')) + '">' +
+          '<span class="fn">' + esc(n) + '</span>' +
+          '<span class="ft">' + esc(ty) + '</span>' +
+          '<span class="bg">' + badge + '</span>' +
+          '<span class="fc">' + esc(cm) + '</span>' +
+          '</li>';
+      }).join('');
+      const hidden = s.f.length - s.key.length;
+      return '<article class="tbl" data-table="' + s.t + '" data-dom="' + s.dom + '">' +
+        '<header class="tbl-hd">' +
+          '<span class="nm">' + s.t + '</span>' +
+          '<span class="cn">' + s.cn + '</span>' +
+          '<span class="more">+' + hidden + ' 字段</span>' +
+        '</header>' +
+        '<ul class="tbl-bd">' + rows + '</ul>' +
+        (s.ft ? '<div class="tbl-ft">' + esc(s.ft) + '</div>' : '') +
+        '</article>';
+    }).join('');
+    return '<div class="col"><div class="col-hd">' + DOMAINS[col.dom].cn + '</div>' + cards + '</div>';
+  }).join('');
+}
+
+function renderRelTable() {
+  document.getElementById('tbRel').innerHTML = RELS.map((r, i) =>
+    '<tr class="clickable" data-i="' + i + '" data-p="' + r.p + '" data-c="' + r.c + '">' +
+      '<td class="num">' + (i + 1) + '</td>' +
+      '<td><span class="bdg ' + (r.dash ? 'uk' : 'fk') + '">' + (r.dash ? '多态' : 'FK') + '</span> ' +
+        '<code>' + r.c + '</code>.<code>' + r.cf + '</code></td>' +
+      '<td><code>' + r.p + '</code>.<code>' + r.pf + '</code></td>' +
+      '<td class="' + (r.card === '多态' ? '' : 'mut') + '">' + r.card + '</td>' +
+      '<td class="mut">' + esc(r.desc) + '</td>' +
+      '<td class="mut" style="font-family:var(--mono);font-size:11px">' + esc(r.idx) + '</td>' +
+    '</tr>').join('');
+}
+
+function renderMetaTable() {
+  document.getElementById('tbMeta').innerHTML = SCHEMA.map((s, i) =>
+    '<tr class="clickable" data-t="' + s.t + '">' +
+      '<td class="num">' + (i + 1) + '</td>' +
+      '<td><code>' + s.t + '</code></td>' +
+      '<td>' + s.cn + '</td>' +
+      '<td class="num">' + s.f.length + '</td>' +
+      '<td class="mut"><code>id</code> BIGINT</td>' +
+      '<td class="mut" style="font-family:var(--mono);font-size:11px">' + s.uk + '</td>' +
+      '<td class="mut">' + esc(s.desc) + '</td>' +
+    '</tr>').join('');
+}
+
+function renderNotes() {
+  const NOTES = [
+    ['外键约束策略', [
+      '建表脚本未声明数据库级 <code>FOREIGN KEY</code>，关联由外键字段 + 二级索引在应用层维护，避免级联锁与迁移耦合。',
+      '幂等性由唯一键承担：<code>favorite</code>、<code>rating</code>、<code>like_record</code>、<code>user_interest</code>、<code>resource_tag</code> 各自唯一键阻止同一用户对同一目标重复写入。',
+      '删除用户或资源时，需在业务层清理 <code>comment</code> / <code>favorite</code> / <code>rating</code> / <code>like_record</code> / <code>resource_file</code> 等从属记录。'
+    ]],
+    ['多态关联', [
+      '<code>like_record.target_id</code> 同时承载资源点赞与评论点赞，由 <code>target_type</code> 区分，因此无法建立物理外键。',
+      '查询必须同时带 <code>target_type</code> 条件，<code>idx_like_target (target_id, target_type)</code> 已覆盖该访问路径。',
+      '<code>resource.like_count</code> 与 <code>comment.like_count</code> 由该表按 <code>target_type</code> 分别汇总维护。'
+    ]],
+    ['自关联', [
+      '<code>category.parent_id</code>：分类树，<code>NULL</code> 表示顶级分类，<code>idx_category_parent</code> 支撑子树查询。',
+      '<code>comment.parent_id</code>：多级评论，<code>NULL</code> 表示一级评论，<code>idx_comment_parent</code> 支撑回复列表查询。'
+    ]],
+    ['逻辑删除口径', [
+      '<code>user</code>、<code>resource</code>、<code>comment</code> 使用 <code>is_deleted</code>（0 正常 / 1 已删除）做逻辑删除。',
+      '列表、详情、统计等查询需统一附带 <code>is_deleted = 0</code> 过滤条件，统计口径保持一致。',
+      '<code>search_history</code>、<code>recommendation_log</code>、<code>like_record</code> 等流水表按物理删除 / 定期清理处理。'
+    ]],
+    ['派生统计字段', [
+      '<code>resource</code> 上的 <code>like_count</code>、<code>favorite_count</code>、<code>comment_count</code>、<code>rating_count</code>、<code>avg_rating</code>、<code>hot_score</code> 均为派生字段，在写入路径同步更新，换取列表页免聚合。',
+      '<code>avg_rating</code> 与 <code>rating_count</code> 由 <code>rating</code> 表汇总，评分新增或修改时回写。',
+      '<code>hot_score</code> 是热度排序键：<code>idx_resource_hot_score (hot_score DESC)</code> 支撑热门榜，<code>idx_resource_created (created_at DESC)</code> 支撑最新榜。'
+    ]],
+    ['字符集、引擎与检索', [
+      '全表 <code>ENGINE=InnoDB</code>，字符集 <code>utf8mb4</code> / 排序规则 <code>utf8mb4_unicode_ci</code>。',
+      '<code>resource</code> 上的 <code>ft_resource_title_desc (title, description) WITH PARSER ngram</code> 支撑中文关键词检索。',
+      '状态筛选走 <code>idx_resource_status</code>；标签热度走 <code>idx_tag_usage (usage_count DESC)</code>；搜索与推荐日志按时间倒序查询。'
+    ]]
+  ];
+  document.getElementById('notes').innerHTML = NOTES.map(([h, items]) =>
+    '<div class="note"><h3>' + h + '</h3><ul>' + items.map(x => '<li>' + x + '</li>').join('') + '</ul></div>'
+  ).join('');
+}
+
+function renderMermaid() {
+  const shortType = t => t.replace(/\(.*?\)/g, '').toLowerCase();
+  let out = '%% 由《数据库实体关系图.html》导出 · 依据 db/init.sql\n';
+  out += '%% 字段标记：PK 主键 / UK 唯一键 / FK 外键字段\n';
+  out += 'erDiagram\n';
+  RELS.forEach(r => {
+    out += '    ' + r.p.toUpperCase() + ' ||--o{ ' + r.c.toUpperCase() +
+           ' : "' + (REL_LABEL[r.p + '>' + r.c] || r.desc) + '"\n';
+  });
+  SCHEMA.forEach(s => {
+    out += '\n    ' + s.t.toUpperCase() + ' {\n';
+    s.f.forEach(([n, ty, bg, cm]) => {
+      const keys = bg === 'PK' || bg === 'UK' || bg === 'FK' ? ' ' + bg : '';
+      const note = cm ? ' "' + String(cm).replace(/"/g, "'") + '"' : '';
+      out += '        ' + shortType(ty) + ' ' + n + keys + note + '\n';
+    });
+    out += '    }\n';
+  });
+  document.getElementById('mermaid').textContent = out;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   3. 布局与连线
+   ═══════════════════════════════════════════════════════════ */
+const NS = 'http://www.w3.org/2000/svg';
+const canvas = document.getElementById('canvas');
+const svg = document.getElementById('lines');
+const grid = document.getElementById('grid');
+const colIndexOf = {};
+COLUMNS.forEach((c, ci) => c.tables.forEach(t => { colIndexOf[t] = ci; }));
+
+function cardOf(t) { return document.querySelector('.tbl[data-table="' + t + '"]'); }
+
+function roundedPath(pts, r) {
+  if (pts.length < 2) return '';
+  let d = 'M ' + pts[0].x + ' ' + pts[0].y;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+    const v1 = { x: p1.x - p0.x, y: p1.y - p0.y }, v2 = { x: p2.x - p1.x, y: p2.y - p1.y };
+    const l1 = Math.hypot(v1.x, v1.y), l2 = Math.hypot(v2.x, v2.y);
+    if (l1 < 0.6 || l2 < 0.6) continue;
+    const rr = Math.min(r, l1 / 2, l2 / 2);
+    const a = { x: p1.x - v1.x / l1 * rr, y: p1.y - v1.y / l1 * rr };
+    const b = { x: p1.x + v2.x / l2 * rr, y: p1.y + v2.y / l2 * rr };
+    d += ' L ' + a.x + ' ' + a.y + ' Q ' + p1.x + ' ' + p1.y + ' ' + b.x + ' ' + b.y;
+  }
+  const last = pts[pts.length - 1];
+  return d + ' L ' + last.x + ' ' + last.y;
+}
+
+function portY(table, field, cr) {
+  const card = cardOf(table);
+  if (!card) return 0;
+  const li = card.querySelector('li[data-field="' + field + '"]');
+  const box = li && li.offsetParent !== null ? li : card.querySelector('.tbl-hd');
+  const r = box.getBoundingClientRect();
+  return r.top - cr.top + r.height / 2;
+}
+
+function layout() {
+  const cr = canvas.getBoundingClientRect();
+
+  /* 卡片与列的位置（画布坐标系） */
+  const geo = {}, colExtent = [];
+  document.querySelectorAll('.tbl').forEach(el => {
+    const r = el.getBoundingClientRect();
+    geo[el.dataset.table] = { l: r.left - cr.left, r: r.right - cr.left };
+  });
+  document.querySelectorAll('.col').forEach((el, ci) => {
+    const r = el.getBoundingClientRect();
+    colExtent[ci] = { l: r.left - cr.left, r: r.right - cr.left, t: r.top - cr.top, b: r.bottom - cr.top };
+  });
+  let contentBottom = 0;
+  colExtent.forEach(c => { if (c) contentBottom = Math.max(contentBottom, c.b); });
+
+  /* 一、计算所有连线路径 */
+  const items = [];
+  let maxCorridor = 0;
+
+  RELS.forEach((rel, i) => {
+    const A = geo[rel.p], B = geo[rel.c];
+    if (!A || !B) return;
+    const ci = colIndexOf[rel.p], cj = colIndexOf[rel.c];
+    const ay = portY(rel.p, rel.pf, cr);
+    const by = portY(rel.c, rel.cf, cr);
+    let ax, bx, pts;
+
+    if (ci === cj) {
+      /* 同列：从卡片右侧出线，走列右侧的独立巷道 */
+      if (Math.abs(ay - by) < 2) return;
+      ax = A.r; bx = B.r;
+      const lane = 22 + (i % 5) * 11;
+      pts = [{ x: ax, y: ay }, { x: ax + lane, y: ay }, { x: ax + lane, y: by }, { x: bx, y: by }];
+    } else if (Math.abs(ci - cj) === 1) {
+      /* 相邻列：直接折线 */
+      if (Math.abs(ay - by) < 2) return;
+      const right = ci < cj;
+      ax = right ? A.r : A.l;
+      bx = right ? B.l : B.r;
+      const lane = 14 + (i % 5) * 10;
+      const mx = right ? bx - lane : bx + lane;
+      pts = [{ x: ax, y: ay }, { x: mx, y: ay }, { x: mx, y: by }, { x: bx, y: by }];
+    } else {
+      /* 跨列：经中间列下方的水平通道绕行，避免穿过卡片 */
+      const right = ci < cj;
+      ax = right ? A.r : A.l;
+      bx = right ? B.l : B.r;
+      const n = i % 4;
+      const c1 = right ? ax + 14 + n * 10 : ax - 14 - n * 10;
+      const c2 = right ? bx - 24 - n * 10 : bx + 24 + n * 10;
+      let midBottom = 0;
+      for (let m = Math.min(ci, cj) + 1; m < Math.max(ci, cj); m++) {
+        if (colExtent[m]) midBottom = Math.max(midBottom, colExtent[m].b);
+      }
+      const corridor = midBottom + 16 + (i % 5) * 10;
+      maxCorridor = Math.max(maxCorridor, corridor);
+      pts = [{ x: ax, y: ay }, { x: c1, y: ay }, { x: c1, y: corridor },
+             { x: c2, y: corridor }, { x: c2, y: by }, { x: bx, y: by }];
+    }
+    items.push({ i, rel, pts, colour: DOMAINS[byName[rel.c].dom].c });
+  });
+
+  /* 二、为通道预留底部空间（不影响任何卡片位置） */
+  const curPad = parseInt(getComputedStyle(grid).paddingBottom, 10) || 6;
+  const needPad = maxCorridor
+    ? Math.max(6, Math.ceil(maxCorridor + 30 - contentBottom - 6))
+    : 6;
+  if (curPad !== needPad) grid.style.paddingBottom = needPad + 'px';
+
+  /* 三、按最终尺寸建立画布 */
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  svg.textContent = '';
+
+  const frag = document.createDocumentFragment();
+  items.forEach(({ i, rel, pts, colour }) => {
+    const ax = pts[0].x, ay = pts[0].y;
+    const last = pts[pts.length - 1], prev = pts[pts.length - 2];
+    const bx = last.x, by = last.y;
+    const sgnA = Math.sign(pts[1].x - pts[0].x) || 1;
+    const sgnB = Math.sign(last.x - prev.x) || 1;
+
+    const g = document.createElementNS(NS, 'g');
+    g.dataset.i = i;
+    g.dataset.p = rel.p;
+    g.dataset.c = rel.c;
+
+    const mk = (tag, attrs, cls) => {
+      const el = document.createElementNS(NS, tag);
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+      if (cls) el.setAttribute('class', cls);
+      el.style.setProperty('--c', colour);
+      return el;
+    };
+
+    /* 主线 */
+    g.appendChild(mk('path', { d: roundedPath(pts, 9) }, 'rel' + (rel.dash ? ' dash' : '')));
+    /* 父端「一」：竖线 */
+    const tx = ax + sgnA * 10;
+    g.appendChild(mk('path', { d: 'M ' + tx + ' ' + (ay - 7) + ' L ' + tx + ' ' + (ay + 7) }, 'tick'));
+    /* 子端「多」：鸦爪 */
+    const tipX = bx - sgnB * 12;
+    g.appendChild(mk('path', {
+      d: 'M ' + tipX + ' ' + by + ' L ' + bx + ' ' + (by - 7) +
+         ' M ' + tipX + ' ' + by + ' L ' + bx + ' ' + by +
+         ' M ' + tipX + ' ' + by + ' L ' + bx + ' ' + (by + 7)
+    }, 'cf'));
+    /* 基数标注 */
+    g.appendChild(mk('text', { x: tx, y: ay - 8.5, 'text-anchor': 'middle' }, 'rl')).textContent = '1';
+    g.appendChild(mk('text', { x: tipX - 2, y: by - 9, 'text-anchor': 'middle' }, 'rl')).textContent = rel.dash ? 'N·多态' : 'N';
+
+    frag.appendChild(g);
+  });
+  svg.appendChild(frag);
+  applyFocus();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   4. 高亮交互
+   ═══════════════════════════════════════════════════════════ */
+let hoverTable = null, hoverRel = null, pinned = null;
+
+function applyFocus() {
+  let type = 'none', v = null, pin = false;
+  if (hoverRel !== null) { type = 'rel'; v = hoverRel; }
+  else if (hoverTable !== null) { type = 'table'; v = hoverTable; }
+  else if (pinned !== null) { type = 'table'; v = pinned; pin = true; }
+
+  const hitTable = t => {
+    if (type === 'none') return null;
+    if (type === 'table') return t === v;
+    return RELS[v].p === t || RELS[v].c === t;
+  };
+  const hitRel = i => {
+    if (type === 'none') return null;
+    if (type === 'rel') return i === v;
+    const r = RELS[i];
+    return r.p === v || r.c === v;
+  };
+  const tone = (el, h) => {
+    el.classList.toggle('is-dim', h === false);
+    el.classList.toggle('is-hot', h === true && !pin);
+    el.classList.toggle('is-pin', h === true && pin);
+  };
+
+  document.querySelectorAll('.tbl').forEach(el => {
+    const h = hitTable(el.dataset.table);
+    el.classList.toggle('is-dim', h === false);
+    el.classList.toggle('is-focus', h === true && !pin);
+    el.classList.toggle('is-pin', h === true && pin);
+  });
+  document.querySelectorAll('#lines g[data-i]').forEach(g => {
+    const h = hitRel(+g.dataset.i);
+    g.querySelectorAll('.rel,.cf,.tick,.rl').forEach(el => tone(el, h));
+  });
+  document.querySelectorAll('#tbRel tr').forEach(tr => tone(tr, hitRel(+tr.dataset.i)));
+  document.querySelectorAll('#tbMeta tr').forEach(tr => {
+    const h = hitTable(tr.dataset.t);
+    tr.classList.toggle('is-dim', h === false);
+    tr.classList.toggle('is-hot', h === true);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   5. 启动
+   ═══════════════════════════════════════════════════════════ */
+function boot() {
+  renderCards();
+  renderRelTable();
+  renderMetaTable();
+  renderNotes();
+  renderMermaid();
+
+  document.getElementById('mTables').textContent = SCHEMA.length;
+  document.getElementById('mRels').textContent = RELS.length;
+  document.getElementById('mRels2').textContent = RELS.length;
+
+  canvas.classList.add('d-key');
+
+  document.querySelectorAll('.tbl').forEach(el => {
+    el.addEventListener('mouseenter', () => { hoverTable = el.dataset.table; applyFocus(); });
+    el.addEventListener('mouseleave', () => { hoverTable = null; applyFocus(); });
+    el.addEventListener('click', () => {
+      pinned = pinned === el.dataset.table ? null : el.dataset.table;
+      applyFocus();
+    });
+  });
+
+  document.querySelectorAll('#tbRel tr').forEach(tr => {
+    tr.addEventListener('mouseenter', () => { hoverRel = +tr.dataset.i; applyFocus(); });
+    tr.addEventListener('mouseleave', () => { hoverRel = null; applyFocus(); });
+  });
+  document.querySelectorAll('#tbMeta tr').forEach(tr => {
+    tr.addEventListener('mouseenter', () => { hoverTable = tr.dataset.t; applyFocus(); });
+    tr.addEventListener('mouseleave', () => { hoverTable = null; applyFocus(); });
+  });
+
+  svg.addEventListener('mouseover', e => {
+    const g = e.target.closest && e.target.closest('g[data-i]');
+    if (!g) return;
+    hoverRel = +g.dataset.i;
+    applyFocus();
+  });
+  svg.addEventListener('mouseleave', () => { hoverRel = null; applyFocus(); });
+  svg.addEventListener('mouseout', e => {
+    const g = e.target.closest && e.target.closest('g[data-i]');
+    if (!g) return;
+    const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('g[data-i]');
+    if (to === g) return;
+    hoverRel = null;
+    applyFocus();
+  });
+
+  const seg = document.getElementById('segDensity');
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    canvas.classList.toggle('d-key', b.dataset.mode === 'key');
+    canvas.classList.toggle('d-all', b.dataset.mode === 'all');
+    requestAnimationFrame(layout);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', () => {
+    hoverTable = null; hoverRel = null; pinned = null;
+    applyFocus();
+  });
+
+  layout();
+  requestAnimationFrame(layout);
+
+  if (window.ResizeObserver) new ResizeObserver(() => layout()).observe(document.getElementById('grid'));
+  window.addEventListener('resize', () => layout());
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => layout());
+}
+
+boot();
+
+</script>
+</body>
+
+</html>
