@@ -133,13 +133,12 @@ public class AiService {
         return result;
     }
 
-    public void streamChat(String message, String route, String pageTitle, Consumer<String> onChunk) {
+    public void streamChat(String message, String systemPrompt, Consumer<String> onChunk) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
             onChunk.accept("AI 服务未配置，请先设置有效的 AI_API_KEY。");
             return;
         }
 
-        String systemPrompt = buildChatSystemPrompt(route, pageTitle);
         Exception lastError = null;
 
         for (int attempt = 1; attempt <= Math.max(chatRetries, 1); attempt++) {
@@ -322,18 +321,6 @@ public class AiService {
             parts.add(text.substring(i, Math.min(i + chunkSize, text.length())));
         }
         return parts;
-    }
-
-    private String buildChatSystemPrompt(String route, String pageTitle) {
-        String currentRoute = route == null || route.isBlank() ? "/" : route;
-        String currentPageTitle = pageTitle == null || pageTitle.isBlank() ? "AI学习平台" : pageTitle;
-        return """
-                你是 AI 学习平台内的学习助手。回答要直接、清楚、简洁，优先帮助用户理解学习资源、学习路径、技术概念和平台内功能。
-                如果用户的问题与当前页面有关，可以参考页面上下文。
-                当前页面标题：%s
-                当前页面路由：%s
-                不要输出 markdown 标题，不要使用过度客套。
-                """.formatted(currentPageTitle, currentRoute);
     }
 
 }

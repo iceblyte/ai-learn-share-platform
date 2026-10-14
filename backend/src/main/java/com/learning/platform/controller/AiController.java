@@ -7,6 +7,9 @@ import com.learning.platform.dto.RecommendReasonRequest;
 import com.learning.platform.entity.Resource;
 import com.learning.platform.mapper.ResourceMapper;
 import com.learning.platform.service.AiService;
+import com.learning.platform.service.ChatContext;
+import com.learning.platform.service.ChatContextService;
+import com.learning.platform.service.ChatPromptBuilder;
 import com.learning.platform.service.RecommendationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,8 @@ public class AiController {
     private final AiService aiService;
     private final ResourceMapper resourceMapper;
     private final RecommendationService recommendationService;
+    private final ChatContextService chatContextService;
+    private final ChatPromptBuilder chatPromptBuilder;
 
     @PostMapping("/summary")
     public Result<Map<String, String>> generateSummary(@RequestBody Map<String, Long> body) {
@@ -69,8 +74,11 @@ public class AiController {
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<StreamingResponseBody> streamChat(@Valid @RequestBody AiChatRequest request) {
+        ChatContext context = chatContextService.resolve(request);
+        String systemPrompt = chatPromptBuilder.build(request.getRoute(), request.getPageTitle(), context);
+
         StreamingResponseBody body = outputStream -> {
-            aiService.streamChat(request.getMessage(), request.getRoute(), request.getPageTitle(), chunk -> {
+            aiService.streamChat(request.getMessage(), systemPrompt, chunk -> {
                 try {
                     outputStream.write(chunk.getBytes(StandardCharsets.UTF_8));
                     outputStream.flush();
