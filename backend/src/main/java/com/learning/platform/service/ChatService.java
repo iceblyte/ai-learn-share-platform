@@ -132,9 +132,11 @@ public class ChatService {
 
         long start = System.currentTimeMillis();
         StringBuilder answer = new StringBuilder();
+        AiService.StreamingResult result = null;
         boolean failed = false;
         try {
-            aiService.streamChat(message, systemPrompt, chunk -> {
+            // 扩展三：LangChain4j 真流式 + Redis 记忆窗口（20 条），token 片段实时转发
+            result = aiService.streamChat(sessionId, message, systemPrompt, chunk -> {
                 answer.append(chunk);
                 onChunk.accept(chunk);
             });
@@ -147,14 +149,15 @@ public class ChatService {
         ChatMessage assistantMessage = new ChatMessage();
         assistantMessage.setSessionId(sessionId);
         assistantMessage.setRole("assistant");
-        if (failed) {
+        if (failed || result == null || result.failed()) {
             assistantMessage.setContent("AI 服务请求失败，请稍后再试。");
             assistantMessage.setStatus("FAILED");
+            assistantMessage.setTokensUsed(0);
         } else {
             assistantMessage.setContent(answer.toString());
             assistantMessage.setStatus("OK");
+            assistantMessage.setTokensUsed(result.tokensUsed() == null ? 0 : result.tokensUsed());
         }
-        assistantMessage.setTokensUsed(0);
         assistantMessage.setLatencyMs((int) Math.min(latency, Integer.MAX_VALUE));
         messageMapper.insert(assistantMessage);
 

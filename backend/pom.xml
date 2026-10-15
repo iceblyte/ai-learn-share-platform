@@ -129,6 +129,21 @@
             <artifactId>jackson-databind</artifactId>
         </dependency>
 
+        <!-- LangChain4j: real token-level streaming chat + chat memory (Extension 3).
+             Version pinned explicitly (not via BOM) to keep the stable line.
+             langchain4j (main artifact) provides MessageWindowChatMemory;
+             langchain4j-open-ai provides the OpenAI-compatible streaming model. -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>1.22.0</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+            <version>1.22.0</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

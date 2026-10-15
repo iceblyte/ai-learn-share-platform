@@ -2,6 +2,17 @@ package com.learning.platform.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import dev.langchain4j.model.output.TokenUsage;
+import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -19,16 +30,29 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 @Slf4j
 @Service
 public class AiService {
 
+    /** 路径拆分结果：content 为完整回答；failed 时 errorMessage 非空 */
+    public record StreamingResult(String content, Integer tokensUsed, String errorMessage) {
+        public boolean failed() {
+            return errorMessage != null;
+        }
+    }
+
+    static final int MEMORY_WINDOW = 20;
+
     private final RedisTemplate<String, Object> redisTemplate;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
+    private final StreamingChatModel streamingChatModel;
+    private final ChatMemoryStore chatMemoryStore;
     private final int readTimeoutMs;
 
     @Value("${spring.ai.openai.api-key}")
@@ -49,22 +73,20 @@ public class AiService {
     @Value("${ai.chat.timeout-ms:120000}")
     private int chatTimeoutMs;
 
-    @Value("${ai.chat.retries:2}")
-    private int chatRetries;
-
-    @Value("${ai.chat.retry-delay-ms:1500}")
-    private long chatRetryDelayMs;
-
     public AiService(RedisTemplate<String, Object> redisTemplate,
                      ObjectMapper objectMapper,
                      @Value("${ai.client.connect-timeout-ms:3000}") int connectTimeoutMs,
-                     @Value("${ai.client.read-timeout-ms:8000}") int readTimeoutMs) {
+                     @Value("${ai.client.read-timeout-ms:8000}") int readTimeoutMs,
+                     StreamingChatModel streamingChatModel,
+                     ChatMemoryStore chatMemoryStore) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.readTimeoutMs = readTimeoutMs;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(connectTimeoutMs))
                 .build();
+        this.streamingChatModel = streamingChatModel;
+        this.chatMemoryStore = chatMemoryStore;
     }
 
     private static final String CACHE_PREFIX_SUMMARY = "ai:summary:";
@@ -133,52 +155,113 @@ public class AiService {
         return result;
     }
 
-    public void streamChat(String message, String systemPrompt, Consumer<String> onChunk) {
+    /**
+     * 匿名单轮流式（游客通道）：无记忆，system + user 单轮。
+     */
+    public StreamingResult streamChat(String message, String systemPrompt, Consumer<String> onChunk) {
+        return streamChat(null, message, systemPrompt, onChunk);
+    }
+
+    /**
+     * 扩展三真流式聊天：LangChain4j OpenAI 兼容客户端直连 DashScope。
+     *
+     * <p>sessionId 非空时启用会话记忆（{@link MessageWindowChatMemory} 20 条窗口，
+     * 底层 {@link ChatMemoryStore} 为 Redis，miss/故障回填 MySQL）；为空时匿名单轮。
+     * token 级片段实时经 onChunk 转发；失败/未配置时降级文案也走 onChunk，
+     * 同时以返回值告知调用方（供落库记账）。</p>
+     */
+    public StreamingResult streamChat(Long sessionId, String message, String systemPrompt, Consumer<String> onChunk) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
-            onChunk.accept("AI 服务未配置，请先设置有效的 AI_API_KEY。");
-            return;
+            String notice = "AI 服务未配置，请先设置有效的 AI_API_KEY。";
+            onChunk.accept(notice);
+            return new StreamingResult(null, null, notice);
         }
 
-        Exception lastError = null;
+        ChatMemory memory = null;
+        List<ChatMessage> messages;
+        if (sessionId != null) {
+            memory = MessageWindowChatMemory.builder()
+                    .id(sessionId)
+                    .maxMessages(MEMORY_WINDOW)
+                    .chatMemoryStore(chatMemoryStore)
+                    .alwaysKeepSystemMessageFirst(true)
+                    .build();
+            memory.add(SystemMessage.from(systemPrompt));
+            memory.add(UserMessage.from(message));
+            messages = memory.messages();
+        } else {
+            messages = List.of(SystemMessage.from(systemPrompt), UserMessage.from(message));
+        }
 
-        for (int attempt = 1; attempt <= Math.max(chatRetries, 1); attempt++) {
-            try {
-                String answer = callDashscopeMessages(List.of(
-                        Map.of("role", "system", "content", systemPrompt),
-                        Map.of("role", "user", "content", message)
-                ), Math.min(Math.max(maxTokens, 384), 512), Math.max(chatTimeoutMs, 30000));
+        StringBuilder answer = new StringBuilder();
+        AtomicReference<TokenUsage> usageRef = new AtomicReference<>();
+        AtomicReference<String> errorRef = new AtomicReference<>();
+        CountDownLatch done = new CountDownLatch(1);
 
-                if (answer != null && !answer.isBlank()) {
-                    for (String chunk : splitForStreaming(answer, 24)) {
-                        onChunk.accept(chunk);
+        try {
+            streamingChatModel.chat(messages, new StreamingChatResponseHandler() {
+                @Override
+                public void onPartialResponse(String token) {
+                    answer.append(token);
+                    onChunk.accept(token);
+                }
+
+                @Override
+                public void onCompleteResponse(ChatResponse response) {
+                    if (response != null && response.metadata() != null) {
+                        usageRef.set(response.metadata().tokenUsage());
                     }
-                    return;
+                    done.countDown();
                 }
-            } catch (Exception e) {
-                lastError = e;
-                log.error("AI stream chat attempt {} failed: {}", attempt, e.getMessage());
-            }
 
-            if (attempt < Math.max(chatRetries, 1)) {
-                try {
-                    Thread.sleep(chatRetryDelayMs);
-                } catch (InterruptedException interruptedException) {
-                    Thread.currentThread().interrupt();
-                    break;
+                @Override
+                public void onError(Throwable error) {
+                    log.error("Streaming chat failed: {}", error.getMessage());
+                    errorRef.set(describeStreamError(error));
+                    done.countDown();
                 }
+            });
+
+            boolean finished = done.await(Math.max(chatTimeoutMs, 30000), TimeUnit.MILLISECONDS);
+            if (!finished) {
+                errorRef.set("AI 服务响应超时，请稍后再试。");
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            errorRef.set("AI 服务请求被中断，请稍后再试。");
+        } catch (Exception e) {
+            log.error("Streaming chat invocation failed", e);
+            errorRef.set(describeStreamError(e));
         }
 
-        if (lastError != null) {
-            String msg = lastError.getMessage();
-            if (msg != null && msg.contains("403")) {
-                onChunk.accept("AI 服务鉴权失败（403）。请检查 AI_API_KEY、AI_MODEL，以及 DashScope 账号是否已开通对应模型权限。");
-                return;
-            }
-            onChunk.accept("AI 服务请求失败，已进行重试，但仍未拿到模型回复。请稍后再试。");
-            return;
+        String error = errorRef.get();
+        if (error != null) {
+            onChunk.accept(error);
+            return new StreamingResult(null, null, error);
         }
-        onChunk.accept("AI 服务没有返回有效内容，请稍后再试。");
+
+        String content = answer.toString();
+        if (content.isBlank()) {
+            String notice = "AI 服务没有返回有效内容，请稍后再试。";
+            onChunk.accept(notice);
+            return new StreamingResult(null, null, notice);
+        }
+
+        if (memory != null) {
+            // 把 AI 回答写回记忆窗口（store 内部吞 Redis 异常）
+            memory.add(AiMessage.from(content));
+        }
+        TokenUsage usage = usageRef.get();
+        Integer tokensUsed = usage == null ? null : usage.totalTokenCount();
+        return new StreamingResult(content, tokensUsed, null);
+    }
+
+    private String describeStreamError(Throwable error) {
+        String msg = error == null ? "" : String.valueOf(error.getMessage());
+        if (msg.contains("403")) {
+            return "AI 服务鉴权失败（403）。请检查 AI_API_KEY、AI_MODEL，以及 DashScope 账号是否已开通对应模型权限。";
+        }
+        return "AI 服务请求失败，请稍后再试。";
     }
 
     private String callDashscope(String prompt) {
@@ -310,17 +393,6 @@ public class AiService {
             summary = summary.substring(0, 110);
         }
         return summary;
-    }
-
-    private List<String> splitForStreaming(String text, int chunkSize) {
-        List<String> parts = new ArrayList<>();
-        if (text == null || text.isBlank()) {
-            return parts;
-        }
-        for (int i = 0; i < text.length(); i += chunkSize) {
-            parts.add(text.substring(i, Math.min(i + chunkSize, text.length())));
-        }
-        return parts;
     }
 
 }

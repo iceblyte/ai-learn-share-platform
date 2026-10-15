@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -134,17 +135,17 @@ class ChatServiceTest {
     }
 
     @Test
-    @DisplayName("会话内提问：用户与助手消息都落库，计数与最后消息时间更新")
+    @DisplayName("会话内提问：用户与助手消息都落库，token 用量记账，计数与最后消息时间更新")
     void continueChat_savesBothMessagesAndUpdatesSession() {
         ChatSession session = ownedSession(1L, 1L);
         when(sessionMapper.selectById(1L)).thenReturn(session);
 
         doAnswer(invocation -> {
-            Consumer<String> onChunk = invocation.getArgument(2);
+            Consumer<String> onChunk = invocation.getArgument(3);
             onChunk.accept("第一段回答。");
             onChunk.accept("第二段回答。");
-            return null;
-        }).when(aiService).streamChat(eq("什么是A？"), eq("SYSTEM"), any());
+            return new AiService.StreamingResult("第一段回答。第二段回答。", 42, null);
+        }).when(aiService).streamChat(eq(1L), eq("什么是A？"), eq("SYSTEM"), any());
 
         StringBuilder streamed = new StringBuilder();
         service.continueChat(1L, 1L, request("什么是A？"), streamed::append);
@@ -164,6 +165,7 @@ class ChatServiceTest {
         assertThat(assistantMsg.getRole()).isEqualTo("assistant");
         assertThat(assistantMsg.getContent()).isEqualTo("第一段回答。第二段回答。");
         assertThat(assistantMsg.getStatus()).isEqualTo("OK");
+        assertThat(assistantMsg.getTokensUsed()).isEqualTo(42);
         assertThat(assistantMsg.getLatencyMs()).isGreaterThanOrEqualTo(0);
 
         ArgumentCaptor<ChatSession> sessionCaptor = ArgumentCaptor.forClass(ChatSession.class);
@@ -180,7 +182,8 @@ class ChatServiceTest {
         when(sessionMapper.selectById(1L)).thenReturn(session);
 
         String longQuestion = "这是一个超过三十个字的问题吗让我数一数一二三四五六七八九十再数一遍ABCDEFG";
-        doAnswer(inv -> null).when(aiService).streamChat(anyString(), anyString(), any());
+        doReturn(new AiService.StreamingResult("回答", 0, null))
+                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any());
         service.continueChat(1L, 1L, request(longQuestion), chunk -> {});
 
         ArgumentCaptor<ChatSession> captor = ArgumentCaptor.forClass(ChatSession.class);
@@ -200,11 +203,11 @@ class ChatServiceTest {
     }
 
     @Test
-    @DisplayName("AI 调用抛异常时落一条 FAILED 助手消息，链路不崩")
+    @DisplayName("AI 返回失败结果时落一条 FAILED 助手消息，链路不崩")
     void continueChat_aiFailure_marksFailed() {
         when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
-        doThrow(new RuntimeException("boom")).when(aiService)
-                .streamChat(anyString(), anyString(), any());
+        when(aiService.streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any()))
+                .thenReturn(new AiService.StreamingResult(null, null, "AI 服务请求失败，请稍后再试。"));
 
         service.continueChat(1L, 1L, request("问题"), chunk -> {});
 
@@ -214,6 +217,21 @@ class ChatServiceTest {
         assertThat(assistantMsg.getRole()).isEqualTo("assistant");
         assertThat(assistantMsg.getStatus()).isEqualTo("FAILED");
         assertThat(assistantMsg.getContent()).isNotBlank();
+        assertThat(assistantMsg.getTokensUsed()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("AI 调用抛出未预期异常时同样落 FAILED 消息（防御路径）")
+    void continueChat_aiThrows_marksFailed() {
+        when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
+        doThrow(new RuntimeException("boom")).when(aiService)
+                .streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any());
+
+        service.continueChat(1L, 1L, request("问题"), chunk -> {});
+
+        ArgumentCaptor<ChatMessage> captor = ArgumentCaptor.forClass(ChatMessage.class);
+        verify(messageMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
+        assertThat(captor.getAllValues().get(1).getStatus()).isEqualTo("FAILED");
     }
 
     // ---------- 删除 / 导出 / 检索 ----------
