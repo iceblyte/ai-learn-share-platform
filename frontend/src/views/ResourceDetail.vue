@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { resourceApi } from '@/api/resource'
@@ -7,6 +7,11 @@ import { commentApi } from '@/api/comment'
 import { aiApi } from '@/api/ai'
 import { tagApi } from '@/api/category'
 import { useUserStore } from '@/store/user'
+import {
+  clearPageContext,
+  setResourcePageContext,
+  setSelectedText,
+} from '@/store/pageContext'
 import AppToast from '@/components/AppToast.vue'
 import type { Resource, Comment, Tag } from '@/types'
 
@@ -39,6 +44,10 @@ async function loadResource() {
     resource.value = resRes.data.data
     comments.value = comRes.data.data.records
 
+    // 扩展一：登记页面上下文，供 AI 悬浮助手携带（后端按 id 二次富化）
+    setResourcePageContext(id.value)
+    setSelectedText('')
+
     if (userStore.isLoggedIn) {
       try {
         const intRes = await resourceApi.getInteractions(id.value)
@@ -63,6 +72,31 @@ async function loadResource() {
 
 onMounted(loadResource)
 watch(id, loadResource)
+
+// 扩展一：划词提问——监听正文选区，进入 AI 助手的"解释这一段"入口
+const contentRef = ref<HTMLElement | null>(null)
+
+function handleSelectionChange() {
+  const selection = window.getSelection()
+  if (!selection || selection.isCollapsed || !contentRef.value) {
+    setSelectedText('')
+    return
+  }
+  if (selection.rangeCount > 0 && selection.containsNode(contentRef.value, true)) {
+    setSelectedText(selection.toString())
+  } else {
+    setSelectedText('')
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('selectionchange', handleSelectionChange)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('selectionchange', handleSelectionChange)
+  clearPageContext()
+})
 
 function normalizeRecommendations(data: any): any[] {
   if (Array.isArray(data)) return data
@@ -365,7 +399,7 @@ function getAvatarUrl(user: any): string | null {
           <!-- Description (Markdown rendered) -->
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-4">
             <h2 class="text-lg font-semibold mb-4">资源描述</h2>
-            <div class="prose prose-slate max-w-none prose-headings:scroll-mt-20 prose-img:rounded-lg prose-a:text-primary-600" v-html="renderMarkdown(resource.description)"></div>
+            <div ref="contentRef" class="prose prose-slate max-w-none prose-headings:scroll-mt-20 prose-img:rounded-lg prose-a:text-primary-600" v-html="renderMarkdown(resource.description)"></div>
           </div>
 
           <!-- Download / Link -->

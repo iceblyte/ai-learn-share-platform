@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
+import { pageContextStore, setSelectedText } from '@/store/pageContext'
 
 type ChatRole = 'user' | 'assistant'
 
@@ -47,6 +48,15 @@ onBeforeUnmount(() => {
 })
 
 const pageTitle = computed(() => document.title.replace(/\s*-\s*AI学习平台$/, '').trim())
+// 扩展一：仅在资源详情页携带上下文（离开页面时 ResourceDetail 会清理）
+const hasResourceContext = computed(
+  () => route.name === 'ResourceDetail' && pageContextStore.type === 'RESOURCE'
+)
+const selectedTextPreview = computed(() => {
+  const text = pageContextStore.selectedText
+  if (!text) return ''
+  return text.length > 24 ? `${text.slice(0, 24)}…` : text
+})
 const suggestions = computed(() => {
   if (route.name === 'ResourceDetail') {
     return ['帮我概括这份资源适合谁', '给我一个学习顺序', '提炼这份资源的重点']
@@ -77,6 +87,13 @@ function scrollToBottom() {
 
 function useSuggestion(text: string) {
   input.value = text
+  sendMessage()
+}
+
+/** 扩展一：划词提问——把当前选中文本作为 selectedText 一并上传 */
+function askSelectedText() {
+  if (!pageContextStore.selectedText || sending.value) return
+  input.value = '请解释我选中的这段内容'
   sendMessage()
 }
 
@@ -148,14 +165,24 @@ async function sendMessage() {
       headers.Authorization = `Bearer ${userStore.token}`
     }
 
+    const payload: Record<string, unknown> = {
+      message: question,
+      route: route.fullPath,
+      pageTitle: pageTitle.value,
+    }
+    if (hasResourceContext.value && pageContextStore.resourceId != null) {
+      payload.pageContextType = 'RESOURCE'
+      payload.pageContextId = pageContextStore.resourceId
+    }
+    // 划选文本只在本次提问携带，发送后立即清除
+    if (pageContextStore.selectedText) {
+      payload.selectedText = pageContextStore.selectedText
+    }
+
     const response = await fetch('/api/v1/ai/chat/stream', {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        message: question,
-        route: route.fullPath,
-        pageTitle: pageTitle.value,
-      }),
+      body: JSON.stringify(payload),
     })
 
     if (!response.ok || !response.body) {
@@ -180,6 +207,7 @@ async function sendMessage() {
     }
     messages.value = [...messages.value]
     sending.value = false
+    setSelectedText('')
   }
 }
 </script>
@@ -237,6 +265,30 @@ async function sendMessage() {
         </div>
 
         <div class="border-t border-slate-200 bg-white px-4 py-3">
+          <!-- 扩展一：划词提问入口 -->
+          <div
+            v-if="selectedTextPreview"
+            class="mb-3 flex items-center justify-between gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2"
+          >
+            <button
+              class="min-w-0 flex-1 truncate text-left text-xs text-primary-700 transition hover:text-primary-800"
+              :disabled="sending"
+              title="解释这一段"
+              @click="askSelectedText"
+            >
+              解释这一段：{{ selectedTextPreview }}
+            </button>
+            <button
+              class="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-white hover:text-slate-600"
+              title="清除选区"
+              @click="setSelectedText('')"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
           <div class="mb-3 flex flex-wrap gap-2">
             <button
               v-for="suggestion in suggestions"
