@@ -70,7 +70,7 @@ class AiServiceStreamTest {
         service = new AiService(null, null, 3000, 8000, streamingModel, memoryStore);
         ReflectionTestUtils.setField(service, "apiKey", "test-key");
         ReflectionTestUtils.setField(service, "baseUrl", "http://localhost");
-        ReflectionTestUtils.setField(service, "model", "qwen-test");
+        ReflectionTestUtils.setField(service, "model", "deepseek-test");
         ReflectionTestUtils.setField(service, "chatTimeoutMs", 30000);
     }
 

@@ -21,10 +21,10 @@ spring:
       password: "<your-redis-password>"   # 无密码就留空字符串
       database: 0
 
-  # Spring AI - DashScope (Qwen) 兼容模式
+  # AI - DeepSeek（OpenAI 兼容模式）
   ai:
     openai:
-      api-key: "<your-dashscope-api-key>"
+      api-key: "<your-deepseek-api-key>"
 
 # File Storage
 # type: local → 存到 ./uploads；type: oss → 需要下面的 access-key-*

@@ -7,7 +7,7 @@
 - **前端**: Vue 3 + TypeScript + Tailwind CSS + marked (Markdown 渲染)
 - **后端**: Spring Boot 3 (Java 17) + MyBatis-Plus
 - **数据库**: MySQL 8.0 + Redis
-- **AI**: 阿里云百炼 Qwen（OpenAI 兼容 HTTP 接口）
+- **AI**: DeepSeek（OpenAI 兼容 HTTP 接口，LangChain4j 真流式）
 - **文件存储**: 阿里云 OSS (生产) / 本地文件系统 (开发回退)
 - **构建**: Vite (前端) / Maven (后端)
 
@@ -45,7 +45,7 @@ Copy-Item src\main\resources\application-local.yml.example src\main\resources\ap
 $env:DB_PASSWORD = "your_mysql_password"
 $env:REDIS_HOST = "localhost"
 $env:JWT_SECRET = "your_jwt_secret_key_at_least_32_chars"
-$env:AI_API_KEY = "your_dashscope_api_key"
+$env:AI_API_KEY = "your_deepseek_api_key"   # 在 platform.deepseek.com/api_keys 申请
 $env:AI_CONNECT_TIMEOUT_MS = "5000"
 $env:AI_READ_TIMEOUT_MS = "20000"
 $env:AI_CHAT_TIMEOUT_MS = "120000"
@@ -129,7 +129,7 @@ AI个性化学习资源分享平台/
 
 1. **用户与权限管理**: JWT + RefreshToken 认证, Spring Security RBAC (USER/PUBLISHER/ADMIN), 头像上传 (阿里云 OSS)
 2. **资源管理**: 发布、浏览、搜索学习资源 (文件上传/外部链接), 分类树, 标签系统, Markdown 渲染 (marked)
-3. **AI 智能摘要**: 基于阿里云百炼 Qwen 自动生成约100字摘要，支持 Redis 缓存 24h、HTTP 超时和未配置密钥快速降级
+3. **AI 智能摘要**: 基于 DeepSeek 自动生成约100字摘要，支持 Redis 缓存 24h、HTTP 超时和未配置密钥快速降级
 4. **自然语言搜索**: 支持自然语言查询，AI 解析优先，本地规则兜底并在空结果时自动放宽过严筛选
 5. **个性化推荐**: 混合推荐算法 (标签权重 0.6 + 协同过滤 0.4)，推荐接口返回分页结构，AI 推荐理由失败时使用本地可解释理由兜底
 6. **AI 悬浮聊天窗**: 全局可拖动聊天按钮与悬浮窗，支持流式输出、页面上下文透传和失败重试
@@ -152,7 +152,7 @@ AI 相关接口：
 
 ## 运行时说明
 
-- 如果 DashScope 账号对当前 `AI_MODEL` 没有额度或权限，聊天接口会返回明确失败提示，不再伪装为 AI 已回答。
+- 如果 DeepSeek 账号对当前 `AI_MODEL` 没有额度或权限，聊天接口会返回明确失败提示，不再伪装为 AI 已回答。
 - 推荐、摘要、搜索都带本地降级路径；聊天功能会优先等待真实 AI 回复，并按配置进行重试。
 
 ## 交付文档

@@ -12,8 +12,8 @@ import java.time.Duration;
  * 扩展三：LangChain4j 真 token 级流式模型。
  *
  * <p>只接管聊天链路（单轮 + 会话记忆）；摘要、自然语言搜索、
- * 推荐理由三条链路仍走 AiService 内的 DashScope HTTP 客户端，
- * 一行不动。</p>
+ * 推荐理由三条链路仍走 AiService 内的 HTTP 客户端（同为
+ * DeepSeek OpenAI 兼容端点），一行不动。</p>
  */
 @Configuration
 public class LangChain4jConfig {

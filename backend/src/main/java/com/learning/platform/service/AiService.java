@@ -105,7 +105,7 @@ public class AiService {
                 "请为以下学习资源生成一段约100字的精准摘要，突出核心内容和学习价值：\n\n标题：%s\n描述：%s\n\n要求：简洁明了，突出重点，约100字。",
                 title, description.length() > 2000 ? description.substring(0, 2000) : description
         );
-        String result = callDashscope(prompt);
+        String result = callAi(prompt);
         if (result == null) {
             result = buildLocalSummary(title, description);
         }
@@ -133,7 +133,7 @@ public class AiService {
                 "- 例如用户说\"推荐关于Java并发且评分最高的前5个资源\"，keywords应为[\"Java并发\"]，而不是[\"推荐关于Java并发且评分最高的前5个资源\"]\n" +
                 "- sortBy默认为relevance，limit默认为10", query
         );
-        String result = callDashscope(prompt);
+        String result = callAi(prompt);
         if (result != null) cache(cacheKey, result, NL_TTL_HOURS);
         return result;
     }
@@ -150,7 +150,7 @@ public class AiService {
                 userInterests, resourceTitle,
                 resourceDescription.length() > 200 ? resourceDescription.substring(0, 200) : resourceDescription
         );
-        String result = callDashscope(prompt);
+        String result = callAi(prompt);
         if (result != null) cache(cacheKey, result, REASON_TTL_HOURS);
         return result;
     }
@@ -163,7 +163,7 @@ public class AiService {
     }
 
     /**
-     * 扩展三真流式聊天：LangChain4j OpenAI 兼容客户端直连 DashScope。
+     * 扩展三真流式聊天：LangChain4j OpenAI 兼容客户端直连 DeepSeek。
      *
      * <p>sessionId 非空时启用会话记忆（{@link MessageWindowChatMemory} 20 条窗口，
      * 底层 {@link ChatMemoryStore} 为 Redis，miss/故障回填 MySQL）；为空时匿名单轮。
@@ -259,18 +259,18 @@ public class AiService {
     private String describeStreamError(Throwable error) {
         String msg = error == null ? "" : String.valueOf(error.getMessage());
         if (msg.contains("403")) {
-            return "AI 服务鉴权失败（403）。请检查 AI_API_KEY、AI_MODEL，以及 DashScope 账号是否已开通对应模型权限。";
+            return "AI 服务鉴权失败（403）。请检查 AI_API_KEY、AI_MODEL，以及 DeepSeek 账号是否已开通对应模型权限。";
         }
         return "AI 服务请求失败，请稍后再试。";
     }
 
-    private String callDashscope(String prompt) {
+    private String callAi(String prompt) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
             log.warn("AI API key is not configured, skipping remote call");
             return null;
         }
         try {
-            return callDashscopeMessages(List.of(Map.of("role", "user", "content", prompt)), maxTokens, readTimeoutMs);
+            return callChatCompletions(List.of(Map.of("role", "user", "content", prompt)), maxTokens, readTimeoutMs);
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg != null && (msg.contains("429") || msg.contains("quota") || msg.contains("RESOURCE_EXHAUSTED"))) {
@@ -282,7 +282,7 @@ public class AiService {
         }
     }
 
-    private String callDashscopeMessages(List<Map<String, Object>> messages, int requestedMaxTokens, int timeoutMs) throws Exception {
+    private String callChatCompletions(List<Map<String, Object>> messages, int requestedMaxTokens, int timeoutMs) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/chat/completions"))
                 .timeout(Duration.ofMillis(timeoutMs))
@@ -298,20 +298,20 @@ public class AiService {
             if (snippet.length() > 400) {
                 snippet = snippet.substring(0, 400);
             }
-            log.warn("DashScope API returned status: {}, body: {}", response.statusCode(), snippet);
-            throw new IllegalStateException("DashScope API returned status " + response.statusCode() + (snippet.isBlank() ? "" : (": " + snippet)));
+            log.warn("AI provider API returned status: {}, body: {}", response.statusCode(), snippet);
+            throw new IllegalStateException("AI provider API returned status " + response.statusCode() + (snippet.isBlank() ? "" : (": " + snippet)));
         }
 
         JsonNode root = objectMapper.readTree(response.body());
         JsonNode choices = root.path("choices");
         if (!choices.isArray() || choices.isEmpty()) {
-            log.warn("DashScope API returned no choices");
+            log.warn("AI provider API returned no choices");
             return null;
         }
 
         String content = choices.get(0).path("message").path("content").asText(null);
         if (content == null || content.isBlank()) {
-            log.warn("DashScope API returned empty content");
+            log.warn("AI provider API returned empty content");
             return null;
         }
 
