@@ -243,6 +243,44 @@ CREATE TABLE IF NOT EXISTS `publisher_application` (
     KEY `idx_pa_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='发布者申请表';
 
+-- ============================================
+-- 15. AI 会话表（扩展二：对话持久化）
+-- ============================================
+CREATE TABLE IF NOT EXISTS `chat_session` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '会话ID',
+    `user_id` BIGINT NOT NULL COMMENT '所属用户',
+    `title` VARCHAR(200) NOT NULL DEFAULT '' COMMENT '会话标题(首条消息自动生成)',
+    `context_type` VARCHAR(20) NOT NULL DEFAULT 'GLOBAL' COMMENT '上下文类型: GLOBAL/RESOURCE',
+    `context_id` BIGINT DEFAULT NULL COMMENT '关联资源ID(可空)',
+    `message_count` INT NOT NULL DEFAULT 0 COMMENT '消息数(反维护)',
+    `last_message_at` DATETIME DEFAULT NULL COMMENT '最后消息时间',
+    `is_deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_cs_user` (`user_id`),
+    KEY `idx_cs_user_ctx` (`user_id`, `context_type`, `context_id`),
+    KEY `idx_cs_last` (`last_message_at` DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI会话表';
+
+-- ============================================
+-- 16. AI 对话消息表（扩展二：对话持久化）
+-- ============================================
+CREATE TABLE IF NOT EXISTS `chat_message` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '消息ID',
+    `session_id` BIGINT NOT NULL COMMENT '所属会话',
+    `role` VARCHAR(10) NOT NULL COMMENT '角色: user/assistant',
+    `content` TEXT NOT NULL COMMENT '消息内容',
+    `context_json` VARCHAR(1000) DEFAULT NULL COMMENT '提问时携带的页面上下文快照',
+    `tokens_used` INT NOT NULL DEFAULT 0 COMMENT '消耗token(成本观测)',
+    `latency_ms` INT NOT NULL DEFAULT 0 COMMENT '端到端延迟ms',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'OK' COMMENT '状态: OK/FAILED',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_cm_session` (`session_id`, `id`),
+    KEY `idx_cm_created` (`created_at` DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI对话消息表';
+
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正
 -- 请统一执行 db/seed.sql。
