@@ -71,6 +71,7 @@ application-prod.yaml
 
 # ==================== IDE / Tooling working dirs ====================
 .workbuddy/
+.lithe
 
 # ==================== Uploads ====================
 uploads/
