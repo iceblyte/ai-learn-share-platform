@@ -98,7 +98,7 @@ public class ChatController {
         Long userId = (Long) auth.getPrincipal();
         chatService.getOwnedSession(userId, id);
         return chatStreamFactory.streamEvents(emitter ->
-                chatService.continueChat(userId, id, request, emitter::text, emitter::tool));
+                chatService.continueChat(userId, id, request, emitter::text, emitter::tool, emitter::reset));
     }
 
     @DeleteMapping("/sessions/{id}")

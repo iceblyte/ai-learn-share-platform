@@ -184,7 +184,14 @@ public class AiService {
     public StreamingResult streamChat(String message, String systemPrompt,
                                       ChatToolContext toolContext, Consumer<String> onChunk,
                                       Consumer<String> onTool) {
-        return streamChat(null, message, systemPrompt, toolContext, onChunk, onTool);
+        return streamChat(null, message, systemPrompt, toolContext, onChunk, onTool, () -> {});
+    }
+
+    /** 匿名 + 工具上下文 + 工具调用通知 + 正文回滚通知（SSE reset 事件） */
+    public StreamingResult streamChat(String message, String systemPrompt,
+                                      ChatToolContext toolContext, Consumer<String> onChunk,
+                                      Consumer<String> onTool, Runnable onReset) {
+        return streamChat(null, message, systemPrompt, toolContext, onChunk, onTool, onReset);
     }
 
     /**
@@ -198,9 +205,10 @@ public class AiService {
      * 扩展三真流式聊天 + function calling。
      *
      * <p>流程：用户提问 → 模型决定是否调工具 → 注册表执行工具（查库）→
-     * 工具结果回填对话 → 模型再次生成 → 直至给出最终回答。token 级片段
-     * （含工具轮次的过渡文本）实时经 onChunk 转发；每次工具开始执行时
-     * 经 onTool 通知工具名（供前端展示"调用 xx 工具"状态，不进正文）。</p>
+     * 模型再次生成 → 直至给出最终回答。最终轮 token 实时经 onChunk 转发；
+     * 每次工具开始执行时经 onTool 通知工具名（供前端展示"调用 xx 工具"
+     * 状态，不进正文）。中间轮（以工具请求结束的轮）的过渡文字不进正文：
+     * 结束时回滚累积文本并触发 onReset 通知前端清空已流出片段。</p>
      *
      * <p>sessionId 非空时启用会话记忆（{@link MessageWindowChatMemory} 20 条窗口，
      * 底层 {@link ChatMemoryStore} 为 Redis，miss/故障回填 MySQL）；为空时匿名单轮。
@@ -211,6 +219,13 @@ public class AiService {
     public StreamingResult streamChat(Long sessionId, String message, String systemPrompt,
                                       ChatToolContext toolContext, Consumer<String> onChunk,
                                       Consumer<String> onTool) {
+        return streamChat(sessionId, message, systemPrompt, toolContext, onChunk, onTool, () -> {});
+    }
+
+    /** 同上，onReset 额外通知"清空已流出正文"（SSE reset 事件） */
+    public StreamingResult streamChat(Long sessionId, String message, String systemPrompt,
+                                      ChatToolContext toolContext, Consumer<String> onChunk,
+                                      Consumer<String> onTool, Runnable onReset) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
             String notice = "AI 服务未配置，请先设置有效的 AI_API_KEY。";
             onChunk.accept(notice);
@@ -236,7 +251,7 @@ public class AiService {
         List<ToolSpecification> toolSpecs = chatToolRegistry.specifications();
         StringBuilder answer = new StringBuilder();
         AtomicReference<TokenUsage> usageRef = new AtomicReference<>();
-        String error = runToolLoop(baseMessages, toolSpecs, toolContext, answer, usageRef, onChunk, onTool);
+        String error = runToolLoop(baseMessages, toolSpecs, toolContext, answer, usageRef, onChunk, onTool, onReset);
 
         String errorResult = error;
         if (errorResult != null) {
@@ -267,11 +282,15 @@ public class AiService {
      * 经注册表执行并把 {@link ToolExecutionResultMessage} 追加进对话后继续下一轮；
      * 无工具请求即最终回答。轮数达到 {@link #MAX_TOOL_ROUNDS} 或总超时则终止，
      * 终止时已有流式输出则按已完成处理，否则返回错误文案。</p>
+     *
+     * <p>中间轮（以工具请求结束的轮）流出的过渡文字（模型调工具前的
+     * "自言自语"，常见为英文）不属于正式回答：回滚累积文本并触发
+     * {@code onReset}，前端据此清空已渲染片段，落库内容同样干净。</p>
      */
     private String runToolLoop(List<ChatMessage> baseMessages, List<ToolSpecification> toolSpecs,
                                ChatToolContext toolContext, StringBuilder answer,
                                AtomicReference<TokenUsage> usageRef, Consumer<String> onChunk,
-                               Consumer<String> onTool) {
+                               Consumer<String> onTool, Runnable onReset) {
         List<ChatMessage> conversation = new ArrayList<>(baseMessages);
         long deadline = System.currentTimeMillis() + Math.max(chatTimeoutMs, 30000);
 
@@ -286,6 +305,7 @@ public class AiService {
                 requestBuilder.toolSpecifications(toolSpecs);
             }
 
+            int answerMark = answer.length();
             RoundOutcome outcome = runRound(requestBuilder.build(), answer, onChunk, remaining);
             if (outcome.error != null) {
                 return outcome.error;
@@ -302,6 +322,12 @@ public class AiService {
                 // 已到轮次上限：工具仍被请求时终止，已有输出按最终结果处理
                 log.warn("Tool round limit reached ({}), stopping", MAX_TOOL_ROUNDS);
                 return null;
+            }
+
+            // 中间轮：撤销该轮已流出的过渡文字（前端清空 + 不进落库内容）
+            if (answer.length() > answerMark) {
+                answer.setLength(answerMark);
+                onReset.run();
             }
 
             for (ToolExecutionRequest request : outcome.aiMessage.toolExecutionRequests()) {

@@ -321,6 +321,11 @@ export function useAiChat(options: UseAiChatOptions = {}) {
           // 工具开始执行：立即展示在状态区（不进正文）
           assistantMessage.toolSteps = [...(assistantMessage.toolSteps || []), data]
           messages.value = [...messages.value]
+        } else if (eventName === 'reset') {
+          // 工具调用前的中间轮过渡文字（如英文自言自语）不进正文：
+          // 清空已上屏内容与打字机缓冲，等待最终回答重新流入
+          pendingText = ''
+          assistantMessage.content = ''
         } else if (eventName === 'error') {
           streamError = data
         } else if (eventName === 'done') {

@@ -23,6 +23,8 @@ import java.util.function.Consumer;
  *   <li>{@code event: message} + {@code data: <token 片段>} —— 正文增量转发；</li>
  *   <li>{@code event: tool} + {@code data: <工具名>} —— function calling
  *       工具开始执行（前端展示"调用 xx 工具"状态，不进消息正文）；</li>
+ *   <li>{@code event: reset} —— 清空已流出的正文：工具调用前的中间轮
+ *       过渡文字（如英文自言自语）不应出现在正式回答里；</li>
  *   <li>{@code event: done} —— 正常结束（连接随后关闭）；</li>
  *   <li>{@code event: error} + {@code data: <文案>} —— 基础设施级失败
  *       （AI 链路自身的失败文案仍走 message 事件，与落库的 FAILED 消息一致）。</li>
@@ -37,11 +39,18 @@ import java.util.function.Consumer;
 @Component
 public class ChatStreamFactory {
 
-    /** 聊天调用向流上写事件的双通道：正文增量 + 工具调用通知 */
+    /** 聊天调用向流上写事件的三通道：正文增量 + 工具调用通知 + 正文回滚 */
     public interface ChatStreamEmitter {
         void text(String chunk);
 
         void tool(String toolName);
+
+        /**
+         * 清空已流出的正文（function calling 中间轮）：
+         * 模型调用工具前可能输出过渡文字（如英文自言自语），该轮最终
+         * 以工具请求结束、其文本不属于正式回答，前端需清空重新接收。
+         */
+        void reset();
     }
 
     /** 兼容旧签名：只有正文通道的调用 */
@@ -65,6 +74,11 @@ public class ChatStreamFactory {
                         @Override
                         public void tool(String toolName) {
                             sink.next(ServerSentEvent.<String>builder(toolName).event("tool").build());
+                        }
+
+                        @Override
+                        public void reset() {
+                            sink.next(ServerSentEvent.<String>builder("").event("reset").build());
                         }
                     });
                     sink.complete();

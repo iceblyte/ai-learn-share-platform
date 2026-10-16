@@ -87,7 +87,7 @@ public class AiController {
                 null, request.getPageContextType(), request.getPageContextId(), request.getSelectedText());
         return chatStreamFactory.streamEvents(emitter ->
                 aiService.streamChat(request.getMessage(), systemPrompt, toolContext,
-                        emitter::text, emitter::tool));
+                        emitter::text, emitter::tool, emitter::reset));
     }
 
     private PageResult<Map<String, Object>> toPage(List<Map<String, Object>> records, int page, int size) {

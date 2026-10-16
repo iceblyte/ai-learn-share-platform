@@ -177,7 +177,7 @@ public class ChatService {
      * 结束后落助手消息并维护会话计数。AI 异常时落 FAILED 消息，链路不崩。
      */
     public void continueChat(Long userId, Long sessionId, AiChatRequest request,
-                             Consumer<String> onChunk, Consumer<String> onTool) {
+                             Consumer<String> onChunk, Consumer<String> onTool, Runnable onReset) {
         ChatSession session = requireOwnedSession(userId, sessionId);
         String message = request.getMessage();
 
@@ -210,7 +210,7 @@ public class ChatService {
             result = aiService.streamChat(sessionId, message, systemPrompt, toolContext, chunk -> {
                 answer.append(chunk);
                 onChunk.accept(chunk);
-            }, onTool);
+            }, onTool, onReset);
         } catch (Exception e) {
             failed = true;
             log.error("Session chat failed: sessionId={}", sessionId, e);
