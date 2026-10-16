@@ -30,7 +30,7 @@ public class CommentService {
         QueryWrapper<Comment> wrapper = new QueryWrapper<>();
         wrapper.eq("resource_id", resourceId).isNull("parent_id").orderByDesc("created_at");
         IPage<Comment> result = commentMapper.selectPage(new Page<>(page, size), wrapper);
-        result.getRecords().forEach(this::enrichComment);
+        result.getRecords().forEach(this::enrichWithChildren);
         return PageResult.from(result);
     }
 
@@ -39,6 +39,13 @@ public class CommentService {
         Resource resource = resourceMapper.selectById(resourceId);
         if (resource == null) {
             throw BusinessException.notFound("资源不存在");
+        }
+        if (request.getParentId() != null) {
+            // 多级嵌套：父评论必须存在且属于同一资源，防止跨资源挂载
+            Comment parent = commentMapper.selectById(request.getParentId());
+            if (parent == null || !parent.getResourceId().equals(resourceId)) {
+                throw new BusinessException("要回复的评论不存在");
+            }
         }
 
         Comment comment = new Comment();
@@ -54,7 +61,7 @@ public class CommentService {
         resource.setCommentCount(resource.getCommentCount() + 1);
         resourceMapper.updateById(resource);
 
-        return enrichComment(comment);
+        return enrichWithChildren(comment);
     }
 
     @Transactional
@@ -80,11 +87,18 @@ public class CommentService {
         QueryWrapper<Comment> wrapper = new QueryWrapper<>();
         wrapper.eq("parent_id", parentId).orderByAsc("created_at");
         List<Comment> replies = commentMapper.selectList(wrapper);
-        replies.forEach(this::enrichComment);
+        replies.forEach(this::enrichWithChildren);
         return replies;
     }
 
-    private Comment enrichComment(Comment comment) {
+    /**
+     * 富化单条评论（用户信息 + 递归加载子评论树）。
+     *
+     * <p>多级嵌套：不再限制一层楼，每条回复同样递归挂载自己的子评论。
+     * 父评论只能指向已存在的同资源评论（create 里校验），因此树天然无环，
+     * 递归终止由数据完整性保证。</p>
+     */
+    private Comment enrichWithChildren(Comment comment) {
         if (comment.getUserId() != null) {
             User user = userMapper.selectById(comment.getUserId());
             if (user != null) {
@@ -92,9 +106,11 @@ public class CommentService {
                 comment.setUser(user);
             }
         }
-        if (comment.getParentId() == null) {
-            comment.setReplies(getReplies(comment.getId()));
-        }
+        QueryWrapper<Comment> wrapper = new QueryWrapper<>();
+        wrapper.eq("parent_id", comment.getId()).orderByAsc("created_at");
+        List<Comment> children = commentMapper.selectList(wrapper);
+        children.forEach(this::enrichWithChildren);
+        comment.setReplies(children);
         return comment;
     }
 }

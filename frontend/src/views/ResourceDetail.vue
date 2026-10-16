@@ -13,6 +13,7 @@ import {
   setSelectedText,
 } from '@/store/pageContext'
 import AppToast from '@/components/AppToast.vue'
+import CommentNode from '@/components/CommentNode.vue'
 import type { Resource, Comment, Tag } from '@/types'
 
 const route = useRoute()
@@ -23,10 +24,8 @@ const id = computed(() => Number(route.params.id))
 const resource = ref<Resource | null>(null)
 const comments = ref<Comment[]>([])
 const newComment = ref('')
+// 当前正在回复的评论 id（多级嵌套：可以是树中任意节点）
 const replyTo = ref<number | null>(null)
-// 回复目标昵称：null 表示回复一级评论本身；否则为"回复楼中楼"，内容自动加 @ 前缀
-const replyToNickname = ref<string | null>(null)
-const replyContent = ref('')
 const myRating = ref(0)
 const liked = ref(false)
 const favorited = ref(false)
@@ -175,19 +174,6 @@ async function handleShare() {
   }
 }
 
-async function handleCommentLike(commentId: number) {
-  if (!userStore.isLoggedIn) {
-    toast.value?.show('请先登录后再操作', 'warning')
-    return
-  }
-  const res = await commentApi.like(commentId)
-  const comment = comments.value.find(c => c.id === commentId)
-  if (comment) {
-    comment.likeCount = res.data.data.likeCount
-  }
-  toast.value?.show(res.data.data.liked ? '点赞成功' : '已取消点赞', 'success')
-}
-
 async function submitComment() {
   if (!userStore.isLoggedIn) {
     toast.value?.show('请先登录后再评论', 'warning')
@@ -207,27 +193,35 @@ async function submitComment() {
   }
 }
 
-function startReply(commentId: number, nickname: string | null) {
-  replyTo.value = commentId
-  replyToNickname.value = nickname
-  replyContent.value = ''
+function startReply(comment: Comment) {
+  replyTo.value = comment.id
 }
 
-async function submitReply(parentId: number) {
+/** 把新回复插入评论树的指定父节点下（多级嵌套） */
+function insertReply(list: Comment[], parentId: number, reply: Comment): boolean {
+  for (const node of list) {
+    if (node.id === parentId) {
+      if (!node.replies) node.replies = []
+      node.replies.push(reply)
+      return true
+    }
+    if (node.replies?.length && insertReply(node.replies, parentId, reply)) {
+      return true
+    }
+  }
+  return false
+}
+
+async function submitReply(parentId: number, content: string) {
   if (!userStore.isLoggedIn) {
     toast.value?.show('请先登录后再回复', 'warning')
     return
   }
-  const raw = replyContent.value.trim()
-  if (!raw) return
-  const content = replyToNickname.value ? `回复 @${replyToNickname.value}：${raw}` : raw
+  if (!content.trim()) return
   try {
-    const res = await commentApi.create(id.value, content, parentId)
-    const parent = comments.value.find(c => c.id === parentId)
-    if (parent) {
-      if (!parent.replies) parent.replies = []
-      parent.replies.push(res.data.data)
-    }
+    const res = await commentApi.create(id.value, content.trim(), parentId)
+    // 直接挂到被回复的评论下（多级嵌套），不再拼接"回复 @昵称"前缀
+    insertReply(comments.value, parentId, res.data.data)
     if (resource.value) {
       resource.value.commentCount = (resource.value.commentCount || 0) + 1
     }
@@ -236,8 +230,6 @@ async function submitReply(parentId: number) {
     toast.value?.show(error?.message || '回复失败', 'error')
   }
   replyTo.value = null
-  replyToNickname.value = null
-  replyContent.value = ''
 }
 
 function goToCategory() {
@@ -525,103 +517,19 @@ function getAvatarUrl(user: any): string | null {
             <span class="text-slate-500"> 后发表评论</span>
           </div>
 
-          <!-- Comment List -->
+          <!-- Comment List：多级嵌套，递归分支展示 -->
           <div class="space-y-4">
-            <div v-for="comment in comments" :key="comment.id" class="flex gap-3">
-              <img
-                v-if="getAvatarUrl(comment.user)"
-                :src="getAvatarUrl(comment.user)!"
-                class="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                alt="avatar"
-              />
-              <div v-else class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <span class="text-xs font-medium text-green-600">
-                  {{ comment.user?.nickname?.[0] || '用' }}
-                </span>
-              </div>
-              <div class="flex-1">
-                <div class="flex items-center gap-2">
-                  <span class="text-sm font-medium">{{ comment.user?.nickname }}</span>
-                  <span class="text-xs text-slate-400">{{ new Date(comment.createdAt).toLocaleString() }}</span>
-                </div>
-                <p class="text-sm text-slate-600 mt-1">{{ comment.content }}</p>
-                <div class="flex items-center gap-3 mt-2">
-                  <button
-                    @click="handleCommentLike(comment.id)"
-                    class="flex items-center gap-1 text-xs text-slate-400 hover:text-primary-500 transition-colors"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"/></svg>
-                    {{ comment.likeCount || 0 }}
-                  </button>
-                  <button
-                    v-if="userStore.isLoggedIn"
-                    @click="startReply(comment.id, null)"
-                    class="text-xs text-slate-400 hover:text-primary-500 transition-colors"
-                  >
-                    回复
-                  </button>
-                </div>
-
-                <!-- Replies -->
-                <div v-if="comment.replies?.length" class="mt-3 ml-4 pt-3 border-t border-slate-100 space-y-3">
-                  <div v-for="reply in comment.replies" :key="reply.id" class="flex gap-3">
-                    <img
-                      v-if="getAvatarUrl(reply.user)"
-                      :src="getAvatarUrl(reply.user)!"
-                      class="w-6 h-6 rounded-full object-cover flex-shrink-0"
-                      alt="avatar"
-                    />
-                    <div v-else class="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span class="text-[10px] font-medium text-primary-600">
-                        {{ reply.user?.nickname?.[0] || '用' }}
-                      </span>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium">{{ reply.user?.nickname }}</span>
-                        <span v-if="reply.user?.id === (resource as any)?.publisherId" class="text-xs bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded">作者</span>
-                        <span class="text-xs text-slate-400">{{ new Date(reply.createdAt).toLocaleString() }}</span>
-                      </div>
-                      <p class="text-sm text-slate-600 mt-1 break-words">{{ reply.content }}</p>
-                      <!-- Bug 修复：支持回复楼中楼（其他人的回复） -->
-                      <button
-                        v-if="userStore.isLoggedIn"
-                        @click="startReply(comment.id, reply.user?.nickname || null)"
-                        class="mt-1 text-xs text-slate-400 hover:text-primary-500 transition-colors"
-                      >
-                        回复
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Reply Form -->
-                <div v-if="replyTo === comment.id" class="mt-3">
-                  <p v-if="replyToNickname" class="mb-1 text-xs text-slate-400">
-                    回复 @{{ replyToNickname }}
-                  </p>
-                  <textarea
-                    v-model="replyContent"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent h-16 resize-none"
-                    :placeholder="replyToNickname ? `回复 @${replyToNickname}...` : '回复...'"
-                  ></textarea>
-                  <div class="flex gap-2 mt-2">
-                    <button
-                      @click="submitReply(comment.id)"
-                      class="bg-primary-500 text-white px-3 py-1 rounded text-sm hover:bg-primary-600 transition-colors"
-                    >
-                      回复
-                    </button>
-                    <button
-                      @click="replyTo = null; replyToNickname = null"
-                      class="bg-slate-100 text-slate-600 px-3 py-1 rounded text-sm hover:bg-slate-200 transition-colors"
-                    >
-                      取消
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <CommentNode
+              v-for="comment in comments"
+              :key="comment.id"
+              :comment="comment"
+              :resource="resource"
+              :depth="0"
+              :reply-to-id="replyTo"
+              @reply="startReply"
+              @submit-reply="submitReply"
+              @cancel-reply="replyTo = null"
+            />
           </div>
         </div>
       </section>
