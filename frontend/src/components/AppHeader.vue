@@ -53,11 +53,11 @@ function handleLogout() {
           </div>
         </div>
 
-        <!-- User Menu -->
+        <!-- Quick Actions -->
         <div class="flex items-center gap-4">
           <router-link
             to="/ai-chat"
-            class="flex items-center gap-1 text-sm text-slate-600 hover:text-primary-500 font-medium"
+            class="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 text-sm font-medium text-primary-600 transition-colors hover:border-primary-300 hover:bg-primary-100"
             title="AI 对话"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,9 +69,12 @@ function handleLogout() {
           <router-link
             v-if="userStore.isLoggedIn && userStore.isPublisher"
             to="/publish"
-            class="text-sm text-slate-600 hover:text-primary-500 font-medium"
+            class="inline-flex items-center gap-1.5 rounded-full bg-primary-500 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600"
           >
-            发布资源
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span class="hidden sm:inline">发布资源</span>
           </router-link>
 
           <template v-if="userStore.isLoggedIn">
