@@ -140,8 +140,7 @@ CREATE TABLE IF NOT EXISTS `comment` (
     PRIMARY KEY (`id`),
     KEY `idx_comment_resource` (`resource_id`),
     KEY `idx_comment_user` (`user_id`),
-    KEY `idx_comment_parent` (`parent_id`),
-    UNIQUE KEY `idx_comment_unique` (`resource_id`, `user_id`, `content`(191))
+    KEY `idx_comment_parent` (`parent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论表';
 
 -- ============================================

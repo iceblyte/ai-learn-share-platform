@@ -3,6 +3,7 @@ package com.learning.platform.config;
 import com.learning.platform.common.BusinessException;
 import com.learning.platform.common.Result;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -29,6 +30,14 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining("; "));
         return Result.error(400, message);
+    }
+
+    /** 唯一约束冲突兜底：返回 409 而不是 500 堆栈（如重复提交同一内容） */
+    @ExceptionHandler(DuplicateKeyException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Result<Void> handleDuplicateKey(DuplicateKeyException e) {
+        log.warn("Duplicate key: {}", e.getMessage());
+        return Result.error(409, "内容重复，请勿重复提交");
     }
 
     @ExceptionHandler(Exception.class)
