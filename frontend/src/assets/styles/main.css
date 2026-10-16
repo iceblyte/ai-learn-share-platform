@@ -32,4 +32,89 @@
     @apply bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden
            hover:shadow-md transition-shadow duration-200;
   }
+
+  /* Markdown 预览排版（审核弹窗等复用场景；Tailwind preflight 会重置默认样式） */
+  .md-preview p {
+    margin: 0.25rem 0;
+  }
+  .md-preview p:first-child {
+    margin-top: 0;
+  }
+  .md-preview p:last-child {
+    margin-bottom: 0;
+  }
+  .md-preview ul,
+  .md-preview ol {
+    margin: 0.375rem 0;
+    padding-left: 1.25rem;
+  }
+  .md-preview ul {
+    list-style: disc;
+  }
+  .md-preview ol {
+    list-style: decimal;
+  }
+  .md-preview li {
+    margin: 0.125rem 0;
+  }
+  .md-preview code {
+    background: #f1f5f9;
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.8125rem;
+  }
+  .md-preview pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    overflow-x: auto;
+    margin: 0.375rem 0;
+  }
+  .md-preview pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+  }
+  .md-preview strong {
+    font-weight: 600;
+    color: inherit;
+  }
+  .md-preview blockquote {
+    border-left: 3px solid #cbd5e1;
+    padding-left: 0.625rem;
+    color: #64748b;
+    margin: 0.375rem 0;
+  }
+  .md-preview table {
+    border-collapse: collapse;
+    margin: 0.375rem 0;
+    font-size: 0.8125rem;
+    display: block;
+    overflow-x: auto;
+  }
+  .md-preview th,
+  .md-preview td {
+    border: 1px solid #e2e8f0;
+    padding: 0.25rem 0.5rem;
+  }
+  .md-preview h1,
+  .md-preview h2,
+  .md-preview h3,
+  .md-preview h4 {
+    font-weight: 600;
+    margin: 0.5rem 0 0.25rem;
+    font-size: 0.9375rem;
+  }
+  .md-preview a {
+    color: #2563eb;
+    text-decoration: underline;
+  }
+  .md-preview hr {
+    border-color: #e2e8f0;
+    margin: 0.5rem 0;
+  }
+  .md-preview img {
+    max-width: 100%;
+  }
 }

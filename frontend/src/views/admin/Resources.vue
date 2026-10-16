@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import request from '@/api/request'
 import type { Resource } from '@/types'
 import AppModal from '@/components/AppModal.vue'
+import { renderMarkdown } from '@/utils/markdown'
 
 const resources = ref<Resource[]>([])
 const loading = ref(true)
@@ -19,6 +20,9 @@ function openViewModal(resource: Resource) {
   viewTarget.value = resource
   showViewModal.value = true
 }
+
+/** 弹窗内描述按 markdown 渲染（已 DOMPurify 净化） */
+const viewDescriptionHtml = computed(() => renderMarkdown(viewTarget.value?.description || ''))
 
 onMounted(() => loadPending())
 
@@ -152,7 +156,8 @@ function formatTimeAgo(dateStr: string): string {
 
         <div v-if="viewTarget.description">
           <h4 class="mb-1 text-xs font-semibold text-slate-500">资源描述</h4>
-          <div class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-slate-100 px-3 py-2 text-slate-600">{{ viewTarget.description }}</div>
+          <!-- eslint-disable-next-line vue/no-v-html —— 已 DOMPurify 净化 -->
+          <div class="md-preview max-h-80 overflow-y-auto break-words rounded-lg border border-slate-100 px-3 py-2 text-slate-600" v-html="viewDescriptionHtml"></div>
         </div>
 
         <div v-if="viewTarget.coverImageUrl">

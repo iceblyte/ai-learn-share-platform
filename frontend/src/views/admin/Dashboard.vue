@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
 import request from '@/api/request'
 import { categoryApi, tagApi } from '@/api/category'
 import type { Category, Tag } from '@/types'
 import AppModal from '@/components/AppModal.vue'
-
-const router = useRouter()
+import { renderMarkdown } from '@/utils/markdown'
 
 const stats = ref({
   totalUsers: 0,
@@ -58,6 +56,18 @@ function confirmAudit(item: any, action: 'APPROVE' | 'REJECT') {
   auditAction.value = action
   showAuditModal.value = true
 }
+
+// 查看改为弹窗预览：待审核资源前台详情页不可见，跳转是死链
+const showViewModal = ref(false)
+const viewTarget = ref<any>(null)
+
+function openViewModal(item: any) {
+  viewTarget.value = item
+  showViewModal.value = true
+}
+
+/** 弹窗内描述按 markdown 渲染（已 DOMPurify 净化） */
+const viewDescriptionHtml = computed(() => renderMarkdown(viewTarget.value?.description || ''))
 
 async function executeAudit() {
   if (!auditTarget.value) return
@@ -192,7 +202,7 @@ function formatTimeAgo(dateStr: string): string {
               <p class="text-xs text-slate-400">{{ item.publisher?.nickname }} &middot; {{ formatTimeAgo(item.createdAt) }}</p>
             </div>
             <div class="flex items-center gap-1">
-              <button @click="router.push(`/resource/${item.id}`)" class="px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded hover:bg-slate-200">查看</button>
+              <button @click="openViewModal(item)" class="px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded hover:bg-slate-200">查看</button>
               <button @click="confirmAudit(item, 'APPROVE')" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">通过</button>
               <button @click="confirmAudit(item, 'REJECT')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">拒绝</button>
             </div>
@@ -308,6 +318,66 @@ function formatTimeAgo(dateStr: string): string {
       </div>
     </div>
   </div>
+
+  <!-- Resource Preview Modal：弹窗展示待审核资源内容，markdown 渲染 -->
+  <AppModal
+    :visible="showViewModal"
+    :title="viewTarget?.title || '资源预览'"
+    width="max-w-3xl"
+    @close="showViewModal = false"
+  >
+    <template #body>
+      <div v-if="viewTarget" class="space-y-4 text-sm">
+        <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+          <span>发布者：{{ viewTarget.publisher?.nickname || '未知用户' }}</span>
+          <span v-if="viewTarget.createdAt">{{ new Date(viewTarget.createdAt).toLocaleString() }}</span>
+          <span v-if="viewTarget.category" class="px-2 py-0.5 bg-primary-50 text-primary-600 rounded">{{ viewTarget.category.name }}</span>
+          <span v-if="viewTarget.resourceType" class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded">{{ viewTarget.resourceType }}</span>
+        </div>
+
+        <div v-if="viewTarget.aiSummary">
+          <h4 class="mb-1 text-xs font-semibold text-slate-500">AI 摘要</h4>
+          <p class="rounded-lg bg-slate-50 px-3 py-2 text-slate-600">{{ viewTarget.aiSummary }}</p>
+        </div>
+
+        <div v-if="viewTarget.externalUrl">
+          <h4 class="mb-1 text-xs font-semibold text-slate-500">外部链接</h4>
+          <a
+            :href="viewTarget.externalUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="break-all text-primary-600 hover:underline"
+          >{{ viewTarget.externalUrl }}</a>
+        </div>
+
+        <div v-if="viewTarget.description">
+          <h4 class="mb-1 text-xs font-semibold text-slate-500">资源描述</h4>
+          <!-- eslint-disable-next-line vue/no-v-html —— 已 DOMPurify 净化 -->
+          <div class="md-preview max-h-80 overflow-y-auto break-words rounded-lg border border-slate-100 px-3 py-2 text-slate-600" v-html="viewDescriptionHtml"></div>
+        </div>
+
+        <div v-if="viewTarget.coverImageUrl">
+          <h4 class="mb-1 text-xs font-semibold text-slate-500">封面</h4>
+          <img :src="viewTarget.coverImageUrl" class="max-h-48 rounded-lg border border-slate-100" alt="cover"/>
+        </div>
+      </div>
+    </template>
+    <template #footer>
+      <button @click="showViewModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">关闭</button>
+      <button
+        @click="showViewModal = false; confirmAudit(viewTarget, 'APPROVE')"
+        class="px-4 py-2 text-sm text-white rounded-lg bg-green-500 hover:bg-green-600"
+      >
+        通过
+      </button>
+      <button
+        @click="showViewModal = false; confirmAudit(viewTarget, 'REJECT')"
+        class="px-4 py-2 text-sm text-white rounded-lg bg-red-500 hover:bg-red-600"
+      >
+        拒绝
+      </button>
+    </template>
+  </AppModal>
 
   <!-- Audit Confirmation Modal -->
   <AppModal
