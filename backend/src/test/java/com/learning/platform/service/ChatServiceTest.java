@@ -134,12 +134,12 @@ class ChatServiceTest {
     void continueChat_ownershipEnforced() {
         when(sessionMapper.selectById(9L)).thenReturn(ownedSession(9L, 2L));
 
-        assertThatThrownBy(() -> service.continueChat(1L, 9L, request("hi"), chunk -> {}))
+        assertThatThrownBy(() -> service.continueChat(1L, 9L, request("hi"), chunk -> {}, chunk -> {}))
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getCode()).isEqualTo(403));
 
         when(sessionMapper.selectById(404L)).thenReturn(null);
-        assertThatThrownBy(() -> service.continueChat(1L, 404L, request("hi"), chunk -> {}))
+        assertThatThrownBy(() -> service.continueChat(1L, 404L, request("hi"), chunk -> {}, chunk -> {}))
                 .isInstanceOfSatisfying(BusinessException.class,
                         e -> assertThat(e.getCode()).isEqualTo(404));
     }
@@ -155,10 +155,10 @@ class ChatServiceTest {
             onChunk.accept("第一段回答。");
             onChunk.accept("第二段回答。");
             return new AiService.StreamingResult("第一段回答。第二段回答。", 42, null);
-        }).when(aiService).streamChat(eq(1L), eq("什么是A？"), eq("SYSTEM"), any(), any());
+        }).when(aiService).streamChat(eq(1L), eq("什么是A？"), eq("SYSTEM"), any(), any(), any());
 
         StringBuilder streamed = new StringBuilder();
-        service.continueChat(1L, 1L, request("什么是A？"), streamed::append);
+        service.continueChat(1L, 1L, request("什么是A？"), streamed::append, chunk -> {});
 
         assertThat(streamed.toString()).isEqualTo("第一段回答。第二段回答。");
 
@@ -193,8 +193,8 @@ class ChatServiceTest {
 
         String longQuestion = "这是一个超过三十个字的问题吗让我数一数一二三四五六七八九十再数一遍ABCDEFG";
         doReturn(new AiService.StreamingResult("回答", 0, null))
-                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any());
-        service.continueChat(1L, 1L, request(longQuestion), chunk -> {});
+                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any(), any());
+        service.continueChat(1L, 1L, request(longQuestion), chunk -> {}, chunk -> {});
 
         ArgumentCaptor<ChatSession> captor = ArgumentCaptor.forClass(ChatSession.class);
         verify(sessionMapper).updateById(captor.capture());
@@ -207,7 +207,7 @@ class ChatServiceTest {
         titled.setTitle("已有标题");
         titled.setMessageCount(2);
         when(sessionMapper.selectById(1L)).thenReturn(titled);
-        service.continueChat(1L, 1L, request("新问题"), chunk -> {});
+        service.continueChat(1L, 1L, request("新问题"), chunk -> {}, chunk -> {});
         verify(sessionMapper, org.mockito.Mockito.times(2)).updateById(captor.capture());
         assertThat(captor.getValue().getTitle()).isEqualTo("已有标题");
     }
@@ -216,10 +216,10 @@ class ChatServiceTest {
     @DisplayName("AI 返回失败结果时落一条 FAILED 助手消息，链路不崩")
     void continueChat_aiFailure_marksFailed() {
         when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
-        when(aiService.streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any()))
+        when(aiService.streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any(), any()))
                 .thenReturn(new AiService.StreamingResult(null, null, "AI 服务请求失败，请稍后再试。"));
 
-        service.continueChat(1L, 1L, request("问题"), chunk -> {});
+        service.continueChat(1L, 1L, request("问题"), chunk -> {}, chunk -> {});
 
         ArgumentCaptor<ChatMessage> captor = ArgumentCaptor.forClass(ChatMessage.class);
         verify(messageMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
@@ -235,9 +235,9 @@ class ChatServiceTest {
     void continueChat_aiThrows_marksFailed() {
         when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
         doThrow(new RuntimeException("boom")).when(aiService)
-                .streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any());
+                .streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any(), any());
 
-        service.continueChat(1L, 1L, request("问题"), chunk -> {});
+        service.continueChat(1L, 1L, request("问题"), chunk -> {}, chunk -> {});
 
         ArgumentCaptor<ChatMessage> captor = ArgumentCaptor.forClass(ChatMessage.class);
         verify(messageMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
@@ -315,9 +315,9 @@ class ChatServiceTest {
         ChatSession session = ownedSession(1L, 1L);
         when(sessionMapper.selectById(1L)).thenReturn(session);
         doReturn(new AiService.StreamingResult("回答", 0, null))
-                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any());
+                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any(), any());
 
-        service.continueChat(1L, 1L, request("问题"), chunk -> {});
+        service.continueChat(1L, 1L, request("问题"), chunk -> {}, chunk -> {});
         verify(historyCache).evictSession(1L);
 
         when(sessionMapper.selectById(2L)).thenReturn(ownedSession(2L, 1L));

@@ -176,7 +176,8 @@ public class ChatService {
      * 会话内继续提问（流式）：先落用户消息，边流式转发边收集完整回答，
      * 结束后落助手消息并维护会话计数。AI 异常时落 FAILED 消息，链路不崩。
      */
-    public void continueChat(Long userId, Long sessionId, AiChatRequest request, Consumer<String> onChunk) {
+    public void continueChat(Long userId, Long sessionId, AiChatRequest request,
+                             Consumer<String> onChunk, Consumer<String> onTool) {
         ChatSession session = requireOwnedSession(userId, sessionId);
         String message = request.getMessage();
 
@@ -209,7 +210,7 @@ public class ChatService {
             result = aiService.streamChat(sessionId, message, systemPrompt, toolContext, chunk -> {
                 answer.append(chunk);
                 onChunk.accept(chunk);
-            });
+            }, onTool);
         } catch (Exception e) {
             failed = true;
             log.error("Session chat failed: sessionId={}", sessionId, e);

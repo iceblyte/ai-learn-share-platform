@@ -21,6 +21,8 @@ import java.util.function.Consumer;
  * <p>事件协议（两条聊天链路共用）：
  * <ul>
  *   <li>{@code event: message} + {@code data: <token 片段>} —— 正文增量转发；</li>
+ *   <li>{@code event: tool} + {@code data: <工具名>} —— function calling
+ *       工具开始执行（前端展示"调用 xx 工具"状态，不进消息正文）；</li>
  *   <li>{@code event: done} —— 正常结束（连接随后关闭）；</li>
  *   <li>{@code event: error} + {@code data: <文案>} —— 基础设施级失败
  *       （AI 链路自身的失败文案仍走 message 事件，与落库的 FAILED 消息一致）。</li>
@@ -35,24 +37,44 @@ import java.util.function.Consumer;
 @Component
 public class ChatStreamFactory {
 
+    /** 聊天调用向流上写事件的双通道：正文增量 + 工具调用通知 */
+    public interface ChatStreamEmitter {
+        void text(String chunk);
+
+        void tool(String toolName);
+    }
+
+    /** 兼容旧签名：只有正文通道的调用 */
     public Flux<ServerSentEvent<String>> stream(Consumer<Consumer<String>> chatInvocation) {
-        return Flux.<String>create(sink -> {
+        return streamEvents(emitter -> chatInvocation.accept(emitter::text));
+    }
+
+    public Flux<ServerSentEvent<String>> streamEvents(Consumer<ChatStreamEmitter> chatInvocation) {
+        return Flux.<ServerSentEvent<String>>create(sink -> {
                     // 阻塞式聊天调用（内部以 CountDownLatch 等待流结束），
                     // 正常返回即代表 AI 回答完毕，必须显式 complete：
                     // Flux.create 的回调返回并不会自动完成 sink，若不调用
                     // complete()，Flux 永不终止——done 事件（concatWith）不发、
                     // SSE 连接不关，前端读循环卡死（发送按钮一直转圈）。
-                    chatInvocation.accept(sink::next);
+                    chatInvocation.accept(new ChatStreamEmitter() {
+                        @Override
+                        public void text(String chunk) {
+                            sink.next(ServerSentEvent.<String>builder(chunk).event("message").build());
+                        }
+
+                        @Override
+                        public void tool(String toolName) {
+                            sink.next(ServerSentEvent.<String>builder(toolName).event("tool").build());
+                        }
+                    });
                     sink.complete();
                 })
                 .subscribeOn(Schedulers.boundedElastic())
-                .map(chunk -> ServerSentEvent.<String>builder(chunk).event("message").build())
                 .concatWith(Mono.just(ServerSentEvent.<String>builder("done").event("done").build()))
                 .onErrorResume(e -> {
                     log.warn("Reactive SSE chat stream failed: {}", e.getMessage());
-                    return Mono.just(ServerSentEvent.<String>builder("服务器开小差了，请稍后再试。")
-                            .event("error")
-                            .build());
+                    return Flux.just(
+                            ServerSentEvent.<String>builder("服务器开小差了，请稍后再试。").event("error").build());
                 });
     }
 }

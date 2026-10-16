@@ -85,8 +85,9 @@ public class AiController {
                 chatToolRegistry.describeTools());
         ChatToolContext toolContext = new ChatToolContext(
                 null, request.getPageContextType(), request.getPageContextId(), request.getSelectedText());
-        return chatStreamFactory.stream(onChunk ->
-                aiService.streamChat(request.getMessage(), systemPrompt, toolContext, onChunk));
+        return chatStreamFactory.streamEvents(emitter ->
+                aiService.streamChat(request.getMessage(), systemPrompt, toolContext,
+                        emitter::text, emitter::tool));
     }
 
     private PageResult<Map<String, Object>> toPage(List<Map<String, Object>> records, int page, int size) {

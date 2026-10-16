@@ -171,20 +171,27 @@ public class AiService {
      * 匿名单轮流式（游客通道）：无记忆，system + user 单轮。
      */
     public StreamingResult streamChat(String message, String systemPrompt, Consumer<String> onChunk) {
-        return streamChat(null, message, systemPrompt, ChatToolContext.NONE, onChunk);
+        return streamChat(null, message, systemPrompt, ChatToolContext.NONE, onChunk, chunk -> {});
     }
 
     /** 匿名 + 工具上下文（游客在资源页提问时，工具可回退查询当前页面资源） */
     public StreamingResult streamChat(String message, String systemPrompt,
                                       ChatToolContext toolContext, Consumer<String> onChunk) {
-        return streamChat(null, message, systemPrompt, toolContext, onChunk);
+        return streamChat(null, message, systemPrompt, toolContext, onChunk, chunk -> {});
+    }
+
+    /** 匿名 + 工具上下文 + 工具调用通知（SSE tool 事件） */
+    public StreamingResult streamChat(String message, String systemPrompt,
+                                      ChatToolContext toolContext, Consumer<String> onChunk,
+                                      Consumer<String> onTool) {
+        return streamChat(null, message, systemPrompt, toolContext, onChunk, onTool);
     }
 
     /**
      * 扩展三真流式聊天（无工具上下文的兼容重载）。
      */
     public StreamingResult streamChat(Long sessionId, String message, String systemPrompt, Consumer<String> onChunk) {
-        return streamChat(sessionId, message, systemPrompt, ChatToolContext.NONE, onChunk);
+        return streamChat(sessionId, message, systemPrompt, ChatToolContext.NONE, onChunk, chunk -> {});
     }
 
     /**
@@ -192,7 +199,8 @@ public class AiService {
      *
      * <p>流程：用户提问 → 模型决定是否调工具 → 注册表执行工具（查库）→
      * 工具结果回填对话 → 模型再次生成 → 直至给出最终回答。token 级片段
-     * （含工具轮次的过渡文本）实时经 onChunk 转发。</p>
+     * （含工具轮次的过渡文本）实时经 onChunk 转发；每次工具开始执行时
+     * 经 onTool 通知工具名（供前端展示"调用 xx 工具"状态，不进正文）。</p>
      *
      * <p>sessionId 非空时启用会话记忆（{@link MessageWindowChatMemory} 20 条窗口，
      * 底层 {@link ChatMemoryStore} 为 Redis，miss/故障回填 MySQL）；为空时匿名单轮。
@@ -201,7 +209,8 @@ public class AiService {
      * 同时以返回值告知调用方（供落库记账）。</p>
      */
     public StreamingResult streamChat(Long sessionId, String message, String systemPrompt,
-                                      ChatToolContext toolContext, Consumer<String> onChunk) {
+                                      ChatToolContext toolContext, Consumer<String> onChunk,
+                                      Consumer<String> onTool) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
             String notice = "AI 服务未配置，请先设置有效的 AI_API_KEY。";
             onChunk.accept(notice);
@@ -227,7 +236,7 @@ public class AiService {
         List<ToolSpecification> toolSpecs = chatToolRegistry.specifications();
         StringBuilder answer = new StringBuilder();
         AtomicReference<TokenUsage> usageRef = new AtomicReference<>();
-        String error = runToolLoop(baseMessages, toolSpecs, toolContext, answer, usageRef, onChunk);
+        String error = runToolLoop(baseMessages, toolSpecs, toolContext, answer, usageRef, onChunk, onTool);
 
         String errorResult = error;
         if (errorResult != null) {
@@ -261,7 +270,8 @@ public class AiService {
      */
     private String runToolLoop(List<ChatMessage> baseMessages, List<ToolSpecification> toolSpecs,
                                ChatToolContext toolContext, StringBuilder answer,
-                               AtomicReference<TokenUsage> usageRef, Consumer<String> onChunk) {
+                               AtomicReference<TokenUsage> usageRef, Consumer<String> onChunk,
+                               Consumer<String> onTool) {
         List<ChatMessage> conversation = new ArrayList<>(baseMessages);
         long deadline = System.currentTimeMillis() + Math.max(chatTimeoutMs, 30000);
 
@@ -296,6 +306,8 @@ public class AiService {
 
             for (ToolExecutionRequest request : outcome.aiMessage.toolExecutionRequests()) {
                 log.info("Chat tool invocation: {} (round {})", request.name(), round + 1);
+                // 通知前端开始执行该工具（SSE tool 事件，不进正文）
+                onTool.accept(request.name());
                 String toolResult = chatToolRegistry.execute(request.name(), request.arguments(), toolContext);
                 conversation.add(ToolExecutionResultMessage.from(request, toolResult));
             }
