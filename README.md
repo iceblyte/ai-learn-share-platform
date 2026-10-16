@@ -65,11 +65,11 @@ mvn spring-boot:run
 ```powershell
 cd frontend
 
-# 安装依赖
-npm install
+# 安装依赖（本项目使用 pnpm 管理前端依赖）
+pnpm install
 
 # 启动开发服务器
-npm run dev
+pnpm run dev
 ```
 
 前端默认运行在 `http://localhost:5173`
