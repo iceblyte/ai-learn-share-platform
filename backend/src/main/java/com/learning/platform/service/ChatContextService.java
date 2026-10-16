@@ -57,8 +57,11 @@ public class ChatContextService {
     /**
      * 正文截断：不超预算直接返回；超预算时按问题关键词重合度给段落打分，
      * 优先保留相关段落（保持原文段落顺序），无命中的关键词则回退取开头。
+     *
+     * <p>function calling 改造后，get_resource_detail 工具也复用本方法
+     * 控制注入模型的正文预算。</p>
      */
-    String buildExcerpt(String description, String message) {
+    public String buildExcerpt(String description, String message) {
         if (description == null || description.isBlank()) {
             return "";
         }
