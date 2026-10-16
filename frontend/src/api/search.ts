@@ -5,8 +5,11 @@ export const searchApi = {
   search(params: SearchParams) {
     return request.get<ApiResponse<PageData<Resource>>>('/search', { params })
   },
-  nlSearch(query: string) {
-    return request.post<ApiResponse<NlSearchResult>>('/search/nl', { query })
+  nlSearch(
+    query: string,
+    overrides?: { sortBy?: string; categoryId?: number; tags?: string[]; minRating?: number }
+  ) {
+    return request.post<ApiResponse<NlSearchResult>>('/search/nl', { query, ...overrides })
   },
   getHistory() {
     return request.get<ApiResponse<string[]>>('/search/history')

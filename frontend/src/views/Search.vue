@@ -20,6 +20,8 @@ const categories = ref<Category[]>([])
 const hotTags = ref<Tag[]>([])
 const selectedCategory = ref<number | null>((route.query.categoryId as any) || null)
 const sortBy = ref('hot')
+/** 用户在 NL 搜索后是否手动点过排序按钮；未点过时排序由 AI 解析结果决定 */
+const sortTouched = ref(false)
 const toast = ref<{ message: string; type: 'info' | 'error' | 'success' } | null>(null)
 
 function showToast(message: string, type: 'info' | 'error' | 'success' = 'info') {
@@ -72,23 +74,35 @@ async function clearHistory() {
   } catch {}
 }
 
+/** 用户主动发起新搜索（回车/点搜索按钮/点历史）：排序回到 AI 解析优先 */
+function submitSearch() {
+  sortTouched.value = false
+  handleSearch()
+}
+
 async function handleSearch() {
   if (!keyword.value.trim() && !selectedCategory.value && selectedTags.value.length === 0) return
   loading.value = true
-  parsedIntent.value = null
   try {
-    if (isNlMode.value) {
+    if (isNlMode.value && keyword.value.trim()) {
       if (!userStore.isLoggedIn) {
         showToast('AI 搜索需要登录，请先登录后再使用', 'error')
         setTimeout(() => router.push('/login'), 1500)
         return
       }
-      const res = await searchApi.nlSearch(keyword.value)
+      const res = await searchApi.nlSearch(keyword.value, {
+        sortBy: sortTouched.value ? sortBy.value : undefined,
+        categoryId: selectedCategory.value || undefined,
+        tags: selectedTags.value.length > 0 ? selectedTags.value : undefined,
+        minRating: minRating.value || undefined,
+      })
       const data = res.data.data as any
       results.value = data.results || []
       total.value = data.total || results.value.length
       parsedIntent.value = data.parsedIntent || null
+      syncIntentToFilters(parsedIntent.value)
     } else {
+      parsedIntent.value = null
       const params: SearchParams = {
         keyword: keyword.value || undefined,
         categoryId: selectedCategory.value || undefined,
@@ -112,6 +126,37 @@ async function handleSearch() {
     loading.value = false
   }
   if (userStore.isLoggedIn) loadHistory()
+}
+
+/** 把 AI 解析出的条件同步到侧栏筛选控件上，让用户看到实际生效的条件 */
+function syncIntentToFilters(intent: Record<string, any> | null) {
+  if (!intent) return
+  if (typeof intent.sortBy === 'string' && intent.sortBy !== 'relevance') {
+    sortBy.value = intent.sortBy
+  }
+  if (typeof intent.category === 'string' && intent.category !== 'null') {
+    const id = findCategoryIdByName(categories.value, intent.category)
+    if (id) selectedCategory.value = id
+  }
+  if (Array.isArray(intent.tags)) {
+    for (const t of intent.tags) {
+      if (typeof t === 'string' && t && !selectedTags.value.includes(t)) selectedTags.value.push(t)
+    }
+  }
+  if (typeof intent.minRating === 'number' && intent.minRating > 0) {
+    minRating.value = intent.minRating
+  }
+}
+
+function findCategoryIdByName(list: Category[], name: string): number | null {
+  for (const cat of list) {
+    if (cat.name.includes(name) || name.includes(cat.name)) return cat.id
+    if (cat.children?.length) {
+      const found = findCategoryIdByName(cat.children, name)
+      if (found) return found
+    }
+  }
+  return null
 }
 
 function goToResource(id: number) {
@@ -213,14 +258,14 @@ function getIntentValue(key: string, value: any): string {
             v-model="keyword"
             :placeholder="isNlMode ? '例如：推荐关于Java并发编程且评分最高的前5个资源' : '搜索学习资源...'"
             class="w-full pl-10 pr-20 py-2 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            @keyup.enter="handleSearch"
+            @keyup.enter="submitSearch"
           />
           <svg class="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
           <span v-if="isNlMode" class="absolute right-12 top-2 text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">AI</span>
           <button
-            @click="handleSearch"
+            @click="submitSearch"
             class="absolute right-2 top-1.5 bg-primary-500 text-white px-3 py-1 rounded-full text-xs hover:bg-primary-600 transition-colors"
           >
             搜索
@@ -234,7 +279,7 @@ function getIntentValue(key: string, value: any): string {
         <button
           v-for="item in searchHistory"
           :key="item"
-          @click="keyword = item; handleSearch()"
+          @click="keyword = item; submitSearch()"
           class="px-2 py-1 bg-slate-50 text-slate-500 text-xs rounded hover:bg-primary-50 hover:text-primary-600 transition-colors"
         >
           {{ item }}
@@ -341,30 +386,36 @@ function getIntentValue(key: string, value: any): string {
             </div>
           </div>
 
-          <button @click="selectedCategory = null; minRating = null; selectedTags = []; sortBy = 'hot'; handleSearch()" class="w-full text-xs text-primary-500 border border-primary-300 py-1.5 rounded-lg hover:bg-primary-50">清除所有筛选</button>
+          <button @click="selectedCategory = null; minRating = null; selectedTags = []; sortBy = 'hot'; sortTouched = false; handleSearch()" class="w-full text-xs text-primary-500 border border-primary-300 py-1.5 rounded-lg hover:bg-primary-50">清除所有筛选</button>
         </div>
       </aside>
 
       <!-- Results -->
       <div class="flex-1">
         <div class="flex items-center justify-between mb-4">
-          <p class="text-sm text-slate-500">找到 <span class="font-semibold text-slate-800">{{ total }}</span> 个结果</p>
+          <p class="text-sm text-slate-500">
+            找到 <span class="font-semibold text-slate-800">{{ total }}</span> 个结果
+            <svg v-if="loading" class="inline-block w-3.5 h-3.5 ml-1 animate-spin text-primary-500 align-[-2px]" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+          </p>
           <div class="flex items-center gap-2">
             <span class="text-xs text-slate-500">排序：</span>
             <button
-              @click="sortBy = 'rating'; handleSearch()"
+              @click="sortBy = 'rating'; sortTouched = true; handleSearch()"
               :class="['text-xs px-3 py-1 rounded-full transition-colors', sortBy === 'rating' ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
             >
               评分最高
             </button>
             <button
-              @click="sortBy = 'latest'; handleSearch()"
+              @click="sortBy = 'latest'; sortTouched = true; handleSearch()"
               :class="['text-xs px-3 py-1 rounded-full transition-colors', sortBy === 'latest' ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
             >
               最新
             </button>
             <button
-              @click="sortBy = 'hot'; handleSearch()"
+              @click="sortBy = 'hot'; sortTouched = true; handleSearch()"
               :class="['text-xs px-3 py-1 rounded-full transition-colors', sortBy === 'hot' ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
             >
               最热
@@ -372,7 +423,8 @@ function getIntentValue(key: string, value: any): string {
           </div>
         </div>
 
-        <div v-if="loading" class="flex justify-center py-20">
+        <!-- 加载中且还没有结果：整块转圈；已有结果时只做半透明降级，避免整页闪动 -->
+        <div v-if="loading && results.length === 0" class="flex justify-center py-20">
           <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
         </div>
 
@@ -387,14 +439,14 @@ function getIntentValue(key: string, value: any): string {
             <span v-if="selectedCategory" class="font-medium text-slate-500">{{ categories.flatMap(c => c.children || [c]).find(c => c.id === selectedCategory)?.name || '该分类' }}</span>
           </p>
           <button
-            @click="keyword = ''; selectedCategory = null; minRating = null; selectedTags = []; sortBy = 'hot'; handleSearch()"
+            @click="keyword = ''; selectedCategory = null; minRating = null; selectedTags = []; sortBy = 'hot'; sortTouched = false; handleSearch()"
             class="px-4 py-2 text-sm text-primary-600 border border-primary-300 rounded-lg hover:bg-primary-50 transition-colors"
           >
             清除所有筛选
           </button>
         </div>
 
-        <div v-else class="space-y-3">
+        <div v-else class="space-y-3 transition-opacity duration-200" :class="loading ? 'opacity-40 pointer-events-none' : ''">
           <div
             v-for="res in results"
             :key="res.id"
