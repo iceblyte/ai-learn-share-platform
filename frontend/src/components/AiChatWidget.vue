@@ -399,6 +399,7 @@ async function sendMessage() {
     const decoder = new TextDecoder('utf-8')
     let buffer = ''
     let streamError = ''
+    let streamDone = false
 
     const dispatchSseEvent = (eventName: string, data: string) => {
       if (eventName === 'message') {
@@ -406,8 +407,11 @@ async function sendMessage() {
         messages.value = [...messages.value]
       } else if (eventName === 'error') {
         streamError = data
+      } else if (eventName === 'done') {
+        // 收到结束事件即视为回答完毕：主动终止读循环，
+        // 不再依赖服务端关闭连接的时机（否则发送按钮会一直转圈）
+        streamDone = true
       }
-      // done 事件无需处理：连接随即关闭，读循环自然结束
     }
 
     const parseSseFrame = (raw: string) => {
@@ -434,6 +438,11 @@ async function sendMessage() {
         parseSseFrame(buffer.slice(0, separator))
         buffer = buffer.slice(separator + 2)
       }
+      if (streamDone) break
+    }
+    if (streamDone) {
+      // 后端 done 后会关闭连接；主动 cancel 兜底，避免悬挂连接
+      reader.cancel().catch(() => {})
     }
 
     if (streamError && !assistantMessage.content.trim()) {
