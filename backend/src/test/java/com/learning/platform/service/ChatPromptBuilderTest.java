@@ -20,6 +20,9 @@ class ChatPromptBuilderTest {
             当前页面标题：AI学习平台
             当前页面路由：/
             不要输出 markdown 标题，不要使用过度客套。
+            回答按 markdown 渲染。使用列表时必须遵守：每个列表项以半角减号加一个半角空格开头（"- 内容"），
+            或以数字加半角点加一个半角空格开头（"1. 内容"）；符号与内容之间必须有半角空格，
+            禁止写成"-内容"或使用全角空格，否则列表无法正常渲染。
             """;
 
     private ChatContext context(String title, String summary, String excerpt, String selectedText) {
