@@ -127,12 +127,11 @@ function startDrag(event: PointerEvent) {
 function handleDrag(event: PointerEvent) {
   if (!dragging.value) return
   dragMoved = true
-  const panelWidth = open.value ? Math.min(384, window.innerWidth - 32) : 56
-  const panelHeight = open.value && chatPanel.value ? chatPanel.value.offsetHeight + 16 : 56
   position.value = {
-    x: clamp(event.clientX - dragOffsetX, 16, window.innerWidth - panelWidth - 16),
-    y: clamp(event.clientY - dragOffsetY, 16, window.innerHeight - panelHeight - 16),
+    x: event.clientX - dragOffsetX,
+    y: event.clientY - dragOffsetY,
   }
+  clampWidgetToViewport()
 }
 
 function stopDrag() {
@@ -141,12 +140,28 @@ function stopDrag() {
   window.removeEventListener('pointerup', stopDrag)
 }
 
-function toggleOpen() {
+async function toggleOpen() {
   if (dragMoved) {
     dragMoved = false
     return
   }
   open.value = !open.value
+  if (open.value) {
+    // 面板展开后整体尺寸变大：贴边（右/下边缘）时面板会超出屏幕，
+    // 等面板渲染完拿到真实高度后重新夹取位置
+    await nextTick()
+    clampWidgetToViewport()
+  }
+}
+
+/** 把组件（面板 + 按钮）整体夹回视口内，贴边时至少留 16px 边距 */
+function clampWidgetToViewport() {
+  const widgetWidth = open.value ? Math.min(384, window.innerWidth - 32) : 56
+  const widgetHeight = (open.value && chatPanel.value ? chatPanel.value.offsetHeight : 0) + 16 + 56
+  position.value = {
+    x: clamp(position.value.x, 16, Math.max(16, window.innerWidth - widgetWidth - 16)),
+    y: clamp(position.value.y, 16, Math.max(16, window.innerHeight - widgetHeight - 16)),
+  }
 }
 
 function clamp(value: number, min: number, max: number) {
