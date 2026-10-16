@@ -3,55 +3,48 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { pageContextStore, setSelectedText } from '@/store/pageContext'
-import { chatApi, type ChatSessionItem } from '@/api/chat'
-
-type ChatRole = 'user' | 'assistant'
-
-interface ChatMessage {
-  id: number
-  role: ChatRole
-  content: string
-  streaming?: boolean
-}
+import { useAiChat } from '@/composables/useAiChat'
+import AiMessageBubble from '@/components/AiMessageBubble.vue'
+import ChatSessionList from '@/components/ChatSessionList.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
 const open = ref(false)
-const sending = ref(false)
-const input = ref('')
 const position = ref({ x: 0, y: 0 })
 const dragging = ref(false)
-const messages = ref<ChatMessage[]>([
-  {
-    id: 1,
-    role: 'assistant',
-    content: '我是学习助手。可以问我资源内容、学习路径、面试题思路，或者当前页面相关的问题。',
-  },
-])
 const messageViewport = ref<HTMLElement | null>(null)
 const chatPanel = ref<HTMLElement | null>(null)
-let messageId = 2
 let dragOffsetX = 0
 let dragOffsetY = 0
 let dragMoved = false
 
-// ---- 扩展二：会话持久化状态 ----
-const currentSessionId = ref<number | null>(null)
-const showHistory = ref(false)
-const sessions = ref<ChatSessionItem[]>([])
-const historyLoading = ref(false)
-const searchKeyword = ref('')
-const searching = ref(false)
-const searchResults = ref<{ sessionId: number; sessionTitle: string; content: string }[]>([])
-// ---- 历史会话重命名 ----
-const editingSessionId = ref<number | null>(null)
-const editingTitle = ref('')
+// ---- Bug 1：记录展开前的位置，关闭时还原（贴边展开再关闭能回到边缘） ----
+let preOpenPosition: { x: number; y: number } | null = null
 
-// ---- 扩展四：游标翻页状态 ----
-const loadingOlder = ref(false)
-const hasOlderMessages = ref(false)
-const oldestCursor = ref<number | null>(null)
-let suppressAutoScroll = false
+// ---- 聊天核心（会话/消息/流式）----
+const chat = useAiChat({
+  welcome: '我是学习助手。可以问我资源内容、学习路径、面试题思路，或者当前页面相关的问题。',
+  getPayloadContext: () => ({
+    pageContextType: hasResourceContext.value ? 'RESOURCE' : undefined,
+    pageContextId: hasResourceContext.value ? pageContextStore.resourceId ?? undefined : undefined,
+    selectedText: pageContextStore.selectedText || undefined,
+  }),
+})
+const {
+  messages,
+  sending,
+  input,
+  currentSessionId,
+  sendMessage,
+  loadingOlder,
+  hasOlderMessages,
+  fetchOlderMessages,
+  loadSessions,
+  openSession,
+} = chat
+
+// 历史会话抽屉开关（仅悬浮球视图使用）
+const showHistoryDrawer = ref(false)
 
 onMounted(() => {
   const width = window.innerWidth
@@ -66,7 +59,6 @@ onBeforeUnmount(() => {
   stopDrag()
 })
 
-const pageTitle = computed(() => document.title.replace(/\s*-\s*AI学习平台$/, '').trim())
 // 扩展一：仅在资源详情页携带上下文（离开页面时 ResourceDetail 会清理）
 const hasResourceContext = computed(
   () => route.name === 'ResourceDetail' && pageContextStore.type === 'RESOURCE'
@@ -76,6 +68,7 @@ const selectedTextPreview = computed(() => {
   if (!text) return ''
   return text.length > 24 ? `${text.slice(0, 24)}…` : text
 })
+const pageTitle = computed(() => document.title.replace(/\s*-\s*AI学习平台$/, '').trim())
 const suggestions = computed(() => {
   if (route.name === 'ResourceDetail') {
     return ['帮我概括这份资源适合谁', '给我一个学习顺序', '提炼这份资源的重点']
@@ -93,8 +86,9 @@ watch(open, async (value) => {
   }
 })
 
-// ---- Bug 3：仅当用户停留在底部附近时才自动滚动，上滑翻历史时不打断 ----
+// ---- 仅当用户停留在底部附近时才自动滚动，上滑翻历史时不打断 ----
 let autoScrollEnabled = true
+let suppressAutoScroll = false
 
 function handleViewportScroll() {
   const el = messageViewport.value
@@ -109,10 +103,6 @@ watch(messages, async () => {
   if (autoScrollEnabled) scrollToBottom()
 }, { deep: true })
 
-// 匀速上屏节奏：每 20ms 上屏 4 个字符（约 200 字/秒）
-const REVEAL_INTERVAL_MS = 20
-const REVEAL_BATCH = 4
-
 function scrollToBottom() {
   if (messageViewport.value) {
     messageViewport.value.scrollTop = messageViewport.value.scrollHeight
@@ -120,14 +110,17 @@ function scrollToBottom() {
 }
 
 function useSuggestion(text: string) {
-  input.value = text
-  sendMessage()
+  sendMessage(text)
 }
 
 /** 扩展一：划词提问——把当前选中文本作为 selectedText 一并上传 */
 function askSelectedText() {
   if (!pageContextStore.selectedText || sending.value) return
-  input.value = '请解释我选中的这段内容'
+  sendMessage('请解释我选中的这段内容')
+}
+
+/** 提问时若面板未展开先正常展开（走 openPanel，保证关闭能还原位置） */
+function sendFromInput() {
   sendMessage()
 }
 
@@ -161,13 +154,46 @@ async function toggleOpen() {
     dragMoved = false
     return
   }
-  open.value = !open.value
   if (open.value) {
-    // 面板展开后整体尺寸变大：贴边（右/下边缘）时面板会超出屏幕，
-    // 等面板渲染完拿到真实高度后重新夹取位置
-    await nextTick()
-    clampWidgetToViewport()
+    closePanel()
+  } else {
+    openPanel()
   }
+}
+
+function openPanel() {
+  if (open.value) return
+  open.value = true
+  // Bug 1：记住展开前的位置，关闭时还原（贴边打开→关闭回到边缘）
+  preOpenPosition = { ...position.value }
+  // 面板展开后整体尺寸变大：贴边（右/下边缘）时面板会超出屏幕，
+  // 等面板渲染完拿到真实高度后重新夹取位置
+  nextTick(() => clampWidgetToViewport())
+}
+
+function closePanel() {
+  if (!open.value) return
+  open.value = false
+  if (preOpenPosition) {
+    position.value = preOpenPosition
+    preOpenPosition = null
+  }
+}
+
+async function toggleHistory() {
+  showHistoryDrawer.value = !showHistoryDrawer.value
+  if (showHistoryDrawer.value) {
+    await loadSessions()
+  }
+}
+
+function handleOpenSession(sessionId: number) {
+  openSession(sessionId).catch((error: any) => {
+    messages.value = [
+      { id: Date.now(), role: 'assistant', content: error?.message || '加载历史会话失败' },
+    ]
+  })
+  showHistoryDrawer.value = false
 }
 
 /** 把组件（面板 + 按钮）整体夹回视口内，贴边时至少留 16px 边距 */
@@ -184,383 +210,18 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max)
 }
 
-// ---- 扩展二：会话管理 ----
-
-async function toggleHistory() {
-  showHistory.value = !showHistory.value
-  if (showHistory.value) {
-    await loadSessions()
-  }
-}
-
-async function loadSessions() {
-  historyLoading.value = true
-  try {
-    const res = await chatApi.listSessions(1, 20)
-    sessions.value = res.data.data.records
-  } catch {
-    sessions.value = []
-  } finally {
-    historyLoading.value = false
-  }
-}
-
-/**
- * 扩展四：进入会话加载最新一页（游标分页，后端按 id 倒序、前端转回正序）。
- * 保留真实消息 id 作为向上翻页的游标；本地新消息的 id 从最大真实 id 之后分配，保证 key 唯一。
- */
-async function loadSessionMessages(sessionId: number) {
-  const res = await chatApi.listMessagesByCursor(sessionId, null, 20)
-  const { records, nextCursor, hasMore } = res.data.data
-  const ascending = [...records].reverse()
-  const restored: ChatMessage[] = ascending.map((item) => ({
-    id: item.id,
-    role: item.role,
-    content: item.content,
-  }))
-  messages.value = restored.length
-    ? restored
-    : [{ id: 1, role: 'assistant', content: '这个会话还没有消息。' }]
-  messageId = restored.length
-    ? Math.max(...restored.map((item) => item.id)) + 1
-    : 2
-  oldestCursor.value = nextCursor
-  hasOlderMessages.value = hasMore
-}
-
-/**
- * 扩展四：向上翻更早消息——传上一页 nextCursor 作为 beforeId，无 offset。
- * 前插后把视口锚定回原位置，避免跳到底部。
- */
-async function loadOlderMessages() {
-  if (!currentSessionId.value || !hasOlderMessages.value || loadingOlder.value || !oldestCursor.value) return
-  loadingOlder.value = true
-  suppressAutoScroll = true
+/** 向上翻更早消息：前插后把视口锚定回原位置，避免跳到底部 */
+async function loadOlderAnchored() {
   const viewport = messageViewport.value
   const prevScrollHeight = viewport?.scrollHeight ?? 0
   const prevScrollTop = viewport?.scrollTop ?? 0
-  try {
-    const res = await chatApi.listMessagesByCursor(currentSessionId.value, oldestCursor.value, 20)
-    const { records, nextCursor, hasMore } = res.data.data
-    const ascending = [...records].reverse()
-    const older: ChatMessage[] = ascending.map((item) => ({
-      id: item.id,
-      role: item.role,
-      content: item.content,
-    }))
-    messages.value = [...older, ...messages.value]
-    oldestCursor.value = nextCursor
-    hasOlderMessages.value = hasMore
-    await nextTick()
-    if (viewport) {
-      viewport.scrollTop = viewport.scrollHeight - prevScrollHeight + prevScrollTop
-    }
-  } catch {
-    // 静默失败：翻页失败不影响已展示的消息
-  } finally {
-    loadingOlder.value = false
-    suppressAutoScroll = false
+  suppressAutoScroll = true
+  await fetchOlderMessages()
+  await nextTick()
+  if (viewport) {
+    viewport.scrollTop = viewport.scrollHeight - prevScrollHeight + prevScrollTop
   }
-}
-
-async function openSession(sessionId: number) {
-  try {
-    await loadSessionMessages(sessionId)
-    currentSessionId.value = sessionId
-    showHistory.value = false
-    input.value = ''
-  } catch (error: any) {
-    messages.value = [
-      { id: messageId++, role: 'assistant', content: error?.message || '加载历史会话失败' },
-    ]
-  }
-}
-
-async function startNewSession() {
-  currentSessionId.value = null
-  showHistory.value = false
-  oldestCursor.value = null
-  hasOlderMessages.value = false
-  messages.value = [
-    {
-      id: messageId++,
-      role: 'assistant',
-      content: '我是学习助手。可以问我资源内容、学习路径、面试题思路，或者当前页面相关的问题。',
-    },
-  ]
-  input.value = ''
-}
-
-async function removeSession(sessionId: number) {
-  try {
-    await chatApi.deleteSession(sessionId)
-    sessions.value = sessions.value.filter((item) => item.id !== sessionId)
-    if (currentSessionId.value === sessionId) {
-      await startNewSession()
-    }
-  } catch (error: any) {
-    messages.value = [
-      { id: messageId++, role: 'assistant', content: error?.message || '删除会话失败' },
-    ]
-  }
-}
-
-function startRename(session: ChatSessionItem) {
-  editingSessionId.value = session.id
-  editingTitle.value = session.title || ''
-}
-
-async function saveRename(sessionId: number) {
-  const title = editingTitle.value.trim()
-  editingSessionId.value = null
-  if (!title) return
-  try {
-    await chatApi.renameSession(sessionId, title)
-    const target = sessions.value.find((item) => item.id === sessionId)
-    if (target) target.title = title
-  } catch (error: any) {
-    messages.value = [
-      { id: messageId++, role: 'assistant', content: error?.message || '重命名失败' },
-    ]
-  }
-}
-
-async function runSearch() {
-  const keyword = searchKeyword.value.trim()
-  if (!keyword) {
-    searchResults.value = []
-    return
-  }
-  searching.value = true
-  try {
-    const res = await chatApi.search(keyword, 20)
-    searchResults.value = res.data.data.map((item) => ({
-      sessionId: item.sessionId,
-      sessionTitle: item.sessionTitle,
-      content: item.content,
-    }))
-  } catch {
-    searchResults.value = []
-  } finally {
-    searching.value = false
-  }
-}
-
-function formatTime(value: string | null) {
-  if (!value) return ''
-  return value.slice(0, 16).replace('T', ' ')
-}
-
-async function ensureSession(): Promise<number | null> {
-  if (currentSessionId.value) return currentSessionId.value
-  try {
-    const contextType = hasResourceContext.value ? 'RESOURCE' : undefined
-    const contextId = hasResourceContext.value ? pageContextStore.resourceId ?? undefined : undefined
-    const res = await chatApi.createSession(contextType, contextId)
-    currentSessionId.value = res.data.data.id
-    return currentSessionId.value
-  } catch (error: any) {
-    messages.value = [
-      { id: messageId++, role: 'assistant', content: error?.message || '创建会话失败' },
-    ]
-    return null
-  }
-}
-
-async function sendMessage() {
-  const question = input.value.trim()
-  if (!question || sending.value) return
-
-  if (!open.value) open.value = true
-
-  messages.value.push({
-    id: messageId++,
-    role: 'user',
-    content: question,
-  })
-  // 用户自己发消息时视为回到底部，恢复自动滚动
-  autoScrollEnabled = true
-
-  const assistantMessage: ChatMessage = {
-    id: messageId++,
-    role: 'assistant',
-    content: '',
-    streaming: true,
-  }
-  messages.value.push(assistantMessage)
-  input.value = ''
-  sending.value = true
-
-  // ---- 打字机缓冲队列 ----
-  // 网络分片的到达节奏不均（常见：先到一两个 token，停顿后剩余内容
-  // 一次性吐出），直接拼接会呈现"先出两字、然后一瞬间全出"。
-  // 收到的文本先进入缓冲，再由固定节奏的定时器匀速上屏，
-  // 保证回答以同一速率逐步出现。
-  let pendingText = ''
-  let revealTimer: number | null = null
-  let revealFinish: (() => void) | null = null
-  let streamDone = false
-
-  const stopReveal = () => {
-    if (revealTimer != null) {
-      clearInterval(revealTimer)
-      revealTimer = null
-    }
-  }
-
-  const startReveal = () => {
-    if (revealTimer != null) return
-    revealTimer = window.setInterval(() => {
-      if (!pendingText) {
-        // 缓冲暂时清空：停表等新分片，避免空转
-        stopReveal()
-        if (streamDone) {
-          const finish = revealFinish
-          revealFinish = null
-          finish?.()
-        }
-        return
-      }
-      assistantMessage.content += pendingText.slice(0, REVEAL_BATCH)
-      pendingText = pendingText.slice(REVEAL_BATCH)
-      messages.value = [...messages.value]
-    }, REVEAL_INTERVAL_MS)
-  }
-
-  const waitForRevealDrain = () =>
-    new Promise<void>((resolve) => {
-      if (!pendingText) {
-        resolve()
-        return
-      }
-      revealFinish = resolve
-    })
-
-  try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-    if (userStore.token) {
-      headers.Authorization = `Bearer ${userStore.token}`
-    }
-
-    const payload: Record<string, unknown> = {
-      message: question,
-      route: route.fullPath,
-      pageTitle: pageTitle.value,
-    }
-    if (hasResourceContext.value && pageContextStore.resourceId != null) {
-      payload.pageContextType = 'RESOURCE'
-      payload.pageContextId = pageContextStore.resourceId
-    }
-    // 划选文本只在本次提问携带，发送后立即清除
-    if (pageContextStore.selectedText) {
-      payload.selectedText = pageContextStore.selectedText
-    }
-
-    // 扩展二：登录用户写入持久会话；游客仍走匿名通道
-    let url = '/api/v1/ai/chat/stream'
-    if (userStore.isLoggedIn) {
-      const sessionId = await ensureSession()
-      if (!sessionId) return
-      url = `/api/v1/chat/sessions/${sessionId}/messages`
-    }
-
-    /**
-     * 标准 SSE（扩展五）：后端返回 text/event-stream，
-     * event:message 逐 token 转发 / done 收尾 / error 报基础设施失败。
-     * EventSource 不支持 POST + Authorization，因此仍用 fetch 手动解帧。
-     */
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload),
-    })
-
-    // 业务异常（403/404/校验失败）在建连前以 JSON 返回
-    const contentType = response.headers.get('content-type') || ''
-    if (contentType.includes('application/json')) {
-      let message = '聊天服务暂时不可用'
-      try {
-        const result = await response.json()
-        if (result?.message) message = result.message
-      } catch {
-        // JSON 解析失败就用默认文案
-      }
-      throw new Error(message)
-    }
-    if (!response.ok || !response.body) {
-      throw new Error('聊天服务暂时不可用')
-    }
-
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder('utf-8')
-    let buffer = ''
-    let streamError = ''
-
-    const dispatchSseEvent = (eventName: string, data: string) => {
-      if (eventName === 'message') {
-        pendingText += data
-        startReveal()
-      } else if (eventName === 'error') {
-        streamError = data
-      } else if (eventName === 'done') {
-        // 收到结束事件即视为回答完毕：主动终止读循环，
-        // 不再依赖服务端关闭连接的时机（否则发送按钮会一直转圈）
-        streamDone = true
-      }
-    }
-
-    const parseSseFrame = (raw: string) => {
-      let eventName = 'message'
-      const dataLines: string[] = []
-      for (const line of raw.split('\n')) {
-        if (line.startsWith('event:')) {
-          eventName = line.slice(6).trim()
-        } else if (line.startsWith('data:')) {
-          // 按 SSE 规范去掉冒号后的单个可选空格
-          dataLines.push(line.slice(5).startsWith(' ') ? line.slice(6) : line.slice(5))
-        }
-      }
-      dispatchSseEvent(eventName, dataLines.join('\n'))
-    }
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      // SSE 事件以空行（\n\n）分隔
-      let separator: number
-      while ((separator = buffer.indexOf('\n\n')) !== -1) {
-        parseSseFrame(buffer.slice(0, separator))
-        buffer = buffer.slice(separator + 2)
-      }
-      if (streamDone) break
-    }
-    if (streamDone) {
-      // 后端 done 后会关闭连接；主动 cancel 兜底，避免悬挂连接
-      reader.cancel().catch(() => {})
-    }
-
-    // 等缓冲里的剩余内容匀速上屏完毕，再判定流结束
-    await waitForRevealDrain()
-    stopReveal()
-
-    if (streamError && !assistantMessage.content.trim()) {
-      assistantMessage.content = streamError
-    }
-  } catch (error: any) {
-    assistantMessage.content = error?.message || '聊天服务暂时不可用'
-  } finally {
-    stopReveal()
-    assistantMessage.streaming = false
-    if (!assistantMessage.content.trim()) {
-      assistantMessage.content = '当前没有拿到有效回复，请换个问法再试。'
-    }
-    messages.value = [...messages.value]
-    sending.value = false
-    setSelectedText('')
-  }
+  suppressAutoScroll = false
 }
 </script>
 
@@ -594,7 +255,7 @@ async function sendMessage() {
             <button
               v-if="userStore.isLoggedIn"
               class="rounded-md p-1 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-              :title="showHistory ? '返回对话' : '历史会话'"
+              :title="showHistoryDrawer ? '返回对话' : '历史会话'"
               @click="toggleHistory"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -603,7 +264,7 @@ async function sendMessage() {
             </button>
             <button
               class="rounded-md p-1 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
-              @click="open = false"
+              @click="closePanel"
             >
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -612,106 +273,13 @@ async function sendMessage() {
           </div>
         </header>
 
-        <!-- 扩展二：历史会话抽屉（仅登录用户） -->
-        <div v-if="showHistory && userStore.isLoggedIn" class="max-h-[26rem] overflow-y-auto bg-slate-50 px-4 py-3">
-          <button
-            class="mb-3 w-full rounded-xl border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500 transition hover:border-primary-300 hover:text-primary-600"
-            @click="startNewSession"
-          >
-            ＋ 新对话
-          </button>
-
-          <div class="mb-3 flex gap-2">
-            <input
-              v-model="searchKeyword"
-              placeholder="搜索问过的问题..."
-              class="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-xs outline-none focus:border-primary-400"
-              @keydown.enter="runSearch"
-            />
-            <button
-              class="rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs text-white transition hover:bg-primary-600 disabled:bg-slate-300"
-              :disabled="searching"
-              @click="runSearch"
-            >
-              搜索
-            </button>
-          </div>
-
-          <ul v-if="searchResults.length" class="mb-3 space-y-2">
-            <li
-              v-for="result in searchResults"
-              :key="`${result.sessionId}-${result.content}`"
-              class="cursor-pointer rounded-xl border border-slate-200 bg-white px-3 py-2 transition hover:border-primary-300"
-              @click="openSession(result.sessionId)"
-            >
-              <p class="truncate text-xs font-medium text-slate-700">{{ result.content }}</p>
-              <p class="truncate text-[11px] text-slate-400">{{ result.sessionTitle }}</p>
-            </li>
-          </ul>
-
-          <p v-if="historyLoading" class="py-4 text-center text-xs text-slate-400">加载中...</p>
-          <p v-else-if="!sessions.length" class="py-4 text-center text-xs text-slate-400">还没有会话记录，问第一个问题吧</p>
-          <ul v-else class="space-y-2">
-            <li
-              v-for="session in sessions"
-              :key="session.id"
-              class="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 transition hover:border-primary-300"
-              :class="{ 'border-primary-300 bg-primary-50': session.id === currentSessionId }"
-            >
-              <!-- 重命名态：内联输入框 -->
-              <template v-if="editingSessionId === session.id">
-                <input
-                  v-model="editingTitle"
-                  class="min-w-0 flex-1 rounded-lg border border-primary-300 px-2 py-1 text-xs outline-none focus:border-primary-500"
-                  placeholder="输入新的标题"
-                  @keydown.enter.prevent="saveRename(session.id)"
-                  @keydown.esc="editingSessionId = null"
-                />
-                <button
-                  class="shrink-0 rounded p-1 text-primary-500 transition hover:text-primary-600"
-                  title="保存标题"
-                  @click="saveRename(session.id)"
-                >
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                  </svg>
-                </button>
-                <button
-                  class="shrink-0 rounded p-1 text-slate-300 transition hover:text-slate-500"
-                  title="取消"
-                  @click="editingSessionId = null"
-                >
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                  </svg>
-                </button>
-              </template>
-              <template v-else>
-                <button class="min-w-0 flex-1 text-left" @click="openSession(session.id)">
-                  <p class="truncate text-xs font-medium text-slate-700">{{ session.title || '未命名会话' }}</p>
-                  <p class="text-[11px] text-slate-400">{{ formatTime(session.lastMessageAt) }} · {{ session.messageCount }} 条</p>
-                </button>
-                <button
-                  class="shrink-0 rounded p-1 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-primary-500"
-                  title="重命名"
-                  @click.stop="startRename(session)"
-                >
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                  </svg>
-                </button>
-                <button
-                  class="shrink-0 rounded p-1 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
-                  title="删除会话"
-                  @click.stop="removeSession(session.id)"
-                >
-                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                  </svg>
-                </button>
-              </template>
-            </li>
-          </ul>
+        <!-- 历史会话抽屉（仅登录用户）：共用组件，含搜索/重命名/删除/分页 -->
+        <div v-if="showHistoryDrawer && userStore.isLoggedIn" class="max-h-[26rem] overflow-y-auto bg-slate-50 px-4 py-3">
+          <ChatSessionList
+            :chat="chat"
+            :current-session-id="currentSessionId"
+            @open="handleOpenSession"
+          />
         </div>
 
         <!-- 对话视图 -->
@@ -721,40 +289,32 @@ async function sendMessage() {
             class="h-[26rem] space-y-4 overflow-y-auto bg-slate-50 px-4 py-4"
             @scroll="handleViewportScroll"
           >
-            <!-- 扩展四：向上翻更早消息（游标分页，仅已登录且有更早历史时展示） -->
+            <!-- 向上翻更早消息（游标分页，仅已登录且有更早历史时展示） -->
             <div v-if="currentSessionId && hasOlderMessages" class="flex justify-center">
               <button
                 class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-500 transition hover:border-primary-200 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="loadingOlder"
-                @click="loadOlderMessages"
+                @click="loadOlderAnchored"
               >
                 {{ loadingOlder ? '加载中...' : '加载更早的消息' }}
               </button>
             </div>
-            <!-- 扩展二：游客转化提示 -->
+            <!-- 游客转化提示 -->
             <p
               v-if="!userStore.isLoggedIn"
               class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center text-[11px] text-amber-700"
             >
               登录后可保存与复习对话记录
             </p>
-            <div v-for="message in messages" :key="message.id" :class="message.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
-              <div
-                :class="[
-                  'max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-6 shadow-sm',
-                  message.role === 'user'
-                    ? 'bg-primary-600 text-white'
-                    : 'border border-slate-200 bg-white text-slate-700'
-                ]"
-              >
-                <p class="whitespace-pre-wrap break-words">{{ message.content }}</p>
-                <span v-if="message.streaming" class="mt-1 inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
-              </div>
-            </div>
+            <AiMessageBubble
+              v-for="message in messages"
+              :key="message.id"
+              :message="message"
+            />
           </div>
 
           <div class="border-t border-slate-200 bg-white px-4 py-3">
-            <!-- 扩展一：划词提问入口 -->
+            <!-- 划词提问入口 -->
             <div
               v-if="selectedTextPreview"
               class="mb-3 flex items-center justify-between gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2"
@@ -795,12 +355,12 @@ async function sendMessage() {
                 rows="3"
                 placeholder="输入你的问题..."
                 class="min-h-[5.5rem] flex-1 resize-none rounded-2xl border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-                @keydown.enter.exact.prevent="sendMessage"
+                @keydown.enter.exact.prevent="sendFromInput"
               ></textarea>
               <button
                 :disabled="sending || !input.trim()"
                 class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                @click="sendMessage"
+                @click="sendFromInput"
               >
                 <svg v-if="!sending" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-9.193-5.106A1 1 0 004 6.944v10.112a1 1 0 001.559.832l9.193-5.106a1 1 0 000-1.664z"/>
