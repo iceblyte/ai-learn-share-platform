@@ -37,6 +37,13 @@ const messageViewport = ref<HTMLElement | null>(null)
 let autoScrollEnabled = true
 let suppressAutoScroll = false
 
+/** 空会话引导的快捷提问 */
+const quickPrompts = [
+  '平台有哪些 Java 学习资源？',
+  '推荐几本算法入门资料',
+  '帮我制定两周的 Python 学习计划',
+]
+
 onMounted(() => {
   if (userStore.isLoggedIn) {
     loadSessions().catch(() => {})
@@ -88,7 +95,7 @@ function handleCreate() {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-4rem)] overflow-hidden">
+  <div class="flex h-screen overflow-hidden">
     <!-- 左侧：历史会话列表 -->
     <aside class="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex">
       <div class="flex-1 overflow-y-auto px-3 py-4">
@@ -136,8 +143,31 @@ function handleCreate() {
             </button>
           </div>
 
+          <!-- 空会话：居中欢迎区 + 快捷提问 -->
+          <div v-if="messages.length <= 1 && !currentSessionId" class="flex flex-col items-center pt-24 text-center">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg shadow-primary-600/25">
+              <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+              </svg>
+            </div>
+            <h2 class="mt-5 text-xl font-semibold text-slate-800">AI 学习助手</h2>
+            <p class="mt-2 max-w-md text-sm text-slate-400">{{ messages[0]?.content || '可以问我资源内容、学习路径、技术概念，或让我检索平台资料' }}</p>
+            <div class="mt-8 flex flex-wrap justify-center gap-2">
+              <button
+                v-for="prompt in quickPrompts"
+                :key="prompt"
+                class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 shadow-sm transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
+                :disabled="sending"
+                @click="sendMessage(prompt)"
+              >
+                {{ prompt }}
+              </button>
+            </div>
+          </div>
+
           <AiMessageBubble
             v-for="message in messages"
+            v-show="messages.length > 1 || currentSessionId"
             :key="message.id"
             :message="message"
           />

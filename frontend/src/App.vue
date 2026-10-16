@@ -9,9 +9,11 @@ import { useUserStore } from '@/store/user'
 const route = useRoute()
 const userStore = useUserStore()
 
-// 管理后台自带全屏布局（侧边栏 + 独立滚动区），不能再套前台外壳：
-// 否则 body 与内部容器双层滚动，滚轮行为错乱、出现双导航/双滚动条
-const isAdminLayout = computed(() => route.path.startsWith('/admin'))
+// 管理后台与全屏 AI 对话页都是自带布局的独立页面，不能再套前台外壳：
+// 管理后台套了会出现双层滚动；/ai-chat 则与悬浮球功能重复且相互遮挡
+const isStandalonePage = computed(() =>
+  route.path.startsWith('/admin') || route.path === '/ai-chat'
+)
 
 onMounted(async () => {
   if (userStore.isLoggedIn && !userStore.userInfo) {
@@ -26,11 +28,11 @@ onMounted(async () => {
 
 <template>
   <div class="min-h-screen flex flex-col bg-slate-50">
-    <AppHeader v-if="!isAdminLayout" />
+    <AppHeader v-if="!isStandalonePage" />
     <main class="flex-1">
       <router-view />
     </main>
-    <AppFooter v-if="!isAdminLayout" />
-    <AiChatWidget v-if="!isAdminLayout" />
+    <AppFooter v-if="!isStandalonePage" />
+    <AiChatWidget v-if="!isStandalonePage" />
   </div>
 </template>
