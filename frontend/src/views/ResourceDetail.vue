@@ -607,7 +607,7 @@ function getAvatarUrl(user: any): string | null {
                 <router-link
                   v-for="tag in hotTags.slice(0, 10)"
                   :key="tag.id"
-                  :to="`/search?q=${tag.name}`"
+                  :to="`/search?tag=${tag.name}`"
                   class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600"
                 >
                   {{ tag.name }}

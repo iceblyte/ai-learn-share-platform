@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { searchApi } from '@/api/search'
 import { categoryApi, tagApi } from '@/api/category'
@@ -31,6 +31,14 @@ const selectedTags = ref<string[]>([])
 const searchHistory = ref<string[]>([])
 const parsedIntent = ref<Record<string, any> | null>(null)
 
+/** 从详情页等入口带 ?tag= 进入：预选为标签筛选而非关键词搜索 */
+function applyQueryTag() {
+  const tag = route.query.tag
+  const tagName = Array.isArray(tag) ? String(tag[0]) : (tag as string)
+  if (!tagName) return
+  if (!selectedTags.value.includes(tagName)) selectedTags.value.push(tagName)
+}
+
 onMounted(async () => {
   const [catRes, tagRes] = await Promise.all([
     categoryApi.getTree(),
@@ -39,7 +47,15 @@ onMounted(async () => {
   categories.value = catRes.data.data
   hotTags.value = tagRes.data.data
   if (userStore.isLoggedIn) loadHistory()
-  if (keyword.value) handleSearch()
+  applyQueryTag()
+  if (keyword.value || selectedTags.value.length) handleSearch()
+})
+
+// 会话内切换 ?tag=（从 /search 点标签跳到另一标签）时同步预选
+watch(() => route.query.tag, () => {
+  selectedTags.value = []
+  applyQueryTag()
+  handleSearch()
 })
 
 async function loadHistory() {
