@@ -4,6 +4,7 @@ import com.learning.platform.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.platform.common.Result;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,6 +47,15 @@ public class SecurityConfig {
                 })
             )
             .authorizeHttpRequests(auth -> auth
+                // SSE 异步流的收尾分发必须放行：流式端点（Flux/SseEmitter）
+                // 在流结束后由 Tomcat 以 ASYNC 分发类型重跑整个过滤器链，
+                // 而 JwtAuthenticationFilter 是 OncePerRequestFilter，默认
+                // 在 ASYNC 分发时跳过；无状态 JWT 又没有 Session 可恢复
+                // 登录态——此时链上只剩匿名身份，anyRequest().authenticated()
+                // 必然抛 AccessDeniedException（且此时响应已提交，异常
+                // 处理器也无法回写，最终级联出 /error 分发被拒的长堆栈）。
+                // 初始 REQUEST 分发已完成真实鉴权，此处放行不构成越权入口。
+                .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                 // Public endpoints
                 .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                 // 刷新令牌接口必须匿名可达：请求体里的 refreshToken 即凭证。
