@@ -114,13 +114,15 @@ AI个性化学习资源分享平台/
 │   │   └── assets/            # 静态资源
 │   └── package.json
 │
-├── db/                         # 数据库脚本
-│   ├── init.sql               # 建库建表脚本
+├── sql/                        # 数据库脚本
+│   ├── init.sql               # 建库建表脚本（唯一权威源）
 │   └── seed.sql               # 统一测试数据脚本
 │
 ├── docs/                       # 最终交付文档
 │   ├── PRD.md                 # 产品需求文档
-│   └── 设计文档.md            # 系统设计与数据库/API说明
+│   ├── 需求分析文档.md        # 需求分析
+│   ├── 项目架构与核心功能.md  # 架构与核心功能说明
+│   └── 数据库实体关系图.html  # 可交互 ER 图
 │
 └── README.md
 ```
@@ -158,10 +160,9 @@ AI 相关接口：
 ## 交付文档
 
 - 产品需求文档：`docs/PRD.md`
-- 系统设计文档：`docs/设计文档.md`
+- 架构与核心功能：`docs/项目架构与核心功能.md`
 - 需求原型：`prototypes/README.md`
 - Spec 文档：`openspec/proposal.md`、`openspec/design.md`、`openspec/tasks.md`
-- 测试资产：`tests/test_cases.md`、`tests/test_api.py`、`tests/test_ui.py`、`tests/test_report.md`
 
 ## 许可证
 
