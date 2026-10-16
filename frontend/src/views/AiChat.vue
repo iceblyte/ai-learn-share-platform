@@ -95,7 +95,8 @@ function handleCreate() {
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden">
+  <!-- 扣除顶部主站导航（h-16 = 4rem），页面自身占满剩余视口 -->
+  <div class="flex h-[calc(100vh-4rem)] overflow-hidden">
     <!-- 左侧：历史会话列表 -->
     <aside class="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex">
       <div class="flex-1 overflow-y-auto px-3 py-4">
