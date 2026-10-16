@@ -90,11 +90,20 @@ watch(open, async (value) => {
   }
 })
 
+// ---- Bug 3：仅当用户停留在底部附近时才自动滚动，上滑翻历史时不打断 ----
+let autoScrollEnabled = true
+
+function handleViewportScroll() {
+  const el = messageViewport.value
+  if (!el) return
+  autoScrollEnabled = el.scrollHeight - el.scrollTop - el.clientHeight < 48
+}
+
 watch(messages, async () => {
   await nextTick()
   // 加载更早消息时保持视口停留原位，不自动滚底
   if (suppressAutoScroll) return
-  scrollToBottom()
+  if (autoScrollEnabled) scrollToBottom()
 }, { deep: true })
 
 function scrollToBottom() {
@@ -342,6 +351,8 @@ async function sendMessage() {
     role: 'user',
     content: question,
   })
+  // 用户自己发消息时视为回到底部，恢复自动滚动
+  autoScrollEnabled = true
 
   const assistantMessage: ChatMessage = {
     id: messageId++,
@@ -590,7 +601,11 @@ async function sendMessage() {
 
         <!-- 对话视图 -->
         <template v-else>
-          <div ref="messageViewport" class="max-h-[26rem] space-y-4 overflow-y-auto bg-slate-50 px-4 py-4">
+          <div
+            ref="messageViewport"
+            class="h-[26rem] space-y-4 overflow-y-auto bg-slate-50 px-4 py-4"
+            @scroll="handleViewportScroll"
+          >
             <!-- 扩展四：向上翻更早消息（游标分页，仅已登录且有更早历史时展示） -->
             <div v-if="currentSessionId && hasOlderMessages" class="flex justify-center">
               <button
