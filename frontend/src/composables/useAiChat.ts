@@ -4,7 +4,7 @@
  * <p>职责：会话列表（分页）、消息游标分页、SSE 流式发送（打字机缓冲 +
  * tool 事件收集 + done 收尾）、重命名/删除/搜索。视图层只负责渲染。</p>
  */
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useUserStore } from '@/store/user'
 import { chatApi, type ChatSessionItem } from '@/api/chat'
 import { setSelectedText } from '@/store/pageContext'
@@ -202,13 +202,17 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     if (!question || sending.value) return
 
     messages.value.push({ id: messageId++, role: 'user', content: question })
-    const assistantMessage: ChatMessage = {
+    // 必须用 reactive 包裹：push 进数组后模板迭代拿到的是 proxy，
+    // 打字机/tool 回调在闭包里持有的也是这个对象——直接改原始对象会
+    // 绕过响应系统，子组件 AiMessageBubble 的 computed 永远拿到旧值，
+    // 表现为"流式内容不显示、刷新后才出现"（数据实际已收到）。
+    const assistantMessage = reactive<ChatMessage>({
       id: messageId++,
       role: 'assistant',
       content: '',
       streaming: true,
       toolSteps: [],
-    }
+    })
     messages.value.push(assistantMessage)
     input.value = ''
     sending.value = true
