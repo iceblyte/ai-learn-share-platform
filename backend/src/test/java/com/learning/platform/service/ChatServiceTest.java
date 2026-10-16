@@ -348,6 +348,39 @@ class ChatServiceTest {
     }
 
     @Test
+    @DisplayName("重命名：本人可改，标题 trim 后落库")
+    void renameSession_updatesTitleForOwner() {
+        ChatSession session = ownedSession(1L, 1L);
+        session.setTitle("旧标题");
+        when(sessionMapper.selectById(1L)).thenReturn(session);
+
+        service.renameSession(1L, 1L, "  新标题  ");
+
+        ArgumentCaptor<ChatSession> captor = ArgumentCaptor.forClass(ChatSession.class);
+        verify(sessionMapper).updateById(captor.capture());
+        assertThat(captor.getValue().getTitle()).isEqualTo("新标题");
+    }
+
+    @Test
+    @DisplayName("重命名：非本人 403；空标题 400；超长截断到 60 字")
+    void renameSession_validates() {
+        when(sessionMapper.selectById(2L)).thenReturn(ownedSession(2L, 99L));
+        assertThatThrownBy(() -> service.renameSession(1L, 2L, "新标题"))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(403));
+
+        when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
+        assertThatThrownBy(() -> service.renameSession(1L, 1L, "   "))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(400));
+
+        service.renameSession(1L, 1L, "长".repeat(70));
+        ArgumentCaptor<ChatSession> captor = ArgumentCaptor.forClass(ChatSession.class);
+        verify(sessionMapper).updateById(captor.capture());
+        assertThat(captor.getValue().getTitle()).hasSize(60);
+    }
+
+    @Test
     @DisplayName("导出 Markdown：包含标题、双方消息，按时间正序")
     void exportMarkdown_containsTurnsInOrder() {
         ChatSession session = ownedSession(1L, 1L);
