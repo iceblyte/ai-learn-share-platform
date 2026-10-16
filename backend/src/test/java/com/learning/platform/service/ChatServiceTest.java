@@ -53,9 +53,6 @@ class ChatServiceTest {
     private AiService aiService;
 
     @Mock
-    private ChatContextService chatContextService;
-
-    @Mock
     private ChatPromptBuilder chatPromptBuilder;
 
     @Mock
@@ -69,10 +66,11 @@ class ChatServiceTest {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         service = new ChatService(sessionMapper, messageMapper, resourceMapper,
-                aiService, chatContextService, chatPromptBuilder, new ObjectMapper(), historyCache);
-        when(chatContextService.resolve(any())).thenReturn(ChatContext.EMPTY);
+                aiService, chatPromptBuilder,
+                new com.learning.platform.ai.ChatToolRegistry(java.util.List.of()),
+                new ObjectMapper(), historyCache);
         // 注意用 any() 而不是 anyString()：anyString() 不匹配 null 的 route/pageTitle
-        when(chatPromptBuilder.build(any(), any(), any())).thenReturn("SYSTEM");
+        when(chatPromptBuilder.buildToolMode(any(), any(), any(), any(), any())).thenReturn("SYSTEM");
         // 缓存桩：直通 loader，等价于 Redis miss 的行为
         when(historyCache.getOrLoad(anyString(), any(), any()))
                 .thenAnswer(invocation -> {
@@ -153,11 +151,11 @@ class ChatServiceTest {
         when(sessionMapper.selectById(1L)).thenReturn(session);
 
         doAnswer(invocation -> {
-            Consumer<String> onChunk = invocation.getArgument(3);
+            Consumer<String> onChunk = invocation.getArgument(4);
             onChunk.accept("第一段回答。");
             onChunk.accept("第二段回答。");
             return new AiService.StreamingResult("第一段回答。第二段回答。", 42, null);
-        }).when(aiService).streamChat(eq(1L), eq("什么是A？"), eq("SYSTEM"), any());
+        }).when(aiService).streamChat(eq(1L), eq("什么是A？"), eq("SYSTEM"), any(), any());
 
         StringBuilder streamed = new StringBuilder();
         service.continueChat(1L, 1L, request("什么是A？"), streamed::append);
@@ -195,7 +193,7 @@ class ChatServiceTest {
 
         String longQuestion = "这是一个超过三十个字的问题吗让我数一数一二三四五六七八九十再数一遍ABCDEFG";
         doReturn(new AiService.StreamingResult("回答", 0, null))
-                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any());
+                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any());
         service.continueChat(1L, 1L, request(longQuestion), chunk -> {});
 
         ArgumentCaptor<ChatSession> captor = ArgumentCaptor.forClass(ChatSession.class);
@@ -218,7 +216,7 @@ class ChatServiceTest {
     @DisplayName("AI 返回失败结果时落一条 FAILED 助手消息，链路不崩")
     void continueChat_aiFailure_marksFailed() {
         when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
-        when(aiService.streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any()))
+        when(aiService.streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any()))
                 .thenReturn(new AiService.StreamingResult(null, null, "AI 服务请求失败，请稍后再试。"));
 
         service.continueChat(1L, 1L, request("问题"), chunk -> {});
@@ -237,7 +235,7 @@ class ChatServiceTest {
     void continueChat_aiThrows_marksFailed() {
         when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
         doThrow(new RuntimeException("boom")).when(aiService)
-                .streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any());
+                .streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any());
 
         service.continueChat(1L, 1L, request("问题"), chunk -> {});
 
@@ -317,7 +315,7 @@ class ChatServiceTest {
         ChatSession session = ownedSession(1L, 1L);
         when(sessionMapper.selectById(1L)).thenReturn(session);
         doReturn(new AiService.StreamingResult("回答", 0, null))
-                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any());
+                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any(), any());
 
         service.continueChat(1L, 1L, request("问题"), chunk -> {});
         verify(historyCache).evictSession(1L);
