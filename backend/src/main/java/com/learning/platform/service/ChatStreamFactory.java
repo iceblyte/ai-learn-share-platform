@@ -36,7 +36,15 @@ import java.util.function.Consumer;
 public class ChatStreamFactory {
 
     public Flux<ServerSentEvent<String>> stream(Consumer<Consumer<String>> chatInvocation) {
-        return Flux.<String>create(sink -> chatInvocation.accept(sink::next))
+        return Flux.<String>create(sink -> {
+                    // 阻塞式聊天调用（内部以 CountDownLatch 等待流结束），
+                    // 正常返回即代表 AI 回答完毕，必须显式 complete：
+                    // Flux.create 的回调返回并不会自动完成 sink，若不调用
+                    // complete()，Flux 永不终止——done 事件（concatWith）不发、
+                    // SSE 连接不关，前端读循环卡死（发送按钮一直转圈）。
+                    chatInvocation.accept(sink::next);
+                    sink.complete();
+                })
                 .subscribeOn(Schedulers.boundedElastic())
                 .map(chunk -> ServerSentEvent.<String>builder(chunk).event("message").build())
                 .concatWith(Mono.just(ServerSentEvent.<String>builder("done").event("done").build()))
