@@ -1,5 +1,6 @@
 package com.learning.platform.controller;
 
+import com.learning.platform.common.CursorPageResult;
 import com.learning.platform.common.PageResult;
 import com.learning.platform.common.Result;
 import com.learning.platform.dto.AiChatRequest;
@@ -65,6 +66,21 @@ public class ChatController {
             Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         return Result.success(chatService.listMessages(userId, id, page, Math.min(size, 100)));
+    }
+
+    /**
+     * 游标分页（扩展四）：进入会话不带 beforeId 查最新一页；向上翻更早
+     * 消息时传上一页返回的 nextCursor。无 offset，深翻页性能恒定。
+     */
+    @GetMapping("/sessions/{id}/messages/cursor")
+    public Result<CursorPageResult<ChatMessage>> listMessagesByCursor(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long beforeId,
+            @RequestParam(defaultValue = "20") int limit,
+            Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        int safeLimit = Math.max(1, Math.min(limit, 100));
+        return Result.success(chatService.listMessagesByCursor(userId, id, beforeId, safeLimit));
     }
 
     @PostMapping(value = "/sessions/{id}/messages", produces = MediaType.TEXT_PLAIN_VALUE)

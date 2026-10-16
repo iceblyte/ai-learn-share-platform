@@ -2,8 +2,10 @@ package com.learning.platform.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.platform.common.BusinessException;
+import com.learning.platform.common.CursorPageResult;
 import com.learning.platform.common.PageResult;
 import com.learning.platform.dto.AiChatRequest;
 import com.learning.platform.entity.ChatMessage;
@@ -42,6 +44,7 @@ public class ChatService {
     private final ChatContextService chatContextService;
     private final ChatPromptBuilder chatPromptBuilder;
     private final ObjectMapper objectMapper;
+    private final ChatHistoryCacheService historyCache;
 
     // ---------- 会话 ----------
 
@@ -90,12 +93,24 @@ public class ChatService {
         ChatSession session = requireOwnedSession(userId, sessionId);
         // 逻辑删除必须走 deleteById：逻辑删除字段被 MP 排除在 updateById 的 SET 之外
         sessionMapper.deleteById(session.getId());
+        historyCache.evictSession(sessionId);
     }
 
     // ---------- 消息 ----------
 
+    /**
+     * 消息分页（扩展四）：cache-aside —— 先读 Redis 历史缓存
+     * {@code chat:history:{sessionId}:page:{page}:{size}}，未命中查 MySQL
+     * 并回填（TTL 30 分钟）；新消息落库时整组失效。
+     */
     public PageResult<ChatMessage> listMessages(Long userId, Long sessionId, int page, int size) {
         requireOwnedSession(userId, sessionId);
+        return historyCache.getOrLoad(sessionId + ":page:" + page + ":" + size,
+                new TypeReference<PageResult<ChatMessage>>() {},
+                () -> doListMessages(sessionId, page, size));
+    }
+
+    private PageResult<ChatMessage> doListMessages(Long sessionId, int page, int size) {
         Page<ChatMessage> result = messageMapper.selectPage(new Page<>(page, size),
                 new QueryWrapper<ChatMessage>()
                         .eq("session_id", sessionId)
@@ -107,6 +122,38 @@ public class ChatService {
         pageResult.setSize(size);
         pageResult.setPages(result.getPages());
         return pageResult;
+    }
+
+    /**
+     * 消息游标分页（扩展四）：适配"进入会话加载最新一页 + 向上翻更早消息"。
+     * beforeId 为空查最新一页；否则取 id &lt; beforeId 的更早 limit 条。
+     * 无 offset，深翻页不退化；缓存键同样按会话隔离。
+     */
+    public CursorPageResult<ChatMessage> listMessagesByCursor(
+            Long userId, Long sessionId, Long beforeId, int limit) {
+        requireOwnedSession(userId, sessionId);
+        String cursorKey = beforeId == null ? "latest" : String.valueOf(beforeId);
+        return historyCache.getOrLoad(sessionId + ":cursor:" + cursorKey + ":" + limit,
+                new TypeReference<CursorPageResult<ChatMessage>>() {},
+                () -> doListMessagesByCursor(sessionId, beforeId, limit));
+    }
+
+    private CursorPageResult<ChatMessage> doListMessagesByCursor(Long sessionId, Long beforeId, int limit) {
+        // limit 已在 Controller 收敛为 1..100，无注入风险；多查 1 条用于判断 hasMore
+        QueryWrapper<ChatMessage> query = new QueryWrapper<ChatMessage>()
+                .eq("session_id", sessionId)
+                .orderByDesc("id")
+                .last("LIMIT " + (limit + 1));
+        if (beforeId != null) {
+            query.lt("id", beforeId);
+        }
+        List<ChatMessage> rows = messageMapper.selectList(query);
+        boolean hasMore = rows.size() > limit;
+        List<ChatMessage> page = hasMore ? rows.subList(0, limit) : rows;
+        Long nextCursor = hasMore && !page.isEmpty()
+                ? page.get(page.size() - 1).getId()
+                : null;
+        return CursorPageResult.of(page, nextCursor, hasMore);
     }
 
     /**
@@ -167,6 +214,8 @@ public class ChatService {
             session.setTitle(buildTitle(message));
         }
         sessionMapper.updateById(session);
+        // 扩展四：会话内容变化，整组失效该会话的历史展示缓存
+        historyCache.evictSession(sessionId);
     }
 
     private String buildTitle(String message) {

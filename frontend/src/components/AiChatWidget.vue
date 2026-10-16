@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { pageContextStore, setSelectedText } from '@/store/pageContext'
-import { chatApi, type ChatMessageItem, type ChatSessionItem } from '@/api/chat'
+import { chatApi, type ChatSessionItem } from '@/api/chat'
 
 type ChatRole = 'user' | 'assistant'
 
@@ -43,6 +43,12 @@ const historyLoading = ref(false)
 const searchKeyword = ref('')
 const searching = ref(false)
 const searchResults = ref<{ sessionId: number; sessionTitle: string; content: string }[]>([])
+
+// ---- 扩展四：游标翻页状态 ----
+const loadingOlder = ref(false)
+const hasOlderMessages = ref(false)
+const oldestCursor = ref<number | null>(null)
+let suppressAutoScroll = false
 
 onMounted(() => {
   const width = window.innerWidth
@@ -86,6 +92,8 @@ watch(open, async (value) => {
 
 watch(messages, async () => {
   await nextTick()
+  // 加载更早消息时保持视口停留原位，不自动滚底
+  if (suppressAutoScroll) return
   scrollToBottom()
 }, { deep: true })
 
@@ -166,20 +174,62 @@ async function loadSessions() {
   }
 }
 
+/**
+ * 扩展四：进入会话加载最新一页（游标分页，后端按 id 倒序、前端转回正序）。
+ * 保留真实消息 id 作为向上翻页的游标；本地新消息的 id 从最大真实 id 之后分配，保证 key 唯一。
+ */
 async function loadSessionMessages(sessionId: number) {
-  const res = await chatApi.listMessages(sessionId, 1, 50)
-  const records = res.data.data.records
-  // 后端按 id 倒序分页，渲染时转回正序
+  const res = await chatApi.listMessagesByCursor(sessionId, null, 20)
+  const { records, nextCursor, hasMore } = res.data.data
   const ascending = [...records].reverse()
-  const restored: ChatMessage[] = ascending.map((item: ChatMessageItem, index: number) => ({
-    id: index + 1,
+  const restored: ChatMessage[] = ascending.map((item) => ({
+    id: item.id,
     role: item.role,
     content: item.content,
   }))
   messages.value = restored.length
     ? restored
     : [{ id: 1, role: 'assistant', content: '这个会话还没有消息。' }]
-  messageId = messages.value.length + 1
+  messageId = restored.length
+    ? Math.max(...restored.map((item) => item.id)) + 1
+    : 2
+  oldestCursor.value = nextCursor
+  hasOlderMessages.value = hasMore
+}
+
+/**
+ * 扩展四：向上翻更早消息——传上一页 nextCursor 作为 beforeId，无 offset。
+ * 前插后把视口锚定回原位置，避免跳到底部。
+ */
+async function loadOlderMessages() {
+  if (!currentSessionId.value || !hasOlderMessages.value || loadingOlder.value || !oldestCursor.value) return
+  loadingOlder.value = true
+  suppressAutoScroll = true
+  const viewport = messageViewport.value
+  const prevScrollHeight = viewport?.scrollHeight ?? 0
+  const prevScrollTop = viewport?.scrollTop ?? 0
+  try {
+    const res = await chatApi.listMessagesByCursor(currentSessionId.value, oldestCursor.value, 20)
+    const { records, nextCursor, hasMore } = res.data.data
+    const ascending = [...records].reverse()
+    const older: ChatMessage[] = ascending.map((item) => ({
+      id: item.id,
+      role: item.role,
+      content: item.content,
+    }))
+    messages.value = [...older, ...messages.value]
+    oldestCursor.value = nextCursor
+    hasOlderMessages.value = hasMore
+    await nextTick()
+    if (viewport) {
+      viewport.scrollTop = viewport.scrollHeight - prevScrollHeight + prevScrollTop
+    }
+  } catch {
+    // 静默失败：翻页失败不影响已展示的消息
+  } finally {
+    loadingOlder.value = false
+    suppressAutoScroll = false
+  }
 }
 
 async function openSession(sessionId: number) {
@@ -198,6 +248,8 @@ async function openSession(sessionId: number) {
 async function startNewSession() {
   currentSessionId.value = null
   showHistory.value = false
+  oldestCursor.value = null
+  hasOlderMessages.value = false
   messages.value = [
     {
       id: messageId++,
@@ -463,6 +515,16 @@ async function sendMessage() {
         <!-- 对话视图 -->
         <template v-else>
           <div ref="messageViewport" class="max-h-[26rem] space-y-4 overflow-y-auto bg-slate-50 px-4 py-4">
+            <!-- 扩展四：向上翻更早消息（游标分页，仅已登录且有更早历史时展示） -->
+            <div v-if="currentSessionId && hasOlderMessages" class="flex justify-center">
+              <button
+                class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-500 transition hover:border-primary-200 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="loadingOlder"
+                @click="loadOlderMessages"
+              >
+                {{ loadingOlder ? '加载中...' : '加载更早的消息' }}
+              </button>
+            </div>
             <!-- 扩展二：游客转化提示 -->
             <p
               v-if="!userStore.isLoggedIn"

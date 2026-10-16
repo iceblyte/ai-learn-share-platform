@@ -1,7 +1,10 @@
 package com.learning.platform.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.platform.common.BusinessException;
+import com.learning.platform.common.CursorPageResult;
+import com.learning.platform.common.PageResult;
 import com.learning.platform.dto.AiChatRequest;
 import com.learning.platform.entity.ChatMessage;
 import com.learning.platform.entity.ChatSession;
@@ -55,6 +58,9 @@ class ChatServiceTest {
     @Mock
     private ChatPromptBuilder chatPromptBuilder;
 
+    @Mock
+    private ChatHistoryCacheService historyCache;
+
     private ChatService service;
 
     private AutoCloseable mocks;
@@ -63,10 +69,16 @@ class ChatServiceTest {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         service = new ChatService(sessionMapper, messageMapper, resourceMapper,
-                aiService, chatContextService, chatPromptBuilder, new ObjectMapper());
+                aiService, chatContextService, chatPromptBuilder, new ObjectMapper(), historyCache);
         when(chatContextService.resolve(any())).thenReturn(ChatContext.EMPTY);
         // 注意用 any() 而不是 anyString()：anyString() 不匹配 null 的 route/pageTitle
         when(chatPromptBuilder.build(any(), any(), any())).thenReturn("SYSTEM");
+        // 缓存桩：直通 loader，等价于 Redis miss 的行为
+        when(historyCache.getOrLoad(anyString(), any(), any()))
+                .thenAnswer(invocation -> {
+                    java.util.function.Supplier<?> loader = invocation.getArgument(2);
+                    return loader.get();
+                });
     }
 
     private ChatSession ownedSession(Long id, Long userId) {
@@ -232,6 +244,87 @@ class ChatServiceTest {
         ArgumentCaptor<ChatMessage> captor = ArgumentCaptor.forClass(ChatMessage.class);
         verify(messageMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
         assertThat(captor.getAllValues().get(1).getStatus()).isEqualTo("FAILED");
+    }
+
+    // ---------- 游标分页（扩展四） ----------
+
+    @Test
+    @DisplayName("游标分页：首页查最新 limit+1 条推断 hasMore，nextCursor 为本页最旧消息 id")
+    void listMessagesByCursor_firstPage() {
+        when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
+        when(messageMapper.selectList(any())).thenReturn(List.of(
+                message(31L, 1L, "assistant", "答3"),
+                message(30L, 1L, "user", "问3"),
+                message(29L, 1L, "assistant", "答2")));
+
+        CursorPageResult<ChatMessage> result = service.listMessagesByCursor(1L, 1L, null, 2);
+
+        assertThat(result.isHasMore()).isTrue();
+        assertThat(result.getNextCursor()).isEqualTo(30L);
+        assertThat(result.getRecords()).extracting(ChatMessage::getId)
+                .containsExactly(31L, 30L);
+    }
+
+    @Test
+    @DisplayName("游标分页：不足一页时 hasMore=false 且 nextCursor 为空")
+    void listMessagesByCursor_lastPage() {
+        when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
+        when(messageMapper.selectList(any())).thenReturn(List.of(
+                message(2L, 1L, "assistant", "答1"),
+                message(1L, 1L, "user", "问1")));
+
+        CursorPageResult<ChatMessage> result = service.listMessagesByCursor(1L, 1L, 3L, 20);
+
+        assertThat(result.isHasMore()).isFalse();
+        assertThat(result.getNextCursor()).isNull();
+        assertThat(result.getRecords()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("游标分页：他人会话返回 403")
+    void listMessagesByCursor_ownershipEnforced() {
+        when(sessionMapper.selectById(9L)).thenReturn(ownedSession(9L, 2L));
+
+        assertThatThrownBy(() -> service.listMessagesByCursor(1L, 9L, null, 20))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getCode()).isEqualTo(403));
+    }
+
+    @Test
+    @DisplayName("历史缓存：查看历史走 cache-aside，命中时不再查库")
+    void listMessages_usesCacheAside() {
+        when(sessionMapper.selectById(1L)).thenReturn(ownedSession(1L, 1L));
+        Page<ChatMessage> dbPage = new Page<>(1, 20);
+        dbPage.setRecords(List.of(message(1L, 1L, "user", "问1")));
+        dbPage.setTotal(1);
+        when(messageMapper.selectPage(any(), any())).thenReturn(dbPage);
+
+        service.listMessages(1L, 1L, 1, 20);
+        verify(historyCache).getOrLoad(eq("1:page:1:20"), any(), any());
+
+        // 缓存命中：loader 不应再执行，selectPage 只发生一次
+        PageResult<ChatMessage> cached = new PageResult<>();
+        cached.setRecords(List.of(message(1L, 1L, "user", "问1")));
+        when(historyCache.getOrLoad(eq("1:page:1:20"), any(), any())).thenReturn(cached);
+        PageResult<ChatMessage> result = service.listMessages(1L, 1L, 1, 20);
+        assertThat(result).isSameAs(cached);
+        verify(messageMapper, org.mockito.Mockito.times(1)).selectPage(any(), any());
+    }
+
+    @Test
+    @DisplayName("新消息落库后整组失效该会话的历史缓存，删除会话同样失效")
+    void continueChat_evictsHistoryCache() {
+        ChatSession session = ownedSession(1L, 1L);
+        when(sessionMapper.selectById(1L)).thenReturn(session);
+        doReturn(new AiService.StreamingResult("回答", 0, null))
+                .when(aiService).streamChat(org.mockito.ArgumentMatchers.any(), anyString(), anyString(), any());
+
+        service.continueChat(1L, 1L, request("问题"), chunk -> {});
+        verify(historyCache).evictSession(1L);
+
+        when(sessionMapper.selectById(2L)).thenReturn(ownedSession(2L, 1L));
+        service.deleteSession(1L, 2L);
+        verify(historyCache).evictSession(2L);
     }
 
     // ---------- 删除 / 导出 / 检索 ----------
