@@ -2,13 +2,19 @@ package com.learning.platform.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.learning.platform.ai.ChatToolContext;
+import com.learning.platform.ai.ChatToolRegistry;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.output.TokenUsage;
@@ -48,11 +54,15 @@ public class AiService {
 
     static final int MEMORY_WINDOW = 20;
 
+    /** function calling 单次提问最多允许的模型往返轮数（首轮 + 工具后续轮） */
+    static final int MAX_TOOL_ROUNDS = 4;
+
     private final RedisTemplate<String, Object> redisTemplate;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final StreamingChatModel streamingChatModel;
     private final ChatMemoryStore chatMemoryStore;
+    private final ChatToolRegistry chatToolRegistry;
     private final int readTimeoutMs;
 
     @Value("${spring.ai.openai.api-key}")
@@ -78,7 +88,8 @@ public class AiService {
                      @Value("${ai.client.connect-timeout-ms:3000}") int connectTimeoutMs,
                      @Value("${ai.client.read-timeout-ms:8000}") int readTimeoutMs,
                      StreamingChatModel streamingChatModel,
-                     ChatMemoryStore chatMemoryStore) {
+                     ChatMemoryStore chatMemoryStore,
+                     ChatToolRegistry chatToolRegistry) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.readTimeoutMs = readTimeoutMs;
@@ -87,6 +98,7 @@ public class AiService {
                 .build();
         this.streamingChatModel = streamingChatModel;
         this.chatMemoryStore = chatMemoryStore;
+        this.chatToolRegistry = chatToolRegistry;
     }
 
     private static final String CACHE_PREFIX_SUMMARY = "ai:summary:";
@@ -159,18 +171,37 @@ public class AiService {
      * 匿名单轮流式（游客通道）：无记忆，system + user 单轮。
      */
     public StreamingResult streamChat(String message, String systemPrompt, Consumer<String> onChunk) {
-        return streamChat(null, message, systemPrompt, onChunk);
+        return streamChat(null, message, systemPrompt, ChatToolContext.NONE, onChunk);
+    }
+
+    /** 匿名 + 工具上下文（游客在资源页提问时，工具可回退查询当前页面资源） */
+    public StreamingResult streamChat(String message, String systemPrompt,
+                                      ChatToolContext toolContext, Consumer<String> onChunk) {
+        return streamChat(null, message, systemPrompt, toolContext, onChunk);
     }
 
     /**
-     * 扩展三真流式聊天：LangChain4j OpenAI 兼容客户端直连 DeepSeek。
+     * 扩展三真流式聊天（无工具上下文的兼容重载）。
+     */
+    public StreamingResult streamChat(Long sessionId, String message, String systemPrompt, Consumer<String> onChunk) {
+        return streamChat(sessionId, message, systemPrompt, ChatToolContext.NONE, onChunk);
+    }
+
+    /**
+     * 扩展三真流式聊天 + function calling。
+     *
+     * <p>流程：用户提问 → 模型决定是否调工具 → 注册表执行工具（查库）→
+     * 工具结果回填对话 → 模型再次生成 → 直至给出最终回答。token 级片段
+     * （含工具轮次的过渡文本）实时经 onChunk 转发。</p>
      *
      * <p>sessionId 非空时启用会话记忆（{@link MessageWindowChatMemory} 20 条窗口，
      * 底层 {@link ChatMemoryStore} 为 Redis，miss/故障回填 MySQL）；为空时匿名单轮。
-     * token 级片段实时经 onChunk 转发；失败/未配置时降级文案也走 onChunk，
+     * 记忆只落 user + 最终 assistant 回答，工具中间轮不进记忆（与 MySQL 会话
+     * 历史重建逻辑保持一致）。失败/未配置时降级文案也走 onChunk，
      * 同时以返回值告知调用方（供落库记账）。</p>
      */
-    public StreamingResult streamChat(Long sessionId, String message, String systemPrompt, Consumer<String> onChunk) {
+    public StreamingResult streamChat(Long sessionId, String message, String systemPrompt,
+                                      ChatToolContext toolContext, Consumer<String> onChunk) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
             String notice = "AI 服务未配置，请先设置有效的 AI_API_KEY。";
             onChunk.accept(notice);
@@ -178,7 +209,7 @@ public class AiService {
         }
 
         ChatMemory memory = null;
-        List<ChatMessage> messages;
+        List<ChatMessage> baseMessages;
         if (sessionId != null) {
             memory = MessageWindowChatMemory.builder()
                     .id(sessionId)
@@ -188,56 +219,20 @@ public class AiService {
                     .build();
             memory.add(SystemMessage.from(systemPrompt));
             memory.add(UserMessage.from(message));
-            messages = memory.messages();
+            baseMessages = memory.messages();
         } else {
-            messages = List.of(SystemMessage.from(systemPrompt), UserMessage.from(message));
+            baseMessages = List.of(SystemMessage.from(systemPrompt), UserMessage.from(message));
         }
 
+        List<ToolSpecification> toolSpecs = chatToolRegistry.specifications();
         StringBuilder answer = new StringBuilder();
         AtomicReference<TokenUsage> usageRef = new AtomicReference<>();
-        AtomicReference<String> errorRef = new AtomicReference<>();
-        CountDownLatch done = new CountDownLatch(1);
+        String error = runToolLoop(baseMessages, toolSpecs, toolContext, answer, usageRef, onChunk);
 
-        try {
-            streamingChatModel.chat(messages, new StreamingChatResponseHandler() {
-                @Override
-                public void onPartialResponse(String token) {
-                    answer.append(token);
-                    onChunk.accept(token);
-                }
-
-                @Override
-                public void onCompleteResponse(ChatResponse response) {
-                    if (response != null && response.metadata() != null) {
-                        usageRef.set(response.metadata().tokenUsage());
-                    }
-                    done.countDown();
-                }
-
-                @Override
-                public void onError(Throwable error) {
-                    log.error("Streaming chat failed: {}", error.getMessage());
-                    errorRef.set(describeStreamError(error));
-                    done.countDown();
-                }
-            });
-
-            boolean finished = done.await(Math.max(chatTimeoutMs, 30000), TimeUnit.MILLISECONDS);
-            if (!finished) {
-                errorRef.set("AI 服务响应超时，请稍后再试。");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            errorRef.set("AI 服务请求被中断，请稍后再试。");
-        } catch (Exception e) {
-            log.error("Streaming chat invocation failed", e);
-            errorRef.set(describeStreamError(e));
-        }
-
-        String error = errorRef.get();
-        if (error != null) {
-            onChunk.accept(error);
-            return new StreamingResult(null, null, error);
+        String errorResult = error;
+        if (errorResult != null) {
+            onChunk.accept(errorResult);
+            return new StreamingResult(null, null, errorResult);
         }
 
         String content = answer.toString();
@@ -254,6 +249,111 @@ public class AiService {
         TokenUsage usage = usageRef.get();
         Integer tokensUsed = usage == null ? null : usage.totalTokenCount();
         return new StreamingResult(content, tokensUsed, null);
+    }
+
+    /**
+     * function calling 主循环：模型 ↔ 工具 多轮往返。
+     *
+     * <p>每轮把当前对话（含工具结果）发给模型；响应携带工具调用请求时，
+     * 经注册表执行并把 {@link ToolExecutionResultMessage} 追加进对话后继续下一轮；
+     * 无工具请求即最终回答。轮数达到 {@link #MAX_TOOL_ROUNDS} 或总超时则终止，
+     * 终止时已有流式输出则按已完成处理，否则返回错误文案。</p>
+     */
+    private String runToolLoop(List<ChatMessage> baseMessages, List<ToolSpecification> toolSpecs,
+                               ChatToolContext toolContext, StringBuilder answer,
+                               AtomicReference<TokenUsage> usageRef, Consumer<String> onChunk) {
+        List<ChatMessage> conversation = new ArrayList<>(baseMessages);
+        long deadline = System.currentTimeMillis() + Math.max(chatTimeoutMs, 30000);
+
+        for (int round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+            long remaining = deadline - System.currentTimeMillis();
+            if (remaining <= 0) {
+                return "AI 服务响应超时，请稍后再试。";
+            }
+
+            ChatRequest.Builder requestBuilder = ChatRequest.builder().messages(conversation);
+            if (!toolSpecs.isEmpty()) {
+                requestBuilder.toolSpecifications(toolSpecs);
+            }
+
+            RoundOutcome outcome = runRound(requestBuilder.build(), answer, onChunk, remaining);
+            if (outcome.error != null) {
+                return outcome.error;
+            }
+            if (outcome.usage != null) {
+                usageRef.set(outcome.usage);
+            }
+            conversation.add(outcome.aiMessage);
+
+            if (!outcome.aiMessage.hasToolExecutionRequests()) {
+                return null; // 最终回答已完成
+            }
+            if (round == MAX_TOOL_ROUNDS) {
+                // 已到轮次上限：工具仍被请求时终止，已有输出按最终结果处理
+                log.warn("Tool round limit reached ({}), stopping", MAX_TOOL_ROUNDS);
+                return null;
+            }
+
+            for (ToolExecutionRequest request : outcome.aiMessage.toolExecutionRequests()) {
+                log.info("Chat tool invocation: {} (round {})", request.name(), round + 1);
+                String toolResult = chatToolRegistry.execute(request.name(), request.arguments(), toolContext);
+                conversation.add(ToolExecutionResultMessage.from(request, toolResult));
+            }
+        }
+        return "AI 服务没有返回有效内容，请稍后再试。";
+    }
+
+    /** 单轮流式调用：token 实时转发，阻塞等待本轮完成（受剩余总超时约束） */
+    private RoundOutcome runRound(ChatRequest request, StringBuilder answer,
+                                  Consumer<String> onChunk, long timeoutMs) {
+        CountDownLatch done = new CountDownLatch(1);
+        AtomicReference<RoundOutcome> outcomeRef = new AtomicReference<>();
+
+        try {
+            streamingChatModel.chat(request, new StreamingChatResponseHandler() {
+                @Override
+                public void onPartialResponse(String token) {
+                    answer.append(token);
+                    onChunk.accept(token);
+                }
+
+                @Override
+                public void onCompleteResponse(ChatResponse response) {
+                    TokenUsage usage = response != null && response.metadata() != null
+                            ? response.metadata().tokenUsage()
+                            : null;
+                    AiMessage aiMessage = response == null ? AiMessage.from("") : response.aiMessage();
+                    outcomeRef.set(new RoundOutcome(aiMessage, usage, null));
+                    done.countDown();
+                }
+
+                @Override
+                public void onError(Throwable error) {
+                    log.error("Streaming chat failed: {}", error.getMessage());
+                    outcomeRef.set(new RoundOutcome(null, null, describeStreamError(error)));
+                    done.countDown();
+                }
+            });
+
+            if (!done.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+                return new RoundOutcome(null, null, "AI 服务响应超时，请稍后再试。");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return new RoundOutcome(null, null, "AI 服务请求被中断，请稍后再试。");
+        } catch (Exception e) {
+            log.error("Streaming chat invocation failed", e);
+            return new RoundOutcome(null, null, describeStreamError(e));
+        }
+
+        RoundOutcome outcome = outcomeRef.get();
+        if (outcome == null) {
+            return new RoundOutcome(null, null, "AI 服务请求失败，请稍后再试。");
+        }
+        return outcome;
+    }
+
+    private record RoundOutcome(AiMessage aiMessage, TokenUsage usage, String error) {
     }
 
     private String describeStreamError(Throwable error) {

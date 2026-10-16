@@ -1,5 +1,7 @@
 package com.learning.platform.controller;
 
+import com.learning.platform.ai.ChatToolContext;
+import com.learning.platform.ai.ChatToolRegistry;
 import com.learning.platform.common.PageResult;
 import com.learning.platform.common.Result;
 import com.learning.platform.dto.AiChatRequest;
@@ -8,7 +10,6 @@ import com.learning.platform.entity.Resource;
 import com.learning.platform.mapper.ResourceMapper;
 import com.learning.platform.service.AiService;
 import com.learning.platform.service.ChatContext;
-import com.learning.platform.service.ChatContextService;
 import com.learning.platform.service.ChatPromptBuilder;
 import com.learning.platform.service.ChatStreamFactory;
 import com.learning.platform.service.RecommendationService;
@@ -31,7 +32,7 @@ public class AiController {
     private final AiService aiService;
     private final ResourceMapper resourceMapper;
     private final RecommendationService recommendationService;
-    private final ChatContextService chatContextService;
+    private final ChatToolRegistry chatToolRegistry;
     private final ChatPromptBuilder chatPromptBuilder;
     private final ChatStreamFactory chatStreamFactory;
 
@@ -75,10 +76,17 @@ public class AiController {
     /** 匿名流式（标准 SSE，Reactive）：event:message 逐 token 转发，done 收尾，error 报基础设施失败 */
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> streamChat(@Valid @RequestBody AiChatRequest request) {
-        ChatContext context = chatContextService.resolve(request);
-        String systemPrompt = chatPromptBuilder.build(request.getRoute(), request.getPageTitle(), context);
+        // function calling 改造：模型按需调工具查库，不再预取资源正文
+        boolean onResourcePage = ChatContext.TYPE_RESOURCE.equals(request.getPageContextType());
+        Long pageResourceId = onResourcePage ? request.getPageContextId() : null;
+        String systemPrompt = chatPromptBuilder.buildToolMode(
+                request.getRoute(), request.getPageTitle(),
+                request.getSelectedText(), pageResourceId,
+                chatToolRegistry.describeTools());
+        ChatToolContext toolContext = new ChatToolContext(
+                null, request.getPageContextType(), request.getPageContextId(), request.getSelectedText());
         return chatStreamFactory.stream(onChunk ->
-                aiService.streamChat(request.getMessage(), systemPrompt, onChunk));
+                aiService.streamChat(request.getMessage(), systemPrompt, toolContext, onChunk));
     }
 
     private PageResult<Map<String, Object>> toPage(List<Map<String, Object>> records, int page, int size) {

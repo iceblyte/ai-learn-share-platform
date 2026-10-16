@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.learning.platform.ai.ChatToolContext;
+import com.learning.platform.ai.ChatToolRegistry;
 import com.learning.platform.common.BusinessException;
 import com.learning.platform.common.CursorPageResult;
 import com.learning.platform.common.PageResult;
@@ -41,8 +43,8 @@ public class ChatService {
     private final ChatMessageMapper messageMapper;
     private final ResourceMapper resourceMapper;
     private final AiService aiService;
-    private final ChatContextService chatContextService;
     private final ChatPromptBuilder chatPromptBuilder;
+    private final ChatToolRegistry chatToolRegistry;
     private final ObjectMapper objectMapper;
     private final ChatHistoryCacheService historyCache;
 
@@ -188,8 +190,15 @@ public class ChatService {
         userMessage.setStatus("OK");
         messageMapper.insert(userMessage);
 
-        ChatContext context = chatContextService.resolve(request);
-        String systemPrompt = chatPromptBuilder.build(request.getRoute(), request.getPageTitle(), context);
+        // function calling 改造：不再预取资源正文注入提示词，改为模型按需调工具查库
+        boolean onResourcePage = ChatContext.TYPE_RESOURCE.equals(request.getPageContextType());
+        Long pageResourceId = onResourcePage ? request.getPageContextId() : null;
+        String systemPrompt = chatPromptBuilder.buildToolMode(
+                request.getRoute(), request.getPageTitle(),
+                request.getSelectedText(), pageResourceId,
+                chatToolRegistry.describeTools());
+        ChatToolContext toolContext = new ChatToolContext(
+                userId, request.getPageContextType(), request.getPageContextId(), request.getSelectedText());
 
         long start = System.currentTimeMillis();
         StringBuilder answer = new StringBuilder();
@@ -197,7 +206,7 @@ public class ChatService {
         boolean failed = false;
         try {
             // 扩展三：LangChain4j 真流式 + Redis 记忆窗口（20 条），token 片段实时转发
-            result = aiService.streamChat(sessionId, message, systemPrompt, chunk -> {
+            result = aiService.streamChat(sessionId, message, systemPrompt, toolContext, chunk -> {
                 answer.append(chunk);
                 onChunk.accept(chunk);
             });
