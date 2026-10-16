@@ -131,8 +131,9 @@ async function handleSearch() {
 /** 把 AI 解析出的条件同步到侧栏筛选控件上，让用户看到实际生效的条件 */
 function syncIntentToFilters(intent: Record<string, any> | null) {
   if (!intent) return
-  if (typeof intent.sortBy === 'string' && intent.sortBy !== 'relevance') {
-    sortBy.value = intent.sortBy
+  if (typeof intent.sortBy === 'string') {
+    // relevance 与 hot 同为 hot_score 排序，统一映射为最热以保持按钮高亮一致
+    sortBy.value = intent.sortBy === 'relevance' ? 'hot' : intent.sortBy
   }
   if (typeof intent.category === 'string' && intent.category !== 'null') {
     const id = findCategoryIdByName(categories.value, intent.category)
