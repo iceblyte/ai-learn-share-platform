@@ -40,18 +40,33 @@ request.interceptors.response.use(
     return Promise.reject(new Error(data.message || '请求失败'))
   },
   async (error) => {
-    const { response } = error
-    if (response?.status === 401 || response?.status === 403) {
+    const { response, config } = error
+    // 403 = 已登录但无权限，刷新令牌无济于事，直接放行错误
+    if (response?.status === 401) {
       const userStore = useUserStore()
-      try {
-        await userStore.refreshToken()
-        // Retry original request with new token
-        error.config.headers.Authorization = `Bearer ${userStore.token}`
-        return request(error.config)
-      } catch {
-        userStore.logout()
-        window.location.href = '/login'
+      const url: string = config?.url || ''
+      const isAuthRequest = url.includes('/auth/refresh') || url.includes('/auth/login')
+      // 护栏：认证接口自身失败、本地没有 refreshToken、或该请求已重试过，
+      // 都不再尝试刷新——否则 401 -> refresh -> 401 -> refresh 自我递归，
+      // 未登录时会形成对 /auth/refresh 的请求风暴，页面直接卡死
+      if (!isAuthRequest && !config?._retry && userStore.refreshTokenValue) {
+        config._retry = true
+        try {
+          await userStore.refreshToken()
+          // Retry original request with new token
+          config.headers.Authorization = `Bearer ${userStore.token}`
+          return request(config)
+        } catch {
+          userStore.clearAuth()
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login'
+          }
+          return Promise.reject(new Error('登录已过期，请重新登录'))
+        }
       }
+      // 未登录访客或刷新接口自身 401：仅清理本地状态并放行错误，
+      // 由页面自身的 catch 兜底（如推荐位留空），不再打扰访客
+      userStore.clearAuth()
     }
     const message = response?.data?.message || error.message || '网络错误'
     return Promise.reject(new Error(message))

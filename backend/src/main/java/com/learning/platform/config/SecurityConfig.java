@@ -48,6 +48,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/v1/auth/login", "/api/v1/auth/register").permitAll()
+                // 刷新令牌接口必须匿名可达：请求体里的 refreshToken 即凭证。
+                // 若要求登录态，未登录/令牌过期时刷新请求会被 401 拒绝，
+                // 前端拦截器把 401 又当作"需要刷新"而自我递归，形成请求风暴
+                .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/ai/chat/stream").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/resources/**", "/api/v1/categories/**", "/api/v1/tags/**").permitAll()
