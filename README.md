@@ -25,10 +25,10 @@
 
 ```powershell
 # 建库建表
-mysql -u root -p --default-character-set=utf8mb4 < db/init.sql
+mysql -u root -p --default-character-set=utf8mb4 < sql/init.sql
 
 # 导入统一测试数据
-mysql -u root -p --default-character-set=utf8mb4 < db/seed.sql
+mysql -u root -p --default-character-set=utf8mb4 < sql/seed.sql
 ```
 
 ### 2. 后端启动

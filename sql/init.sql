@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `resource` (
     KEY `idx_resource_status` (`status`),
     KEY `idx_resource_hot_score` (`hot_score` DESC),
     KEY `idx_resource_created` (`created_at` DESC),
+    UNIQUE KEY `idx_resource_title` (`title`),
     FULLTEXT INDEX `ft_resource_title_desc` (`title`, `description`) WITH PARSER ngram
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='资源表';
 
@@ -139,7 +140,8 @@ CREATE TABLE IF NOT EXISTS `comment` (
     PRIMARY KEY (`id`),
     KEY `idx_comment_resource` (`resource_id`),
     KEY `idx_comment_user` (`user_id`),
-    KEY `idx_comment_parent` (`parent_id`)
+    KEY `idx_comment_parent` (`parent_id`),
+    UNIQUE KEY `idx_comment_unique` (`resource_id`, `user_id`, `content`(191))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论表';
 
 -- ============================================
@@ -283,4 +285,4 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
 
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正
--- 请统一执行 db/seed.sql。
+-- 请统一执行 sql/seed.sql。
