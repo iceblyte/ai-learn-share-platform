@@ -39,18 +39,30 @@ import java.util.function.Consumer;
 @Component
 public class ChatStreamFactory {
 
-    /** 聊天调用向流上写事件的三通道：正文增量 + 工具调用通知 + 正文回滚 */
+    /** 聊天调用向流上写事件的五通道：正文增量 + 工具调用通知 + 正文回滚 + 图片 + 违规撤回 */
     public interface ChatStreamEmitter {
         void text(String chunk);
 
         void tool(String toolName);
 
         /**
-         * 清空已流出的正文（function calling 中间轮）：
-         * 模型调用工具前可能输出过渡文字（如英文自言自语），该轮最终
-         * 以工具请求结束、其文本不属于正式回答，前端需清空重新接收。
+         * 清空已流出的正文（function calling 中间轮 / 重新回答）：
+         * 该轮文本不属于正式回答，前端需清空重新接收。
          */
         void reset();
+
+        /**
+         * 配图推送（工作流 imageCollect 节点）：
+         * data 为 JSON 数组 [{"source":"pexels","url":"…","alt":"…"}]，
+         * 前端在气泡下方渲染图片条，不进正文。
+         */
+        void images(String imagesJson);
+
+        /**
+         * 回答撤回（工作流审查回路终判）：
+         * 前端清空该条回答正文并显示违规提示文案。
+         */
+        void moderated(String notice);
     }
 
     /** 兼容旧签名：只有正文通道的调用 */
@@ -79,6 +91,16 @@ public class ChatStreamFactory {
                         @Override
                         public void reset() {
                             sink.next(ServerSentEvent.<String>builder("").event("reset").build());
+                        }
+
+                        @Override
+                        public void images(String imagesJson) {
+                            sink.next(ServerSentEvent.<String>builder(imagesJson).event("images").build());
+                        }
+
+                        @Override
+                        public void moderated(String notice) {
+                            sink.next(ServerSentEvent.<String>builder(notice).event("moderated").build());
                         }
                     });
                     sink.complete();

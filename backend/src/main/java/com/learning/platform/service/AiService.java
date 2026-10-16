@@ -226,6 +226,28 @@ public class AiService {
     public StreamingResult streamChat(Long sessionId, String message, String systemPrompt,
                                       ChatToolContext toolContext, Consumer<String> onChunk,
                                       Consumer<String> onTool, Runnable onReset) {
+        StreamingResult result = streamGenerate(sessionId, systemPrompt, message,
+                chatToolRegistry.specifications(), true, toolContext, onChunk, onTool, onReset);
+        // V1 行为保持：成功回答写回记忆窗口（工作流路径由调用方审查后再写）
+        if (!result.failed() && result.content() != null) {
+            appendAssistantToMemory(sessionId, result.content());
+        }
+        return result;
+    }
+
+    /**
+     * 工作流 generate 节点入口：显式传入工具规格与记忆写入策略。
+     *
+     * <p>与 {@link #streamChat} 的区别仅两点：toolSpecs 由调用方决定
+     * （工作流模式下 search_resources 由图路由确定式调用，不再暴露给模型）；
+     * appendUserToMemory 供"重新回答"复用记忆而不重复写入同一条用户消息。
+     * 最终回答写回记忆由调用方在审查通过后经 {@link #appendAssistantToMemory}
+     * 完成——撤回场景不应把违规正文写进记忆。</p>
+     */
+    public StreamingResult streamGenerate(Long sessionId, String systemPrompt, String message,
+                                          List<ToolSpecification> toolSpecs, boolean appendUserToMemory,
+                                          ChatToolContext toolContext, Consumer<String> onChunk,
+                                          Consumer<String> onTool, Runnable onReset) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
             String notice = "AI 服务未配置，请先设置有效的 AI_API_KEY。";
             onChunk.accept(notice);
@@ -241,14 +263,15 @@ public class AiService {
                     .chatMemoryStore(chatMemoryStore)
                     .alwaysKeepSystemMessageFirst(true)
                     .build();
-            memory.add(SystemMessage.from(systemPrompt));
-            memory.add(UserMessage.from(message));
+            if (appendUserToMemory) {
+                memory.add(SystemMessage.from(systemPrompt));
+                memory.add(UserMessage.from(message));
+            }
             baseMessages = memory.messages();
         } else {
             baseMessages = List.of(SystemMessage.from(systemPrompt), UserMessage.from(message));
         }
 
-        List<ToolSpecification> toolSpecs = chatToolRegistry.specifications();
         StringBuilder answer = new StringBuilder();
         AtomicReference<TokenUsage> usageRef = new AtomicReference<>();
         String error = runToolLoop(baseMessages, toolSpecs, toolContext, answer, usageRef, onChunk, onTool, onReset);
@@ -266,13 +289,27 @@ public class AiService {
             return new StreamingResult(null, null, notice);
         }
 
-        if (memory != null) {
-            // 把 AI 回答写回记忆窗口（store 内部吞 Redis 异常）
-            memory.add(AiMessage.from(content));
-        }
         TokenUsage usage = usageRef.get();
         Integer tokensUsed = usage == null ? null : usage.totalTokenCount();
         return new StreamingResult(content, tokensUsed, null);
+    }
+
+    /**
+     * 供工作流在审查通过后把最终回答写回记忆窗口（store 内部吞 Redis 异常）。
+     * 与生成时同 id 重建窗口实例：MessageWindowChatMemory 的 add 会先从
+     * store 加载已有消息再追加，实例间无状态。
+     */
+    public void appendAssistantToMemory(Long sessionId, String content) {
+        if (sessionId == null || content == null || content.isBlank()) {
+            return;
+        }
+        MessageWindowChatMemory.builder()
+                .id(sessionId)
+                .maxMessages(MEMORY_WINDOW)
+                .chatMemoryStore(chatMemoryStore)
+                .alwaysKeepSystemMessageFirst(true)
+                .build()
+                .add(AiMessage.from(content));
     }
 
     /**

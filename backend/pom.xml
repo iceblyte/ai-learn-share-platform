@@ -152,6 +152,16 @@
             <version>1.22.0</version>
         </dependency>
 
+        <!-- LangGraph4j (chat workflow orchestration, Extension 6).
+             Core only: nodes call our own StreamingChatModel / ChatToolRegistry,
+             so the langchain4j integration module (with its agent executor)
+             is intentionally NOT used. -->
+        <dependency>
+            <groupId>org.bsc.langgraph4j</groupId>
+            <artifactId>langgraph4j-core</artifactId>
+            <version>1.9.4</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

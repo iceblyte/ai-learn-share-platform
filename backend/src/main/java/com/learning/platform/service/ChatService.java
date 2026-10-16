@@ -47,6 +47,7 @@ public class ChatService {
     private final ChatToolRegistry chatToolRegistry;
     private final ObjectMapper objectMapper;
     private final ChatHistoryCacheService historyCache;
+    private final ChatWorkflowService chatWorkflowService;
 
     // ---------- 会话 ----------
 
@@ -175,9 +176,45 @@ public class ChatService {
     /**
      * 会话内继续提问（流式）：先落用户消息，边流式转发边收集完整回答，
      * 结束后落助手消息并维护会话计数。AI 异常时落 FAILED 消息，链路不崩。
+     *
+     * <p>双通道兼容重载：仅正文/工具/回滚三通道的旧调用方走此适配。</p>
      */
     public void continueChat(Long userId, Long sessionId, AiChatRequest request,
                              Consumer<String> onChunk, Consumer<String> onTool, Runnable onReset) {
+        continueChat(userId, sessionId, request, new ChatStreamFactory.ChatStreamEmitter() {
+            @Override
+            public void text(String chunk) {
+                onChunk.accept(chunk);
+            }
+
+            @Override
+            public void tool(String toolName) {
+                onTool.accept(toolName);
+            }
+
+            @Override
+            public void reset() {
+                onReset.run();
+            }
+
+            @Override
+            public void images(String imagesJson) {
+            }
+
+            @Override
+            public void moderated(String notice) {
+                onChunk.accept(notice);
+            }
+        });
+    }
+
+    /**
+     * 会话内继续提问（五通道 emitter 版）：工作流启用时走 LangGraph4j 图
+     * （route/search/generate/imageCollect/moderate），否则回退 V1 链路。
+     * 两条路径的落库、计数、缓存失效保持一致。
+     */
+    public void continueChat(Long userId, Long sessionId, AiChatRequest request,
+                             ChatStreamFactory.ChatStreamEmitter emitter) {
         ChatSession session = requireOwnedSession(userId, sessionId);
         String message = request.getMessage();
 
@@ -191,28 +228,50 @@ public class ChatService {
         userMessage.setStatus("OK");
         messageMapper.insert(userMessage);
 
-        // function calling 改造：不再预取资源正文注入提示词，改为模型按需调工具查库
         boolean onResourcePage = ChatContext.TYPE_RESOURCE.equals(request.getPageContextType());
         Long pageResourceId = onResourcePage ? request.getPageContextId() : null;
-        String systemPrompt = chatPromptBuilder.buildToolMode(
-                request.getRoute(), request.getPageTitle(),
-                request.getSelectedText(), pageResourceId,
-                chatToolRegistry.describeTools());
-        ChatToolContext toolContext = new ChatToolContext(
-                userId, request.getPageContextType(), request.getPageContextId(), request.getSelectedText());
 
         long start = System.currentTimeMillis();
-        StringBuilder answer = new StringBuilder();
-        AiService.StreamingResult result = null;
+        String content;
+        Integer tokensUsed;
+        String status;
+        String imagesJson = null;
         boolean failed = false;
         try {
-            // 扩展三：LangChain4j 真流式 + Redis 记忆窗口（20 条），token 片段实时转发
-            result = aiService.streamChat(sessionId, message, systemPrompt, toolContext, chunk -> {
-                answer.append(chunk);
-                onChunk.accept(chunk);
-            }, onTool, onReset);
+            if (chatWorkflowService.isEnabled()) {
+                // 工作流路径：图内完成检索/生成/取图/审查
+                ChatWorkflowService.WorkflowResult result = chatWorkflowService.run(
+                        userId, sessionId, message, request.getRoute(), request.getPageTitle(),
+                        request.getPageContextType(), pageResourceId, request.getSelectedText(), emitter);
+                content = result.content() == null ? "AI 服务请求失败，请稍后再试。" : result.content();
+                tokensUsed = result.tokensUsed() == null ? 0 : result.tokensUsed();
+                status = result.status();
+                imagesJson = result.imagesJson();
+                failed = result.status().equals("FAILED");
+                // 记忆写回：正常回答与撤回提示都入窗口（违规正文不入）
+                if (!failed) {
+                    aiService.appendAssistantToMemory(sessionId, content);
+                }
+            } else {
+                // V1 回退路径：手写工具环 + 全量工具规格
+                String systemPrompt = chatPromptBuilder.buildToolMode(
+                        request.getRoute(), request.getPageTitle(),
+                        request.getSelectedText(), pageResourceId,
+                        chatToolRegistry.describeTools());
+                ChatToolContext toolContext = new ChatToolContext(
+                        userId, request.getPageContextType(), request.getPageContextId(), request.getSelectedText());
+                AiService.StreamingResult result = aiService.streamChat(sessionId, message, systemPrompt,
+                        toolContext, emitter::text, emitter::tool, emitter::reset);
+                failed = result == null || result.failed();
+                content = failed ? "AI 服务请求失败，请稍后再试。" : result.content();
+                tokensUsed = (!failed && result.tokensUsed() != null) ? result.tokensUsed() : 0;
+                status = failed ? "FAILED" : "OK";
+            }
         } catch (Exception e) {
             failed = true;
+            content = "AI 服务请求失败，请稍后再试。";
+            tokensUsed = 0;
+            status = "FAILED";
             log.error("Session chat failed: sessionId={}", sessionId, e);
         }
         long latency = System.currentTimeMillis() - start;
@@ -220,15 +279,10 @@ public class ChatService {
         ChatMessage assistantMessage = new ChatMessage();
         assistantMessage.setSessionId(sessionId);
         assistantMessage.setRole("assistant");
-        if (failed || result == null || result.failed()) {
-            assistantMessage.setContent("AI 服务请求失败，请稍后再试。");
-            assistantMessage.setStatus("FAILED");
-            assistantMessage.setTokensUsed(0);
-        } else {
-            assistantMessage.setContent(answer.toString());
-            assistantMessage.setStatus("OK");
-            assistantMessage.setTokensUsed(result.tokensUsed() == null ? 0 : result.tokensUsed());
-        }
+        assistantMessage.setContent(content);
+        assistantMessage.setImagesJson(imagesJson);
+        assistantMessage.setStatus(status);
+        assistantMessage.setTokensUsed(failed ? 0 : (tokensUsed == null ? 0 : tokensUsed));
         assistantMessage.setLatencyMs((int) Math.min(latency, Integer.MAX_VALUE));
         messageMapper.insert(assistantMessage);
 

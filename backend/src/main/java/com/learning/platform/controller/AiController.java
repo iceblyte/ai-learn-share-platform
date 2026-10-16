@@ -12,6 +12,7 @@ import com.learning.platform.service.AiService;
 import com.learning.platform.service.ChatContext;
 import com.learning.platform.service.ChatPromptBuilder;
 import com.learning.platform.service.ChatStreamFactory;
+import com.learning.platform.service.ChatWorkflowService;
 import com.learning.platform.service.RecommendationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class AiController {
     private final ChatToolRegistry chatToolRegistry;
     private final ChatPromptBuilder chatPromptBuilder;
     private final ChatStreamFactory chatStreamFactory;
+    private final ChatWorkflowService chatWorkflowService;
 
     @PostMapping("/summary")
     public Result<Map<String, String>> generateSummary(@RequestBody Map<String, Long> body) {
@@ -79,6 +81,14 @@ public class AiController {
         // function calling 改造：模型按需调工具查库，不再预取资源正文
         boolean onResourcePage = ChatContext.TYPE_RESOURCE.equals(request.getPageContextType());
         Long pageResourceId = onResourcePage ? request.getPageContextId() : null;
+
+        // 工作流启用：LangGraph4j 图编排（划词路由/取图/审查）；关闭：V1 回退
+        if (chatWorkflowService.isEnabled()) {
+            return chatStreamFactory.streamEvents(emitter -> chatWorkflowService.run(
+                    null, null, request.getMessage(), request.getRoute(), request.getPageTitle(),
+                    request.getPageContextType(), pageResourceId, request.getSelectedText(), emitter));
+        }
+
         String systemPrompt = chatPromptBuilder.buildToolMode(
                 request.getRoute(), request.getPageTitle(),
                 request.getSelectedText(), pageResourceId,

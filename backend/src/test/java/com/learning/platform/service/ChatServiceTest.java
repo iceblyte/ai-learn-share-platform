@@ -58,6 +58,9 @@ class ChatServiceTest {
     @Mock
     private ChatHistoryCacheService historyCache;
 
+    @Mock
+    private ChatWorkflowService chatWorkflowService;
+
     private ChatService service;
 
     private AutoCloseable mocks;
@@ -68,7 +71,8 @@ class ChatServiceTest {
         service = new ChatService(sessionMapper, messageMapper, resourceMapper,
                 aiService, chatPromptBuilder,
                 new com.learning.platform.ai.ChatToolRegistry(java.util.List.of()),
-                new ObjectMapper(), historyCache);
+                new ObjectMapper(), historyCache, chatWorkflowService);
+        // Mockito 对 boolean 默认返回 false：chatWorkflowService.isEnabled() == false → V1 回退路径
         // 注意用 any() 而不是 anyString()：anyString() 不匹配 null 的 route/pageTitle
         when(chatPromptBuilder.buildToolMode(any(), any(), any(), any(), any())).thenReturn("SYSTEM");
         // 缓存桩：直通 loader，等价于 Redis miss 的行为

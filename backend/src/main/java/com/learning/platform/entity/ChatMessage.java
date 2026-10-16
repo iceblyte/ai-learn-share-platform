@@ -22,6 +22,9 @@ public class ChatMessage {
 
     private String content;
 
+    /** 配图快照（JSON 数组：[{"source","url","alt"}]，工作流 imageCollect 产出） */
+    private String imagesJson;
+
     private String contextJson;
 
     private Integer tokensUsed;

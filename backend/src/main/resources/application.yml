@@ -66,6 +66,23 @@ ai:
     timeout-ms: ${AI_CHAT_TIMEOUT_MS:120000}
     retries: ${AI_CHAT_RETRIES:2}
     retry-delay-ms: ${AI_CHAT_RETRY_DELAY_MS:1500}
+  # LangGraph4j 聊天工作流（划词路由/并发生图/回答审查）；false 回退 V1 工具环
+  workflow:
+    enabled: ${AI_WORKFLOW_ENABLED:true}
+  # 并发生图（imageCollect 节点）：未配置 key 的源自动跳过
+  image:
+    enabled: ${AI_IMAGE_ENABLED:true}
+    timeout-ms: ${AI_IMAGE_TIMEOUT_MS:8000}
+    max-per-source: ${AI_IMAGE_MAX_PER_SOURCE:2}
+    pexels:
+      api-key: ${IMAGE_PEXELS_API_KEY:}
+    wanx:
+      api-key: ${DASHSCOPE_API_KEY:}
+      model: ${AI_WANX_MODEL:wanx2.1-t2i-turbo}
+  # 回答审查：敏感词表先行；AI 审查失败降级放行
+  moderation:
+    ai-review-enabled: ${AI_MODERATION_AI_REVIEW:true}
+    ai-review-timeout-ms: ${AI_MODERATION_TIMEOUT_MS:15000}
 
 # MyBatis-Plus
 mybatis-plus:

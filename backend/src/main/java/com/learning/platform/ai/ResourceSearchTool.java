@@ -21,6 +21,9 @@ import java.util.List;
 @Component
 public class ResourceSearchTool extends ChatTool {
 
+    /** 工具名常量：工作流确定式路由时按名排除，不再暴露给模型 */
+    public static final String TOOL_NAME = "search_resources";
+
     private static final int DEFAULT_LIMIT = 5;
     private static final int MAX_LIMIT = 10;
     private static final int SNIPPET_LENGTH = 80;
@@ -34,7 +37,7 @@ public class ResourceSearchTool extends ChatTool {
 
     @Override
     public String name() {
-        return "search_resources";
+        return TOOL_NAME;
     }
 
     @Override
