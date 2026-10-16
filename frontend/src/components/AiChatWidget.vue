@@ -43,6 +43,9 @@ const historyLoading = ref(false)
 const searchKeyword = ref('')
 const searching = ref(false)
 const searchResults = ref<{ sessionId: number; sessionTitle: string; content: string }[]>([])
+// ---- 历史会话重命名 ----
+const editingSessionId = ref<number | null>(null)
+const editingTitle = ref('')
 
 // ---- 扩展四：游标翻页状态 ----
 const loadingOlder = ref(false)
@@ -298,6 +301,26 @@ async function removeSession(sessionId: number) {
   } catch (error: any) {
     messages.value = [
       { id: messageId++, role: 'assistant', content: error?.message || '删除会话失败' },
+    ]
+  }
+}
+
+function startRename(session: ChatSessionItem) {
+  editingSessionId.value = session.id
+  editingTitle.value = session.title || ''
+}
+
+async function saveRename(sessionId: number) {
+  const title = editingTitle.value.trim()
+  editingSessionId.value = null
+  if (!title) return
+  try {
+    await chatApi.renameSession(sessionId, title)
+    const target = sessions.value.find((item) => item.id === sessionId)
+    if (target) target.title = title
+  } catch (error: any) {
+    messages.value = [
+      { id: messageId++, role: 'assistant', content: error?.message || '重命名失败' },
     ]
   }
 }
@@ -635,19 +658,58 @@ async function sendMessage() {
               class="group flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 transition hover:border-primary-300"
               :class="{ 'border-primary-300 bg-primary-50': session.id === currentSessionId }"
             >
-              <button class="min-w-0 flex-1 text-left" @click="openSession(session.id)">
-                <p class="truncate text-xs font-medium text-slate-700">{{ session.title || '未命名会话' }}</p>
-                <p class="text-[11px] text-slate-400">{{ formatTime(session.lastMessageAt) }} · {{ session.messageCount }} 条</p>
-              </button>
-              <button
-                class="shrink-0 rounded p-1 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
-                title="删除会话"
-                @click.stop="removeSession(session.id)"
-              >
-                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                </svg>
-              </button>
+              <!-- 重命名态：内联输入框 -->
+              <template v-if="editingSessionId === session.id">
+                <input
+                  v-model="editingTitle"
+                  class="min-w-0 flex-1 rounded-lg border border-primary-300 px-2 py-1 text-xs outline-none focus:border-primary-500"
+                  placeholder="输入新的标题"
+                  @keydown.enter.prevent="saveRename(session.id)"
+                  @keydown.esc="editingSessionId = null"
+                />
+                <button
+                  class="shrink-0 rounded p-1 text-primary-500 transition hover:text-primary-600"
+                  title="保存标题"
+                  @click="saveRename(session.id)"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </button>
+                <button
+                  class="shrink-0 rounded p-1 text-slate-300 transition hover:text-slate-500"
+                  title="取消"
+                  @click="editingSessionId = null"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </template>
+              <template v-else>
+                <button class="min-w-0 flex-1 text-left" @click="openSession(session.id)">
+                  <p class="truncate text-xs font-medium text-slate-700">{{ session.title || '未命名会话' }}</p>
+                  <p class="text-[11px] text-slate-400">{{ formatTime(session.lastMessageAt) }} · {{ session.messageCount }} 条</p>
+                </button>
+                <button
+                  class="shrink-0 rounded p-1 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-primary-500"
+                  title="重命名"
+                  @click.stop="startRename(session)"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </button>
+                <button
+                  class="shrink-0 rounded p-1 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
+                  title="删除会话"
+                  @click.stop="removeSession(session.id)"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </template>
             </li>
           </ul>
         </div>

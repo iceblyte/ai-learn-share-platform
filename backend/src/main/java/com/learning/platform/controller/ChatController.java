@@ -107,6 +107,16 @@ public class ChatController {
         return Result.success("会话已删除", null);
     }
 
+    /** 重命名历史会话标题（Bug 修复：原标题固定取首条用户输入，无法修改） */
+    @PutMapping("/sessions/{id}/title")
+    public Result<Void> renameSession(@PathVariable Long id,
+                                      @RequestBody Map<String, String> body,
+                                      Authentication auth) {
+        Long userId = (Long) auth.getPrincipal();
+        chatService.renameSession(userId, id, body == null ? null : body.get("title"));
+        return Result.success("标题已更新", null);
+    }
+
     @GetMapping("/messages/search")
     public Result<List<Map<String, Object>>> searchMessages(
             @RequestParam String keyword,

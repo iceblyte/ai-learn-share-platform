@@ -28,7 +28,8 @@ public interface ChatMessageMapper extends BaseMapper<ChatMessage> {
             JOIN chat_session s ON m.session_id = s.id
             WHERE s.user_id = #{userId}
               AND s.is_deleted = 0
-              AND m.content LIKE CONCAT('%', #{keyword}, '%')
+              AND (m.content LIKE CONCAT('%', #{keyword}, '%')
+                   OR s.title LIKE CONCAT('%', #{keyword}, '%'))
             ORDER BY m.id DESC
             LIMIT #{limit}
             """)

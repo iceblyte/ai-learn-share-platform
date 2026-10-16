@@ -96,6 +96,20 @@ public class ChatService {
         historyCache.evictSession(sessionId);
     }
 
+    /** 重命名会话：仅本人可改；空标题拒绝，超长截断到 60 字 */
+    public void renameSession(Long userId, Long sessionId, String title) {
+        ChatSession session = requireOwnedSession(userId, sessionId);
+        String trimmed = title == null ? "" : title.trim();
+        if (trimmed.isEmpty()) {
+            throw new BusinessException(400, "标题不能为空");
+        }
+        if (trimmed.length() > 60) {
+            trimmed = trimmed.substring(0, 60);
+        }
+        session.setTitle(trimmed);
+        sessionMapper.updateById(session);
+    }
+
     // ---------- 消息 ----------
 
     /**

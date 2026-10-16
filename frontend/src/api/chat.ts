@@ -69,6 +69,10 @@ export const chatApi = {
   deleteSession(sessionId: number) {
     return request.delete<ApiResponse<void>>(`/chat/sessions/${sessionId}`)
   },
+  /** 重命名历史会话标题 */
+  renameSession(sessionId: number, title: string) {
+    return request.put<ApiResponse<void>>(`/chat/sessions/${sessionId}/title`, { title })
+  },
   search(keyword: string, limit = 20) {
     return request.get<ApiResponse<ChatSearchItem[]>>('/chat/messages/search', {
       params: { keyword, limit },
