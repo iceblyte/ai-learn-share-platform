@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS `category` (
     `is_active` TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用: 0-禁用, 1-启用',
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
+    -- 分类名唯一：保证 seed.sql 的 INSERT IGNORE 幂等，防止重复执行产生重复根分类
+    UNIQUE KEY `uk_category_name` (`name`),
     KEY `idx_category_parent` (`parent_id`),
     KEY `idx_category_sort` (`sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='资源分类表';
