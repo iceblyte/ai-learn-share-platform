@@ -72,8 +72,18 @@ const router = createRouter({
 })
 
 // Navigation guard
-router.beforeEach((to, _from, next) => {
+// 刷新/直链时守卫先于 App.vue 的 onMounted 执行，userInfo 还没拉取，
+// requiresAdmin/requiresPublisher 会误判并弹回首页——这里先补齐用户信息再判定
+router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore()
+
+  if (userStore.isLoggedIn && !userStore.userInfo) {
+    try {
+      await userStore.fetchUserInfo()
+    } catch {
+      userStore.clearAuth()
+    }
+  }
 
   if (to.meta.requiresAuth && !userStore.isLoggedIn) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
