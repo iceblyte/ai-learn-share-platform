@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const searchQuery = ref('')
 const showUserMenu = ref(false)
+
+// 搜索页有自己的大搜索框，头部再放一个会重复
+const onSearchPage = computed(() => route.path === '/search')
 
 function handleSearch() {
   if (searchQuery.value.trim()) {
@@ -35,8 +39,8 @@ function handleLogout() {
           <span class="text-lg font-bold text-slate-800 hidden sm:block">LearnShare AI</span>
         </router-link>
 
-        <!-- Search Bar -->
-        <div class="flex-1 max-w-xl mx-8">
+        <!-- Search Bar（搜索页隐藏，避免与页面内搜索框重复） -->
+        <div v-if="!onSearchPage" class="flex-1 max-w-xl mx-8">
           <div class="relative">
             <input
               v-model="searchQuery"
