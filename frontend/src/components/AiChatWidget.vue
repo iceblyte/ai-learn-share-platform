@@ -106,6 +106,10 @@ watch(messages, async () => {
   if (autoScrollEnabled) scrollToBottom()
 }, { deep: true })
 
+// 匀速上屏节奏：每 20ms 上屏 4 个字符（约 200 字/秒）
+const REVEAL_INTERVAL_MS = 20
+const REVEAL_BATCH = 4
+
 function scrollToBottom() {
   if (messageViewport.value) {
     messageViewport.value.scrollTop = messageViewport.value.scrollHeight
@@ -427,10 +431,54 @@ async function sendMessage() {
     let streamError = ''
     let streamDone = false
 
+    // ---- 打字机缓冲队列 ----
+    // 网络分片的到达节奏不均（常见：先到一两个 token，停顿后剩余内容
+    // 一次性吐出），直接拼接会呈现"先出两字、然后一瞬间全出"。
+    // 收到的文本先进入缓冲，再由固定节奏的定时器匀速上屏，
+    // 保证回答以同一速率逐步出现。
+    let pendingText = ''
+    let revealTimer: number | null = null
+    let revealFinish: (() => void) | null = null
+
+    const stopReveal = () => {
+      if (revealTimer != null) {
+        clearInterval(revealTimer)
+        revealTimer = null
+      }
+    }
+
+    const startReveal = () => {
+      if (revealTimer != null) return
+      revealTimer = window.setInterval(() => {
+        if (!pendingText) {
+          // 缓冲暂时清空：停表等新分片，避免空转
+          stopReveal()
+          if (streamDone) {
+            const finish = revealFinish
+            revealFinish = null
+            finish?.()
+          }
+          return
+        }
+        assistantMessage.content += pendingText.slice(0, REVEAL_BATCH)
+        pendingText = pendingText.slice(REVEAL_BATCH)
+        messages.value = [...messages.value]
+      }, REVEAL_INTERVAL_MS)
+    }
+
+    const waitForRevealDrain = () =>
+      new Promise<void>((resolve) => {
+        if (!pendingText) {
+          resolve()
+          return
+        }
+        revealFinish = resolve
+      })
+
     const dispatchSseEvent = (eventName: string, data: string) => {
       if (eventName === 'message') {
-        assistantMessage.content += data
-        messages.value = [...messages.value]
+        pendingText += data
+        startReveal()
       } else if (eventName === 'error') {
         streamError = data
       } else if (eventName === 'done') {
@@ -471,12 +519,17 @@ async function sendMessage() {
       reader.cancel().catch(() => {})
     }
 
+    // 等缓冲里的剩余内容匀速上屏完毕，再判定流结束
+    await waitForRevealDrain()
+    stopReveal()
+
     if (streamError && !assistantMessage.content.trim()) {
       assistantMessage.content = streamError
     }
   } catch (error: any) {
     assistantMessage.content = error?.message || '聊天服务暂时不可用'
   } finally {
+    stopReveal()
     assistantMessage.streaming = false
     if (!assistantMessage.content.trim()) {
       assistantMessage.content = '当前没有拿到有效回复，请换个问法再试。'
