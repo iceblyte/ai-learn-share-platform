@@ -24,6 +24,8 @@ const resource = ref<Resource | null>(null)
 const comments = ref<Comment[]>([])
 const newComment = ref('')
 const replyTo = ref<number | null>(null)
+// 回复目标昵称：null 表示回复一级评论本身；否则为"回复楼中楼"，内容自动加 @ 前缀
+const replyToNickname = ref<string | null>(null)
 const replyContent = ref('')
 const myRating = ref(0)
 const liked = ref(false)
@@ -205,14 +207,22 @@ async function submitComment() {
   }
 }
 
+function startReply(commentId: number, nickname: string | null) {
+  replyTo.value = commentId
+  replyToNickname.value = nickname
+  replyContent.value = ''
+}
+
 async function submitReply(parentId: number) {
   if (!userStore.isLoggedIn) {
     toast.value?.show('请先登录后再回复', 'warning')
     return
   }
-  if (!replyContent.value.trim()) return
+  const raw = replyContent.value.trim()
+  if (!raw) return
+  const content = replyToNickname.value ? `回复 @${replyToNickname.value}：${raw}` : raw
   try {
-    const res = await commentApi.create(id.value, replyContent.value, parentId)
+    const res = await commentApi.create(id.value, content, parentId)
     const parent = comments.value.find(c => c.id === parentId)
     if (parent) {
       if (!parent.replies) parent.replies = []
@@ -226,6 +236,7 @@ async function submitReply(parentId: number) {
     toast.value?.show(error?.message || '回复失败', 'error')
   }
   replyTo.value = null
+  replyToNickname.value = null
   replyContent.value = ''
 }
 
@@ -544,7 +555,7 @@ function getAvatarUrl(user: any): string | null {
                   </button>
                   <button
                     v-if="userStore.isLoggedIn"
-                    @click="replyTo = comment.id"
+                    @click="startReply(comment.id, null)"
                     class="text-xs text-slate-400 hover:text-primary-500 transition-colors"
                   >
                     回复
@@ -565,23 +576,34 @@ function getAvatarUrl(user: any): string | null {
                         {{ reply.user?.nickname?.[0] || '用' }}
                       </span>
                     </div>
-                    <div>
+                    <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-2">
                         <span class="text-sm font-medium">{{ reply.user?.nickname }}</span>
                         <span v-if="reply.user?.id === (resource as any)?.publisherId" class="text-xs bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded">作者</span>
                         <span class="text-xs text-slate-400">{{ new Date(reply.createdAt).toLocaleString() }}</span>
                       </div>
-                      <p class="text-sm text-slate-600 mt-1">{{ reply.content }}</p>
+                      <p class="text-sm text-slate-600 mt-1 break-words">{{ reply.content }}</p>
+                      <!-- Bug 修复：支持回复楼中楼（其他人的回复） -->
+                      <button
+                        v-if="userStore.isLoggedIn"
+                        @click="startReply(comment.id, reply.user?.nickname || null)"
+                        class="mt-1 text-xs text-slate-400 hover:text-primary-500 transition-colors"
+                      >
+                        回复
+                      </button>
                     </div>
                   </div>
                 </div>
 
                 <!-- Reply Form -->
                 <div v-if="replyTo === comment.id" class="mt-3">
+                  <p v-if="replyToNickname" class="mb-1 text-xs text-slate-400">
+                    回复 @{{ replyToNickname }}
+                  </p>
                   <textarea
                     v-model="replyContent"
                     class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent h-16 resize-none"
-                    placeholder="回复..."
+                    :placeholder="replyToNickname ? `回复 @${replyToNickname}...` : '回复...'"
                   ></textarea>
                   <div class="flex gap-2 mt-2">
                     <button
@@ -591,7 +613,7 @@ function getAvatarUrl(user: any): string | null {
                       回复
                     </button>
                     <button
-                      @click="replyTo = null"
+                      @click="replyTo = null; replyToNickname = null"
                       class="bg-slate-100 text-slate-600 px-3 py-1 rounded text-sm hover:bg-slate-200 transition-colors"
                     >
                       取消
