@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { resourceApi } from '@/api/resource'
@@ -74,6 +74,14 @@ async function loadResource() {
 onMounted(loadResource)
 watch(id, loadResource)
 
+// 正文渲染完成后提取大纲；滚动时高亮当前章节
+watch(resource, async (val) => {
+  if (val) {
+    await nextTick()
+    buildToc()
+  }
+})
+
 // 扩展一：划词提问——监听正文选区，进入 AI 助手的"解释这一段"入口
 const contentRef = ref<HTMLElement | null>(null)
 
@@ -92,10 +100,12 @@ function handleSelectionChange() {
 
 onMounted(() => {
   document.addEventListener('selectionchange', handleSelectionChange)
+  window.addEventListener('scroll', handleScrollSpy, { passive: true })
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('selectionchange', handleSelectionChange)
+  window.removeEventListener('scroll', handleScrollSpy)
   clearPageContext()
 })
 
@@ -115,6 +125,53 @@ function renderMarkdown(text: string): string {
   } catch {
     return text
   }
+}
+
+// ---- 文档大纲：从渲染后的正文提取 h1-h4，点击跳转 + 滚动高亮 ----
+interface TocItem {
+  id: string
+  text: string
+  level: number
+}
+
+const toc = ref<TocItem[]>([])
+const activeHeadingId = ref('')
+
+function buildToc() {
+  toc.value = []
+  activeHeadingId.value = ''
+  if (!contentRef.value) return
+  const headings = contentRef.value.querySelectorAll('h1, h2, h3, h4')
+  const items: TocItem[] = []
+  headings.forEach((h, index) => {
+    const anchorId = `heading-anchor-${index}`
+    h.id = anchorId
+    // 锚点跳转时给吸顶导航留出空间
+    h.classList.add('scroll-mt-24')
+    items.push({
+      id: anchorId,
+      text: (h.textContent || '').trim(),
+      level: Number(h.tagName.substring(1)),
+    })
+  })
+  toc.value = items
+  if (items.length) activeHeadingId.value = items[0].id
+}
+
+function scrollToHeading(anchorId: string) {
+  document.getElementById(anchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function handleScrollSpy() {
+  if (!toc.value.length) return
+  let current = toc.value[0].id
+  for (const item of toc.value) {
+    const el = document.getElementById(item.id)
+    if (el && el.getBoundingClientRect().top <= 120) {
+      current = item.id
+    }
+  }
+  activeHeadingId.value = current
 }
 
 async function handleLike() {
@@ -450,89 +507,116 @@ function getAvatarUrl(user: any): string | null {
               </div>
             </div>
           </div>
+
+          <!-- Comments：置于主列内，拉高 flex 行高度，保证右栏吸顶全程有效 -->
+          <section class="mt-8">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+              <h2 class="text-xl font-semibold text-slate-800 mb-6">评论 ({{ resource.commentCount }})</h2>
+
+              <!-- New Comment -->
+              <div v-if="userStore.isLoggedIn" class="mb-8">
+                <textarea
+                  v-model="newComment"
+                  class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent h-24 resize-none"
+                  placeholder="写下你的评论..."
+                ></textarea>
+                <button
+                  @click="submitComment"
+                  class="mt-3 bg-primary-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-600 transition-colors"
+                >
+                  发表评论
+                </button>
+              </div>
+              <div v-else class="mb-8 p-4 bg-slate-50 rounded-lg text-center">
+                <router-link to="/login" class="text-primary-600 hover:underline">登录</router-link>
+                <span class="text-slate-500"> 后发表评论</span>
+              </div>
+
+              <!-- Comment List：多级嵌套，递归分支展示 -->
+              <div class="space-y-4">
+                <CommentNode
+                  v-for="comment in comments"
+                  :key="comment.id"
+                  :comment="comment"
+                  :resource="resource"
+                  :depth="0"
+                  :reply-to-id="replyTo"
+                  @reply="startReply"
+                  @submit-reply="submitReply"
+                  @cancel-reply="replyTo = null"
+                />
+              </div>
+            </div>
+          </section>
         </div>
 
-        <!-- Sidebar -->
+        <!-- Sidebar：整体吸顶，滚动时固定可见 -->
         <aside class="w-80 flex-shrink-0 hidden lg:block">
-          <!-- Related Recommendations -->
-          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 sticky top-24">
-            <div class="flex items-center gap-2 mb-4">
-              <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-              </svg>
-              <h3 class="text-sm font-semibold">相关推荐</h3>
+          <div class="sticky top-20 space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto pb-2 scroll-smooth">
+            <!-- 文档大纲（markdown 标题导航） -->
+            <div v-if="toc.length" class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+              <div class="flex items-center gap-2 mb-3">
+                <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10M4 18h10"/>
+                </svg>
+                <h3 class="text-sm font-semibold">文档大纲</h3>
+              </div>
+              <ul class="space-y-0.5 border-l border-slate-100">
+                <li v-for="item in toc" :key="item.id">
+                  <button
+                    @click="scrollToHeading(item.id)"
+                    class="block w-full truncate rounded-r px-2 py-1 text-left text-xs transition-colors border-l-2"
+                    :class="activeHeadingId === item.id
+                      ? 'border-primary-500 bg-primary-50 text-primary-600 font-medium'
+                      : 'border-transparent text-slate-500 hover:text-primary-500 hover:bg-slate-50'"
+                    :style="{ paddingLeft: `${(item.level - 1) * 10 + 8}px` }"
+                    :title="item.text"
+                  >
+                    {{ item.text }}
+                  </button>
+                </li>
+              </ul>
             </div>
-            <div v-if="relatedResources.length" class="space-y-3">
-              <router-link
-                v-for="rel in relatedResources"
-                :key="rel.id"
-                :to="`/resource/${rel.id}`"
-                class="block p-2 rounded-lg hover:bg-slate-50"
-              >
-                <h4 class="text-sm font-medium truncate">{{ rel.title }}</h4>
-                <p class="text-xs text-slate-400 mt-0.5">{{ rel.avgRating?.toFixed(1) }} 分 &middot; {{ rel.viewCount }} 浏览</p>
-              </router-link>
-            </div>
-            <p v-else class="text-xs text-slate-400">暂无相关推荐</p>
-          </div>
 
-          <!-- Hot Tags -->
-          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <h3 class="text-sm font-semibold mb-3">热门标签</h3>
-            <div class="flex flex-wrap gap-2">
-              <router-link
-                v-for="tag in hotTags.slice(0, 10)"
-                :key="tag.id"
-                :to="`/search?q=${tag.name}`"
-                class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600"
-              >
-                {{ tag.name }}
-              </router-link>
+            <!-- Related Recommendations -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+              <div class="flex items-center gap-2 mb-4">
+                <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                <h3 class="text-sm font-semibold">相关推荐</h3>
+              </div>
+              <div v-if="relatedResources.length" class="space-y-3">
+                <router-link
+                  v-for="rel in relatedResources"
+                  :key="rel.id"
+                  :to="`/resource/${rel.id}`"
+                  class="block p-2 rounded-lg hover:bg-slate-50"
+                >
+                  <h4 class="text-sm font-medium truncate">{{ rel.title }}</h4>
+                  <p class="text-xs text-slate-400 mt-0.5">{{ rel.avgRating?.toFixed(1) }} 分 &middot; {{ rel.viewCount }} 浏览</p>
+                </router-link>
+              </div>
+              <p v-else class="text-xs text-slate-400">暂无相关推荐</p>
+            </div>
+
+            <!-- Hot Tags -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+              <h3 class="text-sm font-semibold mb-3">热门标签</h3>
+              <div class="flex flex-wrap gap-2">
+                <router-link
+                  v-for="tag in hotTags.slice(0, 10)"
+                  :key="tag.id"
+                  :to="`/search?q=${tag.name}`"
+                  class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded hover:bg-primary-100 hover:text-primary-600"
+                >
+                  {{ tag.name }}
+                </router-link>
+              </div>
             </div>
           </div>
         </aside>
       </div>
-
-      <!-- Comments -->
-      <section class="mt-8">
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 class="text-xl font-semibold text-slate-800 mb-6">评论 ({{ resource.commentCount }})</h2>
-
-          <!-- New Comment -->
-          <div v-if="userStore.isLoggedIn" class="mb-8">
-            <textarea
-              v-model="newComment"
-              class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent h-24 resize-none"
-              placeholder="写下你的评论..."
-            ></textarea>
-            <button
-              @click="submitComment"
-              class="mt-3 bg-primary-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-600 transition-colors"
-            >
-              发表评论
-            </button>
-          </div>
-          <div v-else class="mb-8 p-4 bg-slate-50 rounded-lg text-center">
-            <router-link to="/login" class="text-primary-600 hover:underline">登录</router-link>
-            <span class="text-slate-500"> 后发表评论</span>
-          </div>
-
-          <!-- Comment List：多级嵌套，递归分支展示 -->
-          <div class="space-y-4">
-            <CommentNode
-              v-for="comment in comments"
-              :key="comment.id"
-              :comment="comment"
-              :resource="resource"
-              :depth="0"
-              :reply-to-id="replyTo"
-              @reply="startReply"
-              @submit-reply="submitReply"
-              @cancel-reply="replyTo = null"
-            />
-          </div>
-        </div>
-      </section>
     </main>
   </div>
 
