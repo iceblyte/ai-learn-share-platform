@@ -7,11 +7,11 @@ import com.learning.platform.dto.AiChatRequest;
 import com.learning.platform.entity.ChatMessage;
 import com.learning.platform.entity.ChatSession;
 import com.learning.platform.service.ChatService;
+import com.learning.platform.service.ChatStreamFactory;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,9 +21,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+import reactor.core.publisher.Flux;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +38,7 @@ public class ChatController {
     private static final int MAX_SEARCH_LIMIT = 50;
 
     private final ChatService chatService;
+    private final ChatStreamFactory chatStreamFactory;
 
     @PostMapping("/sessions")
     public Result<ChatSession> createSession(@RequestBody(required = false) Map<String, Object> body,
@@ -83,28 +83,21 @@ public class ChatController {
         return Result.success(chatService.listMessagesByCursor(userId, id, beforeId, safeLimit));
     }
 
-    @PostMapping(value = "/sessions/{id}/messages", produces = MediaType.TEXT_PLAIN_VALUE)
-    public ResponseEntity<StreamingResponseBody> continueChat(
+    /**
+     * 会话内继续提问（标准 SSE，Reactive）：先同步校验会话所有权
+     * （403/404 走统一 JSON 异常处理），再由 ChatStreamFactory 以
+     * Reactor 流输出——event:message 逐 token 转发，done 收尾，error 报
+     * 基础设施失败。阻塞式聊天调用由 boundedElastic 承载。
+     */
+    @PostMapping(value = "/sessions/{id}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> continueChat(
             @PathVariable Long id,
             @Valid @RequestBody AiChatRequest request,
             Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-
-        StreamingResponseBody body = outputStream -> {
-            chatService.continueChat(userId, id, request, chunk -> {
-                try {
-                    outputStream.write(chunk.getBytes(StandardCharsets.UTF_8));
-                    outputStream.flush();
-                } catch (Exception ignored) {
-                }
-            });
-        };
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "no-cache")
-                .header("X-Accel-Buffering", "no")
-                .contentType(new MediaType("text", "plain", StandardCharsets.UTF_8))
-                .body(body);
+        chatService.getOwnedSession(userId, id);
+        return chatStreamFactory.stream(onChunk ->
+                chatService.continueChat(userId, id, request, onChunk));
     }
 
     @DeleteMapping("/sessions/{id}")

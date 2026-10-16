@@ -10,17 +10,16 @@ import com.learning.platform.service.AiService;
 import com.learning.platform.service.ChatContext;
 import com.learning.platform.service.ChatContextService;
 import com.learning.platform.service.ChatPromptBuilder;
+import com.learning.platform.service.ChatStreamFactory;
 import com.learning.platform.service.RecommendationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+import reactor.core.publisher.Flux;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +33,7 @@ public class AiController {
     private final RecommendationService recommendationService;
     private final ChatContextService chatContextService;
     private final ChatPromptBuilder chatPromptBuilder;
+    private final ChatStreamFactory chatStreamFactory;
 
     @PostMapping("/summary")
     public Result<Map<String, String>> generateSummary(@RequestBody Map<String, Long> body) {
@@ -72,26 +72,13 @@ public class AiController {
         return Result.success(reasons);
     }
 
-    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_PLAIN_VALUE)
-    public ResponseEntity<StreamingResponseBody> streamChat(@Valid @RequestBody AiChatRequest request) {
+    /** 匿名流式（标准 SSE，Reactive）：event:message 逐 token 转发，done 收尾，error 报基础设施失败 */
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> streamChat(@Valid @RequestBody AiChatRequest request) {
         ChatContext context = chatContextService.resolve(request);
         String systemPrompt = chatPromptBuilder.build(request.getRoute(), request.getPageTitle(), context);
-
-        StreamingResponseBody body = outputStream -> {
-            aiService.streamChat(request.getMessage(), systemPrompt, chunk -> {
-                try {
-                    outputStream.write(chunk.getBytes(StandardCharsets.UTF_8));
-                    outputStream.flush();
-                } catch (Exception ignored) {
-                }
-            });
-        };
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CACHE_CONTROL, "no-cache")
-                .header("X-Accel-Buffering", "no")
-                .contentType(new MediaType("text", "plain", StandardCharsets.UTF_8))
-                .body(body);
+        return chatStreamFactory.stream(onChunk ->
+                aiService.streamChat(request.getMessage(), systemPrompt, onChunk));
     }
 
     private PageResult<Map<String, Object>> toPage(List<Map<String, Object>> records, int page, int size) {

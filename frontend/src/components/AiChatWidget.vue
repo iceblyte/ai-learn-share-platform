@@ -368,24 +368,76 @@ async function sendMessage() {
       url = `/api/v1/chat/sessions/${sessionId}/messages`
     }
 
+    /**
+     * 标准 SSE（扩展五）：后端返回 text/event-stream，
+     * event:message 逐 token 转发 / done 收尾 / error 报基础设施失败。
+     * EventSource 不支持 POST + Authorization，因此仍用 fetch 手动解帧。
+     */
     const response = await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
     })
 
+    // 业务异常（403/404/校验失败）在建连前以 JSON 返回
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      let message = '聊天服务暂时不可用'
+      try {
+        const result = await response.json()
+        if (result?.message) message = result.message
+      } catch {
+        // JSON 解析失败就用默认文案
+      }
+      throw new Error(message)
+    }
     if (!response.ok || !response.body) {
       throw new Error('聊天服务暂时不可用')
     }
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+    let streamError = ''
+
+    const dispatchSseEvent = (eventName: string, data: string) => {
+      if (eventName === 'message') {
+        assistantMessage.content += data
+        messages.value = [...messages.value]
+      } else if (eventName === 'error') {
+        streamError = data
+      }
+      // done 事件无需处理：连接随即关闭，读循环自然结束
+    }
+
+    const parseSseFrame = (raw: string) => {
+      let eventName = 'message'
+      const dataLines: string[] = []
+      for (const line of raw.split('\n')) {
+        if (line.startsWith('event:')) {
+          eventName = line.slice(6).trim()
+        } else if (line.startsWith('data:')) {
+          // 按 SSE 规范去掉冒号后的单个可选空格
+          dataLines.push(line.slice(5).startsWith(' ') ? line.slice(6) : line.slice(5))
+        }
+      }
+      dispatchSseEvent(eventName, dataLines.join('\n'))
+    }
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      assistantMessage.content += decoder.decode(value, { stream: true })
-      messages.value = [...messages.value]
+      buffer += decoder.decode(value, { stream: true })
+      // SSE 事件以空行（\n\n）分隔
+      let separator: number
+      while ((separator = buffer.indexOf('\n\n')) !== -1) {
+        parseSseFrame(buffer.slice(0, separator))
+        buffer = buffer.slice(separator + 2)
+      }
+    }
+
+    if (streamError && !assistantMessage.content.trim()) {
+      assistantMessage.content = streamError
     }
   } catch (error: any) {
     assistantMessage.content = error?.message || '聊天服务暂时不可用'

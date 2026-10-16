@@ -286,6 +286,14 @@ public class ChatService {
 
     // ---------- 所有权 ----------
 
+    /**
+     * 供 SSE 流式端点在建连前同步校验：不通过则抛 BusinessException（403/404），
+     * 走统一 JSON 异常处理返回；通过后异步链路无需重复处理越权。
+     */
+    public ChatSession getOwnedSession(Long userId, Long sessionId) {
+        return requireOwnedSession(userId, sessionId);
+    }
+
     private ChatSession requireOwnedSession(Long userId, Long sessionId) {
         ChatSession session = sessionMapper.selectById(sessionId);
         if (session == null || (session.getIsDeleted() != null && session.getIsDeleted() == 1)) {

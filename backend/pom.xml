@@ -43,6 +43,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        <!-- Reactive 栈（混合架构）：主栈仍是 Spring MVC/Tomcat（MyBatis 与
+             Servlet Security 均为阻塞生态），仅流式聊天端点返回 Reactor 类型，
+             由 MVC 的 ReactiveTypeHandler 以 text/event-stream 流式写出。
+             同时引入 WebClient 供后续 Reactive 调用使用。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
