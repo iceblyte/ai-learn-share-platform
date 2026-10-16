@@ -21,6 +21,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '资源详情' },
   },
   {
+    path: '/ai-chat',
+    name: 'AiChat',
+    component: () => import('@/views/AiChat.vue'),
+    meta: { title: 'AI 对话' },
+  },
+  {
     path: '/publish',
     name: 'Publish',
     component: () => import('@/views/Publish.vue'),

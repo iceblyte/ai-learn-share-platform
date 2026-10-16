@@ -56,6 +56,17 @@ function handleLogout() {
         <!-- User Menu -->
         <div class="flex items-center gap-4">
           <router-link
+            to="/ai-chat"
+            class="flex items-center gap-1 text-sm text-slate-600 hover:text-primary-500 font-medium"
+            title="AI 对话"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h8M8 14h5m-9 6l2.4-3.2A2 2 0 017 16h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v14z"/>
+            </svg>
+            <span class="hidden sm:inline">AI 对话</span>
+          </router-link>
+
+          <router-link
             v-if="userStore.isLoggedIn && userStore.isPublisher"
             to="/publish"
             class="text-sm text-slate-600 hover:text-primary-500 font-medium"
