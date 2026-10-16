@@ -75,6 +75,9 @@ public class SearchController {
         Map<String, Object> localIntent = buildLocalIntent(request.getQuery());
         Map<String, Object> intent = new LinkedHashMap<>(localIntent);
 
+        // 页面上手动选择的排序/筛选优先于解析结果（首轮 + AI 兜底轮都要覆盖）
+        applyManualOverrides(intent, request);
+
         // Extract parameters from parsed intent
         List<String> keywords = toStringList(intent.get("keywords"));
 
@@ -116,6 +119,7 @@ public class SearchController {
                 Map<String, Object> aiIntent = objectMapper.readValue(parsed, new TypeReference<>() {});
                 intent.putAll(aiIntent);
                 mergeLocalCorrections(intent, localIntent);
+                applyManualOverrides(intent, request);
                 keywords = toStringList(intent.get("keywords"));
                 categoryId = null;
                 Object aiCategoryObj = intent.get("category");
@@ -347,6 +351,28 @@ public class SearchController {
         return Result.success(null);
     }
 
+    /**
+     * 把页面上手动选择的排序/筛选条件覆盖到解析意图上（仅在用户确实选择了时生效）。
+     * 覆盖写回 intent 的同时供提取逻辑读取，保证宽松兜底轮也沿用手动条件。
+     */
+    private void applyManualOverrides(Map<String, Object> intent, NlSearchRequest request) {
+        if (request.getSortBy() != null && !request.getSortBy().isBlank()) {
+            intent.put("sortBy", request.getSortBy());
+        }
+        if (request.getCategoryId() != null) {
+            String name = findCategoryNameById(categoryService.getTree(), request.getCategoryId());
+            if (name != null) {
+                intent.put("category", name);
+            }
+        }
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            intent.put("tags", request.getTags());
+        }
+        if (request.getMinRating() != null) {
+            intent.put("minRating", request.getMinRating());
+        }
+    }
+
     private Long findCategoryId(List<Category> categories, String name) {
         for (Category cat : categories) {
             if (cat.getName().contains(name) || name.contains(cat.getName())) {
@@ -367,6 +393,19 @@ public class SearchController {
             }
             if (cat.getChildren() != null) {
                 String found = findCategoryName(cat.getChildren(), query);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private String findCategoryNameById(List<Category> categories, Long id) {
+        for (Category cat : categories) {
+            if (id.equals(cat.getId())) {
+                return cat.getName();
+            }
+            if (cat.getChildren() != null) {
+                String found = findCategoryNameById(cat.getChildren(), id);
                 if (found != null) return found;
             }
         }
