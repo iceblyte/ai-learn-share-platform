@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * AI 助手头像（方案 A「星辉」机器人）：品牌渐变底 + 天线星 + 屏幕笑脸。
- * 与 BrandMark 同一渐变体系；消息气泡 / AI 对话页欢迎区共用。
+ * AI 助手头像（方案 A「星辉」机器人）：品牌青蓝渐变底 + 天线星 + 屏幕笑脸。
+ * 渐变与 BrandMark（站点 logo）同源，全站品牌色统一；消息气泡 / 悬浮球 / 对话页欢迎区共用。
  */
 </script>
 
@@ -9,8 +9,8 @@
   <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
       <linearGradient id="aiBg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#2E7CF6" />
-        <stop offset="1" stop-color="#7C3AED" />
+        <stop offset="0" stop-color="#22B7EE" />
+        <stop offset="1" stop-color="#3B5BE8" />
       </linearGradient>
       <linearGradient id="aiFace" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0" stop-color="#FFFFFF" />
