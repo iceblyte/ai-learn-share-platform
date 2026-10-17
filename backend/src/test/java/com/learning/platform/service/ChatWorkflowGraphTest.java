@@ -18,6 +18,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -78,6 +79,12 @@ class ChatWorkflowGraphTest {
     @Mock
     private ImageCollector imageCollector;
 
+    @Mock
+    private ModerationService moderationService;
+
+    @Mock
+    private ContentRevisionService contentRevisionService;
+
     private final ChatPromptBuilder promptBuilder = new ChatPromptBuilder();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -89,12 +96,16 @@ class ChatWorkflowGraphTest {
         when(chatToolRegistry.specifications()).thenReturn(List.of());
         when(chatToolRegistry.describeTools()).thenReturn(List.of());
         when(resourceSearchTool.name()).thenReturn("search_resources");
+        // 默认审查放行；审查相关用例各自覆盖此桩
+        when(moderationService.review(anyString()))
+                .thenReturn(new ModerationService.ModerationResult(true, List.of(), "local"));
         // Mockito 默认：imageCollector.start(any()) 返回 null → 不进 imageCollect 节点
     }
 
     private ChatWorkflowService newService(boolean enabled) {
         return new ChatWorkflowService(aiService, chatToolRegistry, promptBuilder,
-                resourceSearchTool, objectMapper, imageCollector, enabled);
+                resourceSearchTool, objectMapper, imageCollector,
+                moderationService, contentRevisionService, enabled);
     }
 
     private ChatWorkflowService.WorkflowResult run(ChatWorkflowService service, String selectedText) {
@@ -241,5 +252,106 @@ class ChatWorkflowGraphTest {
                 .isEqualTo("边际效应");
         assertThat(ChatWorkflowService.extractKeyword("Java并发编程实战笔记"))
                 .isEqualTo("Java并发编程实战笔记");
+    }
+
+    // ---------- Phase 3：审查回路 ----------
+
+    /** 审查桩：按回答文本是否含"违规"给出 FLAGGED/PASS */
+    private void moderateByContent() {
+        when(moderationService.review(anyString())).thenAnswer(inv -> {
+            String content = inv.getArgument(0);
+            if (content != null && content.contains("违规")) {
+                return new ModerationService.ModerationResult(false, List.of("违规片段"), "local");
+            }
+            return new ModerationService.ModerationResult(true, List.of(), "local");
+        });
+    }
+
+    @Test
+    @DisplayName("审查通过：无 reset/moderated 事件，最终回答写回记忆")
+    void moderationPasses_noSideEffects() {
+        when(aiService.streamGenerate(eq(7L), anyString(), anyString(), any(), anyBoolean(),
+                any(), any(), any(), any()))
+                .thenReturn(new AiService.StreamingResult("干净的回答", 10, null));
+        moderateByContent();
+
+        RecordingEmitter emitter = new RecordingEmitter();
+        ChatWorkflowService.WorkflowResult result = newService(true).run(1L, 7L,
+                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, emitter);
+
+        assertThat(result.status()).isEqualTo("OK");
+        assertThat(emitter.resets).isZero();
+        assertThat(emitter.moderated).isEmpty();
+        verify(aiService).appendAssistantToMemory(eq(7L), eq("干净的回答"));
+        verify(aiService, never()).removeLastExchange(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    @DisplayName("违规回答：增量改写成功 → reset 后流式重发修订文本，审查通过收尾")
+    void violation_thenRevisionSucceeds() {
+        when(aiService.streamGenerate(eq(7L), anyString(), anyString(), any(), anyBoolean(),
+                any(), any(), any(), any()))
+                .thenReturn(new AiService.StreamingResult("回答里有违规片段", 10, null));
+        moderateByContent();
+        when(contentRevisionService.revise(anyString(), anyList()))
+                .thenReturn("回答已修订为安全表述");
+
+        RecordingEmitter emitter = new RecordingEmitter();
+        ChatWorkflowService.WorkflowResult result = newService(true).run(1L, 7L,
+                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, emitter);
+
+        assertThat(result.status()).isEqualTo("OK");
+        assertThat(result.content()).isEqualTo("回答已修订为安全表述");
+        assertThat(emitter.resets).isEqualTo(1);
+        assertThat(emitter.texts).contains("回答已修订为安全表述");
+        assertThat(emitter.tools).contains("revise_content");
+        assertThat(emitter.moderated).isEmpty();
+        verify(aiService).appendAssistantToMemory(eq(7L), eq("回答已修订为安全表述"));
+    }
+
+    @Test
+    @DisplayName("改写两轮仍违规：重答一次（不重复写 user 消息），重答通过")
+    void revisionsExhausted_thenRegenerationPasses() {
+        when(aiService.streamGenerate(eq(7L), anyString(), anyString(), any(), anyBoolean(),
+                any(), any(), any(), any()))
+                .thenReturn(new AiService.StreamingResult("违规的回答", 10, null),
+                        new AiService.StreamingResult("重答的安全回答", 12, null));
+        moderateByContent();
+        when(contentRevisionService.revise(anyString(), anyList()))
+                .thenReturn("改写后仍违规的回答");
+
+        RecordingEmitter emitter = new RecordingEmitter();
+        ChatWorkflowService.WorkflowResult result = newService(true).run(1L, 7L,
+                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, emitter);
+
+        assertThat(result.status()).isEqualTo("OK");
+        assertThat(result.content()).isEqualTo("重答的安全回答");
+        assertThat(emitter.resets).isEqualTo(3); // 改写×2 + 重答×1
+        assertThat(emitter.moderated).isEmpty();
+        verify(aiService).streamGenerate(eq(7L), anyString(), eq("解释一下这个概念"),
+                any(), eq(false), any(), any(), any(), any()); // 重答不重复写 user 消息
+        verify(aiService).appendAssistantToMemory(eq(7L), eq("重答的安全回答"));
+    }
+
+    @Test
+    @DisplayName("改写与重答均失败：撤回——moderated 事件 + status=MODERATED + 清理本轮记忆")
+    void alwaysViolating_moderated() {
+        when(aiService.streamGenerate(eq(7L), anyString(), anyString(), any(), anyBoolean(),
+                any(), any(), any(), any()))
+                .thenReturn(new AiService.StreamingResult("违规的回答", 10, null));
+        when(moderationService.review(anyString()))
+                .thenReturn(new ModerationService.ModerationResult(false, List.of("违规片段"), "local"));
+        when(contentRevisionService.revise(anyString(), anyList())).thenReturn(null); // 改写不可用
+
+        RecordingEmitter emitter = new RecordingEmitter();
+        ChatWorkflowService.WorkflowResult result = newService(true).run(1L, 7L,
+                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, emitter);
+
+        assertThat(result.status()).isEqualTo("MODERATED");
+        assertThat(result.content()).isEqualTo("该内容涉嫌违规，无法显示");
+        assertThat(emitter.moderated).containsExactly("该内容涉嫌违规，无法显示");
+        verify(aiService).removeLastExchange(eq(7L));
+        verify(aiService, never()).appendAssistantToMemory(org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 }

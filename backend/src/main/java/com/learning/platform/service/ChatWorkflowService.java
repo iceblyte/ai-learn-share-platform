@@ -26,10 +26,17 @@ import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 /**
  * AI 聊天工作流（LangGraph4j 图编排）。
  *
- * <p>Phase 1 链路：START → route（条件边：有划词走 search，否则直达）
- * → generate（复用 {@link AiService#streamGenerate} 流式桥）→ END。
+ * <p>链路：START → route（条件边：有划词走 search，否则直达）
+ * → generate（复用 {@link AiService#streamGenerate} 流式桥）
+ * → [imageCollect（有取图会话时）] → moderate（审查回路：
+ * 违规 → revise_content 增量改写 ×2 → 重答 ×1 → 仍违规则撤回）→ END。
  * search 节点确定式调用 {@link ResourceSearchTool}（不再依赖模型自觉），
  * 结果经 {@link ChatPromptBuilder#appendSearchResults} 注入生成提示词。</p>
+ *
+ * <p><b>记忆写入纪律</b>：生成路径不写记忆——最终回答只在审查通过后
+ * 经 {@link AiService#appendAssistantToMemory} 落记忆；撤回时经
+ * {@link AiService#removeLastExchange} 移除本轮 user 提问，违规内容
+ * 不会污染后续对话上下文。</p>
  *
  * <p><b>序列化边界</b>：langgraph4j 在节点间对状态做深拷贝，图状态
  * （{@link ChatWorkflowState}）只承载可序列化数据；SSE emitter 与
@@ -42,6 +49,9 @@ public class ChatWorkflowService {
 
     static final int KEYWORD_MAX_LENGTH = 20;
     static final String MODERATION_NOTICE = "该内容涉嫌违规，无法显示";
+    /** 审查回路重试上限：增量改写 ×2 → 重答 ×1 → 撤回 */
+    static final int MAX_REVISE_ATTEMPTS = 2;
+    static final int MAX_REGEN_ATTEMPTS = 1;
 
     /** 划选文本常见问句后缀（剥掉再检索，提高 LIKE 命中率） */
     private static final String[] QUESTION_SUFFIXES = {
@@ -58,6 +68,8 @@ public class ChatWorkflowService {
     private final ResourceSearchTool resourceSearchTool;
     private final ObjectMapper objectMapper;
     private final ImageCollector imageCollector;
+    private final ModerationService moderationService;
+    private final ContentRevisionService contentRevisionService;
     private final boolean enabled;
 
     public ChatWorkflowService(AiService aiService,
@@ -66,6 +78,8 @@ public class ChatWorkflowService {
                                ResourceSearchTool resourceSearchTool,
                                ObjectMapper objectMapper,
                                ImageCollector imageCollector,
+                               ModerationService moderationService,
+                               ContentRevisionService contentRevisionService,
                                @Value("${ai.workflow.enabled:true}") boolean enabled) {
         this.aiService = aiService;
         this.chatToolRegistry = chatToolRegistry;
@@ -73,6 +87,8 @@ public class ChatWorkflowService {
         this.resourceSearchTool = resourceSearchTool;
         this.objectMapper = objectMapper;
         this.imageCollector = imageCollector;
+        this.moderationService = moderationService;
+        this.contentRevisionService = contentRevisionService;
         this.enabled = enabled;
         log.info("Chat workflow service initialized (enabled={})", enabled);
     }
@@ -157,6 +173,14 @@ public class ChatWorkflowService {
                 case "MODERATED" -> MODERATION_NOTICE;
                 default -> finalState.error().isBlank() ? "AI 服务请求失败，请稍后再试。" : finalState.error();
             };
+            // 记忆收尾：通过才写回答；撤回则移除本轮提问（违规内容不进上下文）
+            if (sessionId != null) {
+                if ("OK".equals(status)) {
+                    aiService.appendAssistantToMemory(sessionId, content);
+                } else if ("MODERATED".equals(status)) {
+                    aiService.removeLastExchange(sessionId);
+                }
+            }
             return new WorkflowResult(content, finalState.tokensUsed(), status,
                     finalState.imagesJson().isBlank() ? null : finalState.imagesJson(),
                     "FAILED".equals(status) ? content : null);
@@ -176,15 +200,26 @@ public class ChatWorkflowService {
                     .addNode("search", node_async(state -> searchNode(state, ctx)))
                     .addNode("generate", node_async(state -> generateNode(state, ctx)))
                     .addNode("imageCollect", node_async(state -> imageCollectNode(state, ctx)))
+                    .addNode("moderate", node_async(this::moderateNode))
+                    .addNode("revise", node_async(state -> reviseNode(state, ctx)))
+                    .addNode("regen", node_async(state -> regenNode(state, ctx)))
+                    .addNode("moderated", node_async(state -> moderatedNode(state, ctx)))
                     .addEdge(START, "route")
                     .addConditionalEdges("route", edge_async(this::routeAfter),
                             Map.of("search", "search", "generate", "generate"))
                     .addEdge("search", "generate")
-                    // 取图会话已点火才进 imageCollect（节点内 await 收尾），否则直达终局
+                    // 取图会话已点火才进 imageCollect（节点内 await 收尾），否则直达审查
                     .addConditionalEdges("generate", edge_async(state -> ctx.imageSession() != null
-                                    ? "imageCollect" : "finish"),
-                            Map.of("imageCollect", "imageCollect", "finish", END))
-                    .addEdge("imageCollect", END);
+                                    ? "imageCollect" : "moderate"),
+                            Map.of("imageCollect", "imageCollect", "moderate", "moderate"))
+                    .addEdge("imageCollect", "moderate")
+                    .addConditionalEdges("moderate", edge_async(this::afterModerate),
+                            Map.of("pass", END, "revise", "revise", "regen", "regen",
+                                    "moderated", "moderated"))
+                    // revise/regen 产物重新送审（回路出口仅 pass/moderated，不无限循环）
+                    .addEdge("revise", "moderate")
+                    .addEdge("regen", "moderate")
+                    .addEdge("moderated", END);
             return workflow.compile();
         } catch (Exception e) {
             throw new IllegalStateException("聊天工作流图装配失败", e);
@@ -216,17 +251,20 @@ public class ChatWorkflowService {
         return Map.of(ChatWorkflowState.SEARCH_RESULTS_JSON, failed ? "" : result);
     }
 
-    /** generate 节点：组装提示词（基础 + 检索结果）→ 复用 AiService 流式生成 */
-    private Map<String, Object> generateNode(ChatWorkflowState state, RunContext ctx) {
+    /** generate/regen 共用：基础提示词（页面上下文 + 工具清单）+ 检索结果注入 */
+    private String buildSystemPrompt(ChatWorkflowState state) {
         boolean onResourcePage = ChatContext.TYPE_RESOURCE.equals(state.pageContextType());
         Long pageResourceId = onResourcePage ? state.pageContextId().orElse(null) : null;
         String basePrompt = chatPromptBuilder.buildToolMode(state.route(), state.pageTitle(),
                 state.selectedText(), pageResourceId, chatToolRegistry.describeTools());
-        String systemPrompt = chatPromptBuilder.appendSearchResults(basePrompt, state.searchResultsJson());
+        return chatPromptBuilder.appendSearchResults(basePrompt, state.searchResultsJson());
+    }
 
+    /** generate 节点：组装提示词（基础 + 检索结果）→ 复用 AiService 流式生成 */
+    private Map<String, Object> generateNode(ChatWorkflowState state, RunContext ctx) {
         AiService.StreamingResult result = aiService.streamGenerate(
                 ctx.sessionId(),
-                systemPrompt,
+                buildSystemPrompt(state),
                 state.message(),
                 generateToolSpecs(),
                 true,
@@ -242,6 +280,82 @@ public class ChatWorkflowService {
         return Map.of(ChatWorkflowState.ANSWER, result.content(),
                 ChatWorkflowState.TOKENS_USED, result.tokensUsed() == null ? 0 : result.tokensUsed(),
                 ChatWorkflowState.STATUS, "OK");
+    }
+
+    // ---------- 审查回路节点 ----------
+
+    /** moderate 节点：双通道审查；失败/空回答不进审查（保持既有状态直通终局） */
+    private Map<String, Object> moderateNode(ChatWorkflowState state) {
+        if (!"OK".equals(state.status()) || state.answer().isBlank()) {
+            return Map.of(ChatWorkflowState.VERDICT, "PASS");
+        }
+        ModerationService.ModerationResult result = moderationService.review(state.answer());
+        if (result.clean()) {
+            return Map.of(ChatWorkflowState.VERDICT, "PASS");
+        }
+        return Map.of(ChatWorkflowState.VERDICT, "FLAGGED",
+                ChatWorkflowState.FLAGGED_SEGMENTS, result.fragments(),
+                ChatWorkflowState.FLAG_REASON, result.channel());
+    }
+
+    /** moderate 条件边：PASS 直通终局；FLAGGED 按剩余重试额度走 revise/regen/moderated */
+    private String afterModerate(ChatWorkflowState state) {
+        if (!"FLAGGED".equals(state.verdict())) {
+            return "pass";
+        }
+        if (state.reviseAttempts() < MAX_REVISE_ATTEMPTS) {
+            return "revise";
+        }
+        if (state.regenAttempts() < MAX_REGEN_ATTEMPTS) {
+            return "regen";
+        }
+        return "moderated";
+    }
+
+    /** revise 节点（revise_content 工具）：增量改写违规片段 → reset 后整段重发 */
+    private Map<String, Object> reviseNode(ChatWorkflowState state, RunContext ctx) {
+        int attempt = state.reviseAttempts() + 1;
+        ctx.emitter().tool("revise_content");
+        String revised = contentRevisionService.revise(state.answer(), state.flaggedSegments());
+        if (revised == null || revised.isBlank()) {
+            // 改写不可用：保留原答案与 verdict，下轮审查后按剩余额度走重答
+            return Map.of(ChatWorkflowState.REVISE_ATTEMPTS, attempt);
+        }
+        ctx.emitter().reset();
+        ctx.emitter().text(revised);
+        return Map.of(ChatWorkflowState.ANSWER, revised,
+                ChatWorkflowState.REVISE_ATTEMPTS, attempt);
+    }
+
+    /** regen 节点：重新回答（不重复写 user 消息——首轮提问已在记忆中） */
+    private Map<String, Object> regenNode(ChatWorkflowState state, RunContext ctx) {
+        int attempt = state.regenAttempts() + 1;
+        ctx.emitter().reset();
+        AiService.StreamingResult result = aiService.streamGenerate(
+                ctx.sessionId(),
+                buildSystemPrompt(state),
+                state.message(),
+                generateToolSpecs(),
+                false,
+                ctx.toolContext(),
+                ctx.emitter()::text,
+                ctx.emitter()::tool,
+                ctx.emitter()::reset);
+        if (result.failed() || result.content() == null) {
+            // 基础设施失败：错误文案已随流发出，FAILED 状态经 moderate 直通终局
+            return Map.of(ChatWorkflowState.REGEN_ATTEMPTS, attempt,
+                    ChatWorkflowState.STATUS, "FAILED",
+                    ChatWorkflowState.ERROR, result.errorMessage() == null ? "" : result.errorMessage());
+        }
+        return Map.of(ChatWorkflowState.ANSWER, result.content(),
+                ChatWorkflowState.TOKENS_USED, result.tokensUsed() == null ? 0 : result.tokensUsed(),
+                ChatWorkflowState.REGEN_ATTEMPTS, attempt);
+    }
+
+    /** moderated 节点：终审不过——撤回正文，前端显示违规提示 */
+    private Map<String, Object> moderatedNode(ChatWorkflowState state, RunContext ctx) {
+        ctx.emitter().moderated(MODERATION_NOTICE);
+        return Map.of(ChatWorkflowState.STATUS, "MODERATED");
     }
 
     // ---------- 关键词提取 ----------

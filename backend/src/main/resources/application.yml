@@ -83,6 +83,7 @@ ai:
   moderation:
     ai-review-enabled: ${AI_MODERATION_AI_REVIEW:true}
     ai-review-timeout-ms: ${AI_MODERATION_TIMEOUT_MS:15000}
+    revision-max-tokens: ${AI_MODERATION_REVISION_TOKENS:1024}
 
 # MyBatis-Plus
 mybatis-plus:

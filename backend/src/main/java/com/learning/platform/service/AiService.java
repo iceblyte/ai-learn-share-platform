@@ -313,6 +313,67 @@ public class AiService {
     }
 
     /**
+     * 撤回场景的会话记忆清理：移除尾部一对 user(+Ai) 消息。
+     *
+     * <p>回答违规被撤回时，本轮 user 提问不应留在记忆里（模型对"被撤回
+     * 的提问"一无所知，下轮会答非所问）；生成路径从不把违规回答写入
+     * 记忆，故通常只需移除 user。防御性兼容尾部残留 AiMessage 的情形。
+     * store 故障吞掉不外抛——撤回流程不因 Redis 异常中断。</p>
+     */
+    public void removeLastExchange(Long sessionId) {
+        if (sessionId == null) {
+            return;
+        }
+        try {
+            List<ChatMessage> messages = new ArrayList<>(chatMemoryStore.getMessages(sessionId));
+            if (!messages.isEmpty() && messages.get(messages.size() - 1) instanceof AiMessage) {
+                messages.remove(messages.size() - 1);
+            }
+            if (!messages.isEmpty() && messages.get(messages.size() - 1) instanceof UserMessage) {
+                messages.remove(messages.size() - 1);
+            }
+            chatMemoryStore.updateMessages(sessionId, messages);
+        } catch (Exception e) {
+            log.warn("Failed to remove last exchange from memory: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 阻塞式单轮调用（JSON 输出专用）：响应按 {...} 截取，
+     * 供审查等结构化判定使用。失败/未配置返回 null。
+     */
+    public String completeJson(String prompt, int maxTokens, int timeoutMs) {
+        return complete(prompt, maxTokens, timeoutMs, true);
+    }
+
+    /**
+     * 阻塞式单轮调用（纯文本输出）：不做 {...} 截取——改写原文含
+     * 代码块时大括号不能被误当 JSON 边界。失败/未配置返回 null。
+     */
+    public String completeText(String prompt, int maxTokens, int timeoutMs) {
+        return complete(prompt, maxTokens, timeoutMs, false);
+    }
+
+    private String complete(String prompt, int maxTokens, int timeoutMs, boolean extractJson) {
+        if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
+            log.warn("AI API key is not configured, skipping remote call");
+            return null;
+        }
+        try {
+            return callChatCompletions(List.of(Map.of("role", "user", "content", prompt)),
+                    maxTokens, timeoutMs, extractJson);
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            if (msg != null && (msg.contains("429") || msg.contains("quota") || msg.contains("RESOURCE_EXHAUSTED"))) {
+                log.warn("AI API quota exhausted (429), skipping: {}", msg.length() > 100 ? msg.substring(0, 100) : msg);
+            } else {
+                log.error("AI API call error: {}", msg);
+            }
+            return null;
+        }
+    }
+
+    /**
      * function calling 主循环：模型 ↔ 工具 多轮往返。
      *
      * <p>每轮把当前对话（含工具结果）发给模型；响应携带工具调用请求时，
@@ -445,7 +506,7 @@ public class AiService {
             return null;
         }
         try {
-            return callChatCompletions(List.of(Map.of("role", "user", "content", prompt)), maxTokens, readTimeoutMs);
+            return callChatCompletions(List.of(Map.of("role", "user", "content", prompt)), maxTokens, readTimeoutMs, true);
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg != null && (msg.contains("429") || msg.contains("quota") || msg.contains("RESOURCE_EXHAUSTED"))) {
@@ -457,7 +518,8 @@ public class AiService {
         }
     }
 
-    private String callChatCompletions(List<Map<String, Object>> messages, int requestedMaxTokens, int timeoutMs) throws Exception {
+    private String callChatCompletions(List<Map<String, Object>> messages, int requestedMaxTokens,
+                                       int timeoutMs, boolean extractJson) throws Exception {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/chat/completions"))
                 .timeout(Duration.ofMillis(timeoutMs))
@@ -491,10 +553,12 @@ public class AiService {
         }
 
         content = content.trim();
-        int jsonStart = content.indexOf('{');
-        int jsonEnd = content.lastIndexOf('}');
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-            content = content.substring(jsonStart, jsonEnd + 1);
+        if (extractJson) {
+            int jsonStart = content.indexOf('{');
+            int jsonEnd = content.lastIndexOf('}');
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                content = content.substring(jsonStart, jsonEnd + 1);
+            }
         }
         return content;
     }
