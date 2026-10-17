@@ -1,10 +1,13 @@
 <script setup lang="ts">
 /**
  * 会话列表（悬浮球抽屉与全屏对话页共用）：
- * 新建、搜索、内联重命名、删除、分页"加载更多"。
+ * 新建、搜索、内联重命名、删除（弹窗确认）、分页"加载更多"。
  * 直接接收 useAiChat 组合式对象，避免多视图重复事件转发。
  */
+import { ref } from 'vue'
 import type { useAiChat } from '@/composables/useAiChat'
+import type { ChatSessionItem } from '@/api/chat'
+import AppModal from '@/components/AppModal.vue'
 
 type Chat = ReturnType<typeof useAiChat>
 
@@ -18,9 +21,20 @@ const emit = defineEmits<{
   create: []
 }>()
 
+/** 待删除会话（非 null 时展示确认弹窗） */
+const pendingDelete = ref<ChatSessionItem | null>(null)
+
 function onCreate() {
   props.chat.startNewSession()
   emit('create')
+}
+
+async function confirmDelete() {
+  const session = pendingDelete.value
+  pendingDelete.value = null
+  if (session) {
+    await props.chat.removeSession(session.id)
+  }
 }
 </script>
 
@@ -115,7 +129,7 @@ function onCreate() {
           <button
             class="shrink-0 rounded p-1 text-slate-300 opacity-0 transition group-hover:opacity-100 hover:text-red-500"
             title="删除会话"
-            @click.stop="chat.removeSession(session.id)"
+            @click.stop="pendingDelete = session"
           >
             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -135,5 +149,26 @@ function onCreate() {
         {{ chat.historyLoading.value ? '加载中...' : `加载更多（已显示 ${chat.sessions.value.length}/${chat.sessionsTotal.value}）` }}
       </button>
     </div>
+
+    <!-- 删除会话确认弹窗 -->
+    <AppModal :visible="!!pendingDelete" title="删除会话" width="380px" @close="pendingDelete = null">
+      <p class="text-sm leading-6 text-slate-600">
+        确定删除「{{ pendingDelete?.title || '未命名会话' }}」吗？该会话的全部对话记录将被删除，无法恢复。
+      </p>
+      <template #footer>
+        <button
+          class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-50"
+          @click="pendingDelete = null"
+        >
+          取消
+        </button>
+        <button
+          class="rounded-lg bg-red-500 px-4 py-2 text-sm text-white transition hover:bg-red-600"
+          @click="confirmDelete"
+        >
+          删除
+        </button>
+      </template>
+    </AppModal>
   </div>
 </template>
