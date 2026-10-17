@@ -37,7 +37,6 @@ const showPreview = ref(false)
 const showDraftModal = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
-const tagInput = ref('')
 const tagFilter = ref('')
 
 /** 标签面板：按关键词过滤热门标签 */
@@ -57,7 +56,7 @@ const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 onMounted(async () => {
   const [catRes, tagRes] = await Promise.all([
     categoryApi.getTree(),
-    tagApi.getHot(50),
+    tagApi.getList(),
   ])
   categories.value = catRes.data.data
   tags.value = tagRes.data.data
@@ -100,7 +99,6 @@ function addTag(tag: string) {
   if (name && !form.value.tags.includes(name) && form.value.tags.length < 10) {
     form.value.tags.push(name)
   }
-  tagInput.value = ''
 }
 
 function toggleTag(name: string) {
@@ -398,28 +396,11 @@ function handlePreview() {
             </button>
           </span>
         </div>
-        <!-- 自定义标签输入 -->
-        <div class="relative mb-3">
-          <input
-            v-model="tagInput"
-            type="text"
-            placeholder="没有合适的？输入自定义标签，回车添加..."
-            class="w-full border border-slate-300 rounded-lg px-4 py-2 pr-16 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            @keyup.enter.prevent="addTag(tagInput)"
-          />
-          <button
-            v-if="tagInput.trim()"
-            type="button"
-            @click="addTag(tagInput)"
-            class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-primary-600 hover:text-primary-700"
-          >
-            添加
-          </button>
-        </div>
-        <!-- 标签选择面板：热门标签 + 搜索 -->
+        <!-- 自定义标签输入：已移除——标签由管理员在后台统一维护，避免重复/变体污染标签池 -->
+        <!-- 标签选择面板：管理员维护的标签池 + 搜索 -->
         <div class="border border-slate-200 rounded-lg overflow-hidden">
           <div class="flex items-center justify-between gap-3 px-3 py-2 border-b border-slate-100 bg-slate-50">
-            <span class="text-xs font-medium text-slate-500">热门</span>
+            <span class="text-xs font-medium text-slate-500">标签池（管理员维护）</span>
             <div class="relative">
               <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -448,7 +429,7 @@ function handlePreview() {
               {{ hasTag(tag.name) ? '✓ ' : '' }}{{ tag.name }}
             </button>
             <p v-if="!filteredTags.length" class="text-xs text-slate-400 py-2">
-              没有匹配的热门标签，可用上方输入框自定义添加
+              没有匹配的标签，可联系管理员在后台添加
             </p>
           </div>
         </div>
