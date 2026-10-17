@@ -2,6 +2,7 @@ package com.learning.platform.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.learning.platform.common.BusinessException;
 import com.learning.platform.common.PageResult;
@@ -10,6 +11,7 @@ import com.learning.platform.entity.*;
 import com.learning.platform.mapper.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -72,15 +74,30 @@ public class ResourceService {
         return PageResult.from(result);
     }
 
-    public Resource getDetail(Long id) {
+    public Resource getDetail(Long id, Authentication authentication) {
         Resource resource = resourceMapper.selectById(id);
         if (resource == null) {
             throw BusinessException.notFound("资源不存在");
         }
-        // Increment view count
+        // 审核流：非 PUBLISHED 资源（待审核/已拒绝/草稿）仅作者本人与管理员可见
+        if (!"PUBLISHED".equals(resource.getStatus()) && !canViewUnpublished(resource, authentication)) {
+            throw BusinessException.notFound("资源不存在");
+        }
+        // 浏览量原子自增（不走实体更新：避免并发丢计数，也避免顺带刷新 updated_at）
+        resourceMapper.update(null, Wrappers.<Resource>lambdaUpdate()
+                .eq(Resource::getId, id)
+                .setSql("view_count = view_count + 1"));
         resource.setViewCount(resource.getViewCount() + 1);
-        resourceMapper.updateById(resource);
         return enrichResource(resource);
+    }
+
+    private boolean canViewUnpublished(Resource resource, Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Long userId)) {
+            return false;
+        }
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(granted -> "ROLE_ADMIN".equals(granted.getAuthority()));
+        return isAdmin || userId.equals(resource.getPublisherId());
     }
 
     @Transactional
@@ -131,7 +148,8 @@ public class ResourceService {
         resource.setAvgRating(BigDecimal.ZERO);
         resource.setRatingCount(0);
         resource.setHotScore(0);
-        resource.setStatus(isDraft ? "DRAFT" : "PUBLISHED");
+        // 审核流：发布动作不直接上线，进入待审核，由管理员在后台审核通过后变为 PUBLISHED
+        resource.setStatus(isDraft ? "DRAFT" : "PENDING");
         resourceMapper.insert(resource);
 
         // Handle tags
@@ -213,7 +231,12 @@ public class ResourceService {
         }
         log.info("Update {} - reqStatus='{}', curStatus='{}'", id, request.getStatus(), resource.getStatus());
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            resource.setStatus(request.getStatus());
+            String nextStatus = request.getStatus();
+            // 审核流约束：作者端不能把未发布资源直接置为 PUBLISHED，一律先进待审核
+            if ("PUBLISHED".equals(nextStatus) && !"PUBLISHED".equals(resource.getStatus())) {
+                nextStatus = "PENDING";
+            }
+            resource.setStatus(nextStatus);
         }
         resourceMapper.updateById(resource);
         Resource after = resourceMapper.selectById(id);

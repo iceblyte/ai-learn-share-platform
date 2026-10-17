@@ -188,7 +188,7 @@ async function submitApplication() {
 }
 
 function getStatusLabel(status: string) {
-  const map: Record<string, string> = { PUBLISHED: '已发布', PENDING: '审核中', REJECTED: '已拒绝', DRAFT: '草稿' }
+  const map: Record<string, string> = { PUBLISHED: '已发布', PENDING: '待审核', REJECTED: '已拒绝', DRAFT: '草稿' }
   return map[status] || status
 }
 

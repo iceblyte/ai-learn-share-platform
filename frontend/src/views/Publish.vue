@@ -236,12 +236,11 @@ async function handleSubmit() {
       resourceType: form.value.resourceType,
       externalUrl: form.value.externalUrl || undefined,
     }
-    // 编辑已有资源时，始终显式设置状态
-    // 草稿 → PUBLISHED，已发布资源保持 PUBLISHED
-    if (isEdit.value && editStatus.value === 'DRAFT') {
+    // 审核流：新发布 / 草稿发布 / 被拒重投 → 待审核；已发布资源的修改保持已发布
+    if (isEdit.value && editStatus.value === 'PUBLISHED') {
       data.status = 'PUBLISHED'
-    } else if (isEdit.value) {
-      data.status = editStatus.value || 'PUBLISHED'
+    } else {
+      data.status = 'PENDING'
     }
     console.log('[Publish] handleSubmit - isEdit:', isEdit.value, 'editStatus:', editStatus.value, 'sendStatus:', data.status)
     if (existingCoverUrl.value) {
@@ -257,10 +256,12 @@ async function handleSubmit() {
 
     if (isEdit.value && editId.value) {
       await resourceApi.update(editId.value, formData)
+      router.push(`/resource/${editId.value}`)
     } else {
-      await resourceApi.create(formData)
+      const res = await resourceApi.create(formData)
+      const newId = res.data?.data?.id
+      router.push(newId ? `/resource/${newId}` : '/')
     }
-    router.push('/')
   } catch (e: any) {
     error.value = e.message || '发布失败'
   } finally {

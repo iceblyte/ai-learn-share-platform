@@ -22,6 +22,21 @@ const userStore = useUserStore()
 const id = computed(() => Number(route.params.id))
 
 const resource = ref<Resource | null>(null)
+
+// 审核状态横幅：仅非 PUBLISHED 资源会走到这里（后端已限制只有作者/管理员可见）
+const statusNotice = computed(() => {
+  if (!resource.value) return null
+  switch (resource.value.status) {
+    case 'PENDING':
+      return { cls: 'bg-amber-50 border-amber-200 text-amber-700', text: '该资源正在等待管理员审核，审核通过后将对其他用户可见' }
+    case 'REJECTED':
+      return { cls: 'bg-red-50 border-red-200 text-red-600', text: '该资源未通过审核，返回发布页修改后可重新提交审核' }
+    case 'DRAFT':
+      return { cls: 'bg-slate-100 border-slate-200 text-slate-600', text: '该资源当前为草稿状态，尚未发布' }
+    default:
+      return null
+  }
+})
 const comments = ref<Comment[]>([])
 const newComment = ref('')
 // 当前正在回复的评论 id（多级嵌套：可以是树中任意节点）
@@ -317,6 +332,16 @@ function getAvatarUrl(user: any): string | null {
         </svg>
         <span class="text-slate-800">{{ resource.title }}</span>
       </nav>
+    </div>
+
+    <!-- 审核状态提示（作者/管理员视角） -->
+    <div v-if="statusNotice" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="mb-4 p-4 rounded-xl border flex items-center gap-2 text-sm" :class="statusNotice.cls">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>{{ statusNotice.text }}</span>
+      </div>
     </div>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">

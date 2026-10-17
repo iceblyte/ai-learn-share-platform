@@ -35,8 +35,8 @@ public class ResourceController {
     }
 
     @GetMapping("/{id}")
-    public Result<Resource> detail(@PathVariable Long id) {
-        return Result.success(resourceService.getDetail(id));
+    public Result<Resource> detail(@PathVariable Long id, Authentication authentication) {
+        return Result.success(resourceService.getDetail(id, authentication));
     }
 
     @PostMapping(consumes = {"multipart/form-data"})
