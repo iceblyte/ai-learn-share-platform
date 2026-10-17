@@ -6,6 +6,7 @@ import { resourceApi } from '@/api/resource'
 import { commentApi } from '@/api/comment'
 import { aiApi } from '@/api/ai'
 import { tagApi } from '@/api/category'
+import { userApi } from '@/api/user'
 import { useUserStore } from '@/store/user'
 import {
   clearPageContext,
@@ -14,7 +15,9 @@ import {
 } from '@/store/pageContext'
 import AppToast from '@/components/AppToast.vue'
 import CommentNode from '@/components/CommentNode.vue'
-import type { Resource, Comment, Tag } from '@/types'
+import MentionPicker from '@/components/MentionPicker.vue'
+import { appendMention } from '@/utils/mention'
+import type { Resource, Comment, Tag, FollowStats, FollowedUser } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,6 +53,57 @@ const relatedResources = ref<Resource[]>([])
 const hotTags = ref<Tag[]>([])
 const toast = ref<InstanceType<typeof AppToast>>()
 
+// 关注：发布者的关注数据 + 我关注的用户列表（评论 @ 选择器）
+const followStats = ref<FollowStats | null>(null)
+const followToggling = ref(false)
+const followedUsers = ref<FollowedUser[]>([])
+
+/** 是否展示关注按钮：登录 且 不是资源发布者本人 */
+const canFollow = computed(() => {
+  const pid = (resource.value as any)?.publisherId
+  return userStore.isLoggedIn && !!pid && userStore.userInfo?.id !== pid
+})
+
+async function loadFollowState(publisherId: number) {
+  try {
+    const [statsRes, listRes] = await Promise.all([
+      userApi.getFollowStats(publisherId),
+      userApi.getFollowingList(),
+    ])
+    followStats.value = statsRes.data.data
+    followedUsers.value = listRes.data.data || []
+  } catch {}
+}
+
+async function handleToggleFollow() {
+  const pid = (resource.value as any)?.publisherId
+  if (!pid || followToggling.value) return
+  followToggling.value = true
+  try {
+    const res = await userApi.toggleFollow(pid)
+    const data = res.data.data
+    followStats.value = {
+      followers: data.followers,
+      following: followStats.value?.following ?? 0,
+      isFollowing: data.following,
+    }
+    // 关注后刷新 @ 选择器数据源（新增关注的人可被提及）
+    if (data.following) {
+      const listRes = await userApi.getFollowingList()
+      followedUsers.value = listRes.data.data || []
+    }
+    toast.value?.show(data.following ? '已关注' : '已取消关注', 'success')
+  } catch (e: any) {
+    toast.value?.show(e?.message || '操作失败', 'error')
+  } finally {
+    followToggling.value = false
+  }
+}
+
+function insertMention(nickname: string) {
+  newComment.value = appendMention(newComment.value, nickname)
+}
+
 async function loadResource() {
   loading.value = true
   try {
@@ -71,6 +125,11 @@ async function loadResource() {
         favorited.value = intRes.data.data.favorited
         myRating.value = intRes.data.data.myRating || 0
       } catch {}
+      // 关注状态与 @ 选择器数据源（非发布者本人时）
+      const pid = (resRes.data.data as any)?.publisherId
+      if (pid && userStore.userInfo?.id !== pid) {
+        loadFollowState(pid)
+      }
     }
 
     try {
@@ -390,6 +449,20 @@ function getAvatarUrl(user: any): string | null {
                 <p class="text-sm font-medium">{{ resource.publisher?.nickname }}</p>
                 <p class="text-xs text-slate-400">发布于 {{ new Date(resource.createdAt).toLocaleDateString() }}</p>
               </div>
+              <button
+                v-if="canFollow && followStats"
+                @click="handleToggleFollow"
+                :disabled="followToggling"
+                :class="[
+                  'ml-3 px-3 py-1 rounded-full text-xs font-medium transition-colors disabled:opacity-60',
+                  followStats.isFollowing
+                    ? 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    : 'bg-primary-500 text-white hover:bg-primary-600'
+                ]"
+              >
+                {{ followStats.isFollowing ? '已关注' : '+ 关注' }}
+                <span v-if="followStats.followers > 0" class="opacity-70">{{ followStats.followers }}</span>
+              </button>
               <div class="flex items-center gap-4 ml-auto text-sm text-slate-500">
                 <span class="flex items-center gap-1">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -545,12 +618,15 @@ function getAvatarUrl(user: any): string | null {
                   class="w-full border border-slate-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent h-24 resize-none"
                   placeholder="写下你的评论..."
                 ></textarea>
-                <button
-                  @click="submitComment"
-                  class="mt-3 bg-primary-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-600 transition-colors"
-                >
-                  发表评论
-                </button>
+                <div class="mt-3 flex items-center gap-3">
+                  <MentionPicker :users="followedUsers" @select="u => insertMention(u.nickname)" />
+                  <button
+                    @click="submitComment"
+                    class="bg-primary-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-primary-600 transition-colors"
+                  >
+                    发表评论
+                  </button>
+                </div>
               </div>
               <div v-else class="mb-8 p-4 bg-slate-50 rounded-lg text-center">
                 <router-link to="/login" class="text-primary-600 hover:underline">登录</router-link>
@@ -566,6 +642,7 @@ function getAvatarUrl(user: any): string | null {
                   :resource="resource"
                   :depth="0"
                   :reply-to-id="replyTo"
+                  :followed-users="followedUsers"
                   @reply="startReply"
                   @submit-reply="submitReply"
                   @cancel-reply="replyTo = null"

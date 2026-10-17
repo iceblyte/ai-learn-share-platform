@@ -296,6 +296,19 @@ CREATE TABLE IF NOT EXISTS `system_config` (
     PRIMARY KEY (`config_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
 
+-- ============================================
+-- 19. 用户关注关系表
+-- ============================================
+CREATE TABLE IF NOT EXISTS `follow` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+    `follower_id` BIGINT NOT NULL COMMENT '关注者（发起方）',
+    `following_id` BIGINT NOT NULL COMMENT '被关注者',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '关注时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_follow_pair` (`follower_id`, `following_id`),
+    KEY `idx_follow_following` (`following_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关注关系表';
+
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正
 -- 请统一执行 sql/seed.sql。

@@ -7,13 +7,17 @@
 import { ref, watch } from 'vue'
 import { commentApi } from '@/api/comment'
 import { useUserStore } from '@/store/user'
-import type { Comment, Resource } from '@/types'
+import MentionPicker from '@/components/MentionPicker.vue'
+import { splitMentions, appendMention } from '@/utils/mention'
+import type { Comment, Resource, FollowedUser } from '@/types'
 
 const props = defineProps<{
   comment: Comment
   resource: Resource | null
   depth: number
   replyToId: number | null
+  /** 我关注的用户列表（回复框 @ 选择器数据源） */
+  followedUsers?: FollowedUser[]
 }>()
 
 const emit = defineEmits<{
@@ -26,6 +30,13 @@ const emit = defineEmits<{
 const userStore = useUserStore()
 const liking = ref(false)
 const replyText = ref('')
+
+/** 评论内容分段：@提及 高亮渲染 */
+const contentSegments = () => splitMentions(props.comment.content || '')
+
+function insertReplyMention(nickname: string) {
+  replyText.value = appendMention(replyText.value, nickname)
+}
 
 // 切换回复目标时清空输入框
 watch(() => props.replyToId, () => {
@@ -88,7 +99,15 @@ async function handleLike() {
         >作者</span>
         <span class="text-xs text-slate-400">{{ new Date(comment.createdAt).toLocaleString() }}</span>
       </div>
-      <p class="text-sm text-slate-600 mt-1 break-words whitespace-pre-wrap">{{ comment.content }}</p>
+      <p class="text-sm text-slate-600 mt-1 break-words whitespace-pre-wrap">
+        <template v-for="(seg, i) in contentSegments()" :key="i">
+          <span
+            v-if="seg.type === 'mention'"
+            class="text-primary-600 bg-primary-50 rounded px-0.5 font-medium"
+          >{{ seg.text }}</span>
+          <template v-else>{{ seg.text }}</template>
+        </template>
+      </p>
       <div class="flex items-center gap-3 mt-2">
         <button
           class="flex items-center gap-1 text-xs text-slate-400 hover:text-primary-500 transition-colors"
@@ -114,7 +133,11 @@ async function handleLike() {
           :placeholder="`回复 @${comment.user?.nickname || '...'}...`"
           @keydown.enter.exact.prevent="submitThisReply"
         ></textarea>
-        <div class="flex gap-2 mt-2">
+        <div class="flex gap-2 mt-2 items-center">
+          <MentionPicker
+            :users="followedUsers || []"
+            @select="u => insertReplyMention(u.nickname)"
+          />
           <button
             class="bg-primary-500 text-white px-3 py-1 rounded text-sm hover:bg-primary-600 transition-colors disabled:opacity-60"
             :disabled="!replyText.trim()"
@@ -140,6 +163,7 @@ async function handleLike() {
           :resource="resource"
           :depth="depth + 1"
           :reply-to-id="replyToId"
+          :followed-users="followedUsers"
           @reply="(c) => emit('reply', c)"
           @replied="(pid, r) => emit('replied', pid, r)"
           @submit-reply="(pid, content) => emit('submitReply', pid, content)"

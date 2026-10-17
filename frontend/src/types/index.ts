@@ -12,6 +12,20 @@ export interface User {
   createdAt: string
 }
 
+/** 关注数据：粉丝数/关注数/当前用户是否已关注 */
+export interface FollowStats {
+  followers: number
+  following: number
+  isFollowing: boolean
+}
+
+/** 关注列表条目（公开字段，评论 @ 选择器用） */
+export interface FollowedUser {
+  id: number
+  nickname: string
+  avatarUrl: string
+}
+
 export interface LoginRequest {
   username: string
   password: string
