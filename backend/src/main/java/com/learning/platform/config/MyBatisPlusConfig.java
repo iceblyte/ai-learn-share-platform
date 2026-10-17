@@ -27,6 +27,9 @@ public class MyBatisPlusConfig {
             public void insertFill(MetaObject metaObject) {
                 this.strictInsertFill(metaObject, "createdAt", LocalDateTime.class, LocalDateTime.now());
                 this.strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
+                // ResourceFile.uploadedAt：唯一不叫 createdAt/updatedAt 的 fill 字段，
+                // 漏填会让该列以显式 null 插入（DB DEFAULT 不生效），发布文件资源直接报错
+                this.strictInsertFill(metaObject, "uploadedAt", LocalDateTime.class, LocalDateTime.now());
             }
 
             @Override
