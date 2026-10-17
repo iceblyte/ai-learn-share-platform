@@ -151,7 +151,7 @@ public class ChatWorkflowService {
         }
         RunContext ctx = new RunContext(userId, sessionId, route,
                 new ChatToolContext(userId, pageContextType, pageContextId, selectedText), emitter,
-                imageCollector.start(selectedText == null || selectedText.isBlank() ? message : selectedText));
+                imageCollector.start(extractImageQuery(selectedText, message)));
 
         Map<String, Object> initial = new HashMap<>();
         initial.put(ChatWorkflowState.MESSAGE, message == null ? "" : message);
@@ -427,6 +427,54 @@ public class ChatWorkflowService {
             return text;
         }
         return text.substring(0, limit);
+    }
+
+    // ---------- 取图查询词提取 ----------
+
+    /** 取图查询词上限：超过视为没提炼出干净主题——宁缺毋滥，不配图 */
+    static final int IMAGE_QUERY_MAX_LENGTH = 14;
+
+    /**
+     * 取图疑问词/客套词：从整句消息提取主题词时逐个剥掉。
+     * 长词在前（"是什么意思"先于"什么"，避免被短词截断误吞）。
+     */
+    private static final List<String> IMAGE_QUERY_FILLERS = List.of(
+            "是什么意思", "什么意思", "指的是什么", "是什么", "指的是", "指什么",
+            "是怎样的", "怎么样", "怎么回事", "怎么理解", "如何理解", "怎么用", "如何使用",
+            "怎么做", "如何做", "为什么", "怎么", "如何",
+            "介绍一下", "解释一下", "讲解一下", "说明一下", "详细介绍", "简单介绍",
+            "介绍", "解释", "讲解", "说明", "说说", "谈谈", "讲讲",
+            "帮我", "帮忙", "麻烦", "请问", "谢谢",
+            "制定", "安排", "整理", "梳理", "总结", "归纳",
+            "哪些", "哪个", "哪里", "什么", "详细", "简单",
+            "一下", "的", "吗", "呢", "吧", "啊", "嘛");
+
+    /**
+     * 取图查询词：划选文本优先（复用划词提取）；无划词时消息先剥检索意图词
+     * （资源类问题，如"平台有哪些 Java 学习资源？"→"Java"），再兜底剥疑问词取主题词。
+     * 提不出 {@link #IMAGE_QUERY_MAX_LENGTH} 以内的干净主题词时返回空串——
+     * 整句透传给图片源（Pexels 中文长句模糊匹配）是搜出无关图片的根因，宁缺毋滥。
+     */
+    static String extractImageQuery(String selectedText, String message) {
+        if (selectedText != null && !selectedText.isBlank()) {
+            return extractKeyword(selectedText);
+        }
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+        String keyword = extractSearchKeyword(message);
+        if (!keyword.isBlank()) {
+            return keyword.length() <= IMAGE_QUERY_MAX_LENGTH ? keyword : "";
+        }
+        String cleaned = extractKeyword(message);
+        for (String filler : IMAGE_QUERY_FILLERS) {
+            cleaned = cleaned.replace(filler, "");
+        }
+        cleaned = cleaned.replaceAll("[^\\p{L}\\p{N}\\-]+", "").trim();
+        if (cleaned.isEmpty() || cleaned.length() > IMAGE_QUERY_MAX_LENGTH) {
+            return "";
+        }
+        return cleaned;
     }
 
     /**

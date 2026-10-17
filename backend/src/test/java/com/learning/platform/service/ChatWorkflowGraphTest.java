@@ -307,6 +307,33 @@ class ChatWorkflowGraphTest {
         assertThat(ChatWorkflowService.extractSearchKeyword("有什么资源？")).isNotBlank();
     }
 
+    // ---------- 取图查询词提取 ----------
+
+    @Test
+    @DisplayName("取图查询词：消息先提主题词再点火，整句不再直接透传给图片源")
+    void imageQuery_fromMessage_topicWord() {
+        // 回归：整句"平台有哪些 Java 学习资源？"丢给 Pexels 会搜出无关图片
+        assertThat(ChatWorkflowService.extractImageQuery(null, "平台有哪些 Java 学习资源？"))
+                .isEqualTo("Java");
+        assertThat(ChatWorkflowService.extractImageQuery(null, "什么是冒泡排序？"))
+                .isEqualTo("冒泡排序");
+        assertThat(ChatWorkflowService.extractImageQuery(null, "为什么 HashMap 线程不安全？"))
+                .isEqualTo("HashMap线程不安全");
+    }
+
+    @Test
+    @DisplayName("取图查询词：划词优先；提不出干净主题返回空（宁缺毋滥不配图）")
+    void imageQuery_selectedTextPriorityAndGuard() {
+        assertThat(ChatWorkflowService.extractImageQuery("happens-before是什么意思", null))
+                .isEqualTo("happens-before");
+        // 疑问词剥光 → 空串，不点火取图
+        assertThat(ChatWorkflowService.extractImageQuery(null, "为什么？")).isEmpty();
+        // 闲聊长句无主题 → 空串
+        assertThat(ChatWorkflowService.extractImageQuery(null, "哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈"))
+                .isEmpty();
+        assertThat(ChatWorkflowService.extractImageQuery(null, "")).isEmpty();
+    }
+
     // ---------- Phase 3：审查回路 ----------
 
     /** 审查桩：按回答文本是否含"违规"给出 FLAGGED/PASS */
