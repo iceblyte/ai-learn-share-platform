@@ -1,6 +1,7 @@
 package com.learning.platform.ai.moderation;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +23,8 @@ public class SensitiveWordFilter {
 
     private final List<String> words;
 
-    public SensitiveWordFilter(Resource wordListResource) {
+    public SensitiveWordFilter(
+            @Value("classpath:moderation/sensitive-words.txt") Resource wordListResource) {
         this.words = load(wordListResource);
         log.info("Sensitive word filter initialized: {} words", words.size());
     }
