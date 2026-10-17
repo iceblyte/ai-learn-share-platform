@@ -4,12 +4,14 @@ import { useUserStore } from '@/store/user'
 import { userApi } from '@/api/user'
 import { resourceApi } from '@/api/resource'
 import type { Resource } from '@/types'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import AppModal from '@/components/AppModal.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
-const activeTab = ref('published')
+const route = useRoute()
+// 支持 /profile?tab=drafts 直达草稿箱（存草稿成功后从发布页跳转过来）
+const activeTab = ref(route.query.tab === 'drafts' ? 'drafts' : 'published')
 const favorites = ref<Resource[]>([])
 const myResources = ref<Resource[]>([])
 const drafts = ref<Resource[]>([])
@@ -97,7 +99,11 @@ onMounted(async () => {
   await userStore.fetchUserInfo()
   profileForm.value.nickname = userStore.userInfo?.nickname || ''
   profileForm.value.bio = userStore.userInfo?.bio || ''
-  loadMyResources()
+  if (activeTab.value === 'drafts') {
+    loadDrafts()
+  } else {
+    loadMyResources()
+  }
   loadStats()
   loadApplication()
 })
@@ -411,6 +417,7 @@ function getGradient(index: number) {
           <div v-if="myResources.length === 0" class="text-center py-12 text-slate-400">
             <p class="text-lg mb-2">暂无发布的资源</p>
             <p class="text-sm">点击"发布资源"分享你的学习资料</p>
+            <p class="text-sm mt-1 text-slate-400">保存过的草稿在左侧"草稿箱"中，编辑后点击"发布资源"即可上线</p>
           </div>
           <div
             v-for="(res, index) in myResources"

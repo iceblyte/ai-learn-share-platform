@@ -34,7 +34,12 @@ public class MyBatisPlusConfig {
 
             @Override
             public void updateFill(MetaObject metaObject) {
-                this.strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class, LocalDateTime.now());
+                // 不能用 strictUpdateFill：它只在字段为 null 时填充，而更新前实体通常
+                // 已从 DB 查出（updatedAt 非空），会导致旧值被原样写回、updated_at 永不刷新。
+                // 这里强制覆盖为当前时间（仅对实体级更新生效，UpdateWrapper.set 不经过此钩子）。
+                if (metaObject.hasSetter("updatedAt")) {
+                    metaObject.setValue("updatedAt", LocalDateTime.now());
+                }
             }
         };
     }

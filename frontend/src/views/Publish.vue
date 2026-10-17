@@ -306,7 +306,8 @@ async function confirmDraft() {
     } else {
       await resourceApi.create(formData)
     }
-    router.push('/profile')
+    // 跳转个人中心并直接定位到草稿箱，避免落在空的"我的发布"造成"没保存上"的误解
+    router.push({ path: '/profile', query: { tab: 'drafts' } })
   } catch (e: any) {
     error.value = e.message || '保存草稿失败'
   } finally {

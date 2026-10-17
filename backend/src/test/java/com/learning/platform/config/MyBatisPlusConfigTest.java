@@ -2,11 +2,14 @@ package com.learning.platform.config;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.learning.platform.entity.Resource;
 import com.learning.platform.entity.ResourceFile;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.reflection.SystemMetaObject;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,5 +32,21 @@ class MyBatisPlusConfigTest {
                 .insertFill(SystemMetaObject.forObject(file));
 
         assertThat(file.getUploadedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("更新填充：updatedAt 即使已有旧值也强制刷新（strictUpdateFill 不会覆盖非空值）")
+    void updateFill_overwritesStaleUpdatedAt() {
+        MapperBuilderAssistant assistant =
+                new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        TableInfoHelper.initTableInfo(assistant, Resource.class);
+
+        Resource resource = new Resource();
+        LocalDateTime stale = LocalDateTime.now().minusHours(2);
+        resource.setUpdatedAt(stale);
+        new MyBatisPlusConfig().metaObjectHandler()
+                .updateFill(SystemMetaObject.forObject(resource));
+
+        assertThat(resource.getUpdatedAt()).isAfter(stale);
     }
 }
