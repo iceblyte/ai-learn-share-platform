@@ -6,6 +6,7 @@ import { pageContextStore, setSelectedText } from '@/store/pageContext'
 import { useAiChat } from '@/composables/useAiChat'
 import AiMessageBubble from '@/components/AiMessageBubble.vue'
 import ChatSessionList from '@/components/ChatSessionList.vue'
+import AiAvatarMark from '@/components/AiAvatarMark.vue'
 
 const route = useRoute()
 const userStore = useUserStore()
@@ -374,13 +375,12 @@ async function loadOlderAnchored() {
     </Transition>
 
     <button
-      class="group flex h-14 w-14 cursor-move items-center justify-center rounded-2xl bg-slate-900 text-white shadow-xl shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-primary-600"
+      class="group flex h-14 w-14 cursor-move items-center justify-center overflow-hidden rounded-2xl shadow-xl shadow-slate-900/20 transition hover:-translate-y-0.5"
+      title="AI 学习助手"
       @pointerdown="startDrag"
       @click="toggleOpen"
     >
-      <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 10h8M8 14h5m-9 6l2.4-3.2A2 2 0 017 16h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v14z"/>
-      </svg>
+      <AiAvatarMark class="h-full w-full transition-transform duration-200 group-hover:scale-105" />
     </button>
   </div>
 </template>
