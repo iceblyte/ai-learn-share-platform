@@ -285,6 +285,17 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     KEY `idx_cm_created` (`created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI对话消息表';
 
+-- ============================================
+-- 18. 系统配置表（管理员运行时开关，如 AI 智能摘要自动生成）
+-- ============================================
+CREATE TABLE IF NOT EXISTS `system_config` (
+    `config_key` VARCHAR(100) NOT NULL COMMENT '配置键',
+    `config_value` VARCHAR(500) NOT NULL COMMENT '配置值',
+    `remark` VARCHAR(200) NOT NULL DEFAULT '' COMMENT '配置说明',
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`config_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
+
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正
 -- 请统一执行 sql/seed.sql。

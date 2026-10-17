@@ -27,12 +27,14 @@ class ResourceSummaryAsyncServiceTest {
 
     @Mock private AiService aiService;
     @Mock private ResourceMapper resourceMapper;
+    @Mock private SystemConfigService systemConfigService;
 
     @InjectMocks private ResourceSummaryAsyncService service;
 
     @Test
     @DisplayName("摘要回写：仅按 id 更新 ai_summary 单列，不读整行、不整行 updateById")
     void refreshSummary_updatesOnlySummaryColumn() {
+        when(systemConfigService.isAiSummaryAutoEnabled()).thenReturn(true);
         when(aiService.generateSummary(anyString(), anyString())).thenReturn("生成的摘要");
 
         service.refreshSummary(51L, "标题", "描述");
@@ -52,10 +54,22 @@ class ResourceSummaryAsyncServiceTest {
     @Test
     @DisplayName("摘要为空时不执行任何更新")
     void refreshSummary_skipsWhenSummaryBlank() {
+        when(systemConfigService.isAiSummaryAutoEnabled()).thenReturn(true);
         when(aiService.generateSummary(anyString(), anyString())).thenReturn("  ");
 
         service.refreshSummary(51L, "标题", "描述");
 
+        verify(resourceMapper, never()).update(any(), any());
+    }
+
+    @Test
+    @DisplayName("管理员关闭自动摘要：不调 LLM、不写库（节省 token）")
+    void refreshSummary_skipsWhenDisabled() {
+        when(systemConfigService.isAiSummaryAutoEnabled()).thenReturn(false);
+
+        service.refreshSummary(51L, "标题", "描述");
+
+        verify(aiService, never()).generateSummary(anyString(), anyString());
         verify(resourceMapper, never()).update(any(), any());
     }
 }

@@ -1749,3 +1749,9 @@ INSERT IGNORE INTO `resource_file` (`resource_id`, `file_name`, `file_url`, `fil
 (28, '前端性能优化清单.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1240000, 'application/pdf'),
 (29, '大学物理期末高频题型.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 1180000, 'application/pdf'),
 (30, '英语六级阅读技巧.pdf', 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', 980000, 'application/pdf');
+
+-- ============================================
+-- N. 系统配置默认值
+-- ============================================
+INSERT IGNORE INTO `system_config` (`config_key`, `config_value`, `remark`) VALUES
+('ai_summary_auto_enabled', 'true', '资源发布/保存后是否自动生成 AI 智能摘要（关闭可节省 token）');

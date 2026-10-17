@@ -13,6 +13,7 @@ import com.learning.platform.entity.User;
 import com.learning.platform.mapper.PublisherApplicationMapper;
 import com.learning.platform.mapper.ResourceMapper;
 import com.learning.platform.mapper.UserMapper;
+import com.learning.platform.service.SystemConfigService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,6 +35,7 @@ public class AdminController {
     private final UserMapper userMapper;
     private final ResourceMapper resourceMapper;
     private final PublisherApplicationMapper publisherApplicationMapper;
+    private final SystemConfigService systemConfigService;
 
     @GetMapping("/users")
     public Result<PageResult<User>> userList(
@@ -173,5 +175,22 @@ public class AdminController {
                 new QueryWrapper<User>().ge("created_at", LocalDate.now().toString()));
         stats.put("todayActive", todayActive);
         return Result.success(stats);
+    }
+
+    /** 读取系统配置（当前：AI 智能摘要自动生成开关） */
+    @GetMapping("/config/ai-summary")
+    public Result<Map<String, Object>> getAiSummaryConfig() {
+        return Result.success(Map.of("enabled", systemConfigService.isAiSummaryAutoEnabled()));
+    }
+
+    /** 切换 AI 智能摘要自动生成开关：关闭后资源发布/保存不再调 LLM 生成摘要 */
+    @PutMapping("/config/ai-summary")
+    public Result<Map<String, Object>> updateAiSummaryConfig(@RequestBody Map<String, Boolean> body) {
+        Boolean enabled = body.get("enabled");
+        if (enabled == null) {
+            return Result.error("缺少 enabled 参数");
+        }
+        systemConfigService.setAiSummaryAutoEnabled(enabled);
+        return Result.success(Map.of("enabled", enabled));
     }
 }

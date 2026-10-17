@@ -15,10 +15,16 @@ public class ResourceSummaryAsyncService {
 
     private final AiService aiService;
     private final ResourceMapper resourceMapper;
+    private final SystemConfigService systemConfigService;
 
     @Async
     public void refreshSummary(Long resourceId, String title, String description) {
         try {
+            // 管理员开关：关闭时不自动生成摘要（每个资源都调 LLM 太耗 token）
+            if (!systemConfigService.isAiSummaryAutoEnabled()) {
+                log.info("AI summary auto-generation disabled, skip resource {}", resourceId);
+                return;
+            }
             String summary = aiService.generateSummary(title, description);
             if (summary == null || summary.isBlank()) {
                 return;
