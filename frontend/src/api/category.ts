@@ -23,8 +23,8 @@ export const tagApi = {
   getList() {
     return request.get<ApiResponse<Tag[]>>('/tags')
   },
-  getHot() {
-    return request.get<ApiResponse<Tag[]>>('/tags/hot')
+  getHot(limit = 20) {
+    return request.get<ApiResponse<Tag[]>>('/tags/hot', { params: { limit } })
   },
   search(keyword: string) {
     return request.get<ApiResponse<Tag[]>>('/tags/search', { params: { keyword } })

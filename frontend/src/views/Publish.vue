@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { resourceApi } from '@/api/resource'
 import { categoryApi, tagApi } from '@/api/category'
@@ -38,6 +38,18 @@ const showDraftModal = ref(false)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 
 const tagInput = ref('')
+const tagFilter = ref('')
+
+/** 标签面板：按关键词过滤热门标签 */
+const filteredTags = computed(() => {
+  const kw = tagFilter.value.trim().toLowerCase()
+  if (!kw) return tags.value
+  return tags.value.filter(t => t.name.toLowerCase().includes(kw))
+})
+
+function hasTag(name: string) {
+  return form.value.tags.includes(name)
+}
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.pptx', '.mp4', '.zip']
 const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
@@ -45,7 +57,7 @@ const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 onMounted(async () => {
   const [catRes, tagRes] = await Promise.all([
     categoryApi.getTree(),
-    tagApi.getHot(),
+    tagApi.getHot(50),
   ])
   categories.value = catRes.data.data
   tags.value = tagRes.data.data
@@ -84,9 +96,18 @@ async function loadResource(id: number) {
 }
 
 function addTag(tag: string) {
-  if (tag && !form.value.tags.includes(tag) && form.value.tags.length < 10) {
-    form.value.tags.push(tag)
-    tagInput.value = ''
+  const name = tag.trim()
+  if (name && !form.value.tags.includes(name) && form.value.tags.length < 10) {
+    form.value.tags.push(name)
+  }
+  tagInput.value = ''
+}
+
+function toggleTag(name: string) {
+  if (hasTag(name)) {
+    form.value.tags = form.value.tags.filter(t => t !== name)
+  } else {
+    addTag(name)
   }
 }
 
@@ -353,9 +374,13 @@ function handlePreview() {
       <!-- Tags -->
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <label class="block text-sm font-medium text-slate-700 mb-2">
-          标签 <span class="text-slate-400 font-normal">(最多 10 个)</span>
+          标签 <span class="text-slate-400 font-normal">(最多 10 个，已选 {{ form.tags.length }})</span>
         </label>
-        <div class="flex flex-wrap items-center gap-2 p-3 border border-slate-300 rounded-lg min-h-[44px]">
+        <!-- 已选标签 -->
+        <div
+          v-if="form.tags.length"
+          class="flex flex-wrap items-center gap-2 p-3 border border-primary-200 bg-primary-50/50 rounded-lg mb-3"
+        >
           <span
             v-for="(tag, i) in form.tags"
             :key="i"
@@ -372,25 +397,60 @@ function handlePreview() {
               </svg>
             </button>
           </span>
+        </div>
+        <!-- 自定义标签输入 -->
+        <div class="relative mb-3">
           <input
             v-model="tagInput"
             type="text"
-            placeholder="输入标签名称，回车添加..."
-            class="flex-1 min-w-[120px] border-none outline-none text-sm py-1"
+            placeholder="没有合适的？输入自定义标签，回车添加..."
+            class="w-full border border-slate-300 rounded-lg px-4 py-2 pr-16 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             @keyup.enter.prevent="addTag(tagInput)"
           />
-        </div>
-        <div class="flex flex-wrap gap-1.5 mt-2">
-          <span class="text-xs text-slate-400">推荐：</span>
           <button
-            v-for="tag in tags.slice(0, 8)"
-            :key="tag.id"
+            v-if="tagInput.trim()"
             type="button"
-            @click="addTag(tag.name)"
-            class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded hover:bg-primary-100 hover:text-primary-600 transition-colors"
+            @click="addTag(tagInput)"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-primary-600 hover:text-primary-700"
           >
-            + {{ tag.name }}
+            添加
           </button>
+        </div>
+        <!-- 标签选择面板：热门标签 + 搜索 -->
+        <div class="border border-slate-200 rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between gap-3 px-3 py-2 border-b border-slate-100 bg-slate-50">
+            <span class="text-xs font-medium text-slate-500">热门</span>
+            <div class="relative">
+              <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              <input
+                v-model="tagFilter"
+                type="text"
+                placeholder="搜索标签"
+                class="w-36 border border-slate-200 rounded-md pl-7 pr-2 py-1 text-xs outline-none focus:border-primary-400 bg-white"
+              />
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 p-3 max-h-44 overflow-y-auto">
+            <button
+              v-for="tag in filteredTags"
+              :key="tag.id"
+              type="button"
+              @click="toggleTag(tag.name)"
+              :class="[
+                'text-xs px-2.5 py-1 rounded-md border transition-colors',
+                hasTag(tag.name)
+                  ? 'bg-primary-100 border-primary-300 text-primary-700 font-medium'
+                  : 'bg-white border-slate-200 text-slate-600 hover:border-primary-300 hover:text-primary-600'
+              ]"
+            >
+              {{ hasTag(tag.name) ? '✓ ' : '' }}{{ tag.name }}
+            </button>
+            <p v-if="!filteredTags.length" class="text-xs text-slate-400 py-2">
+              没有匹配的热门标签，可用上方输入框自定义添加
+            </p>
+          </div>
         </div>
       </div>
 
@@ -638,9 +698,6 @@ function handlePreview() {
           {{ isEdit && editStatus === 'DRAFT' ? '保存更改，暂不发布' : '存为草稿' }}
         </button>
         <div class="flex items-center gap-3">
-          <button type="button" @click="handlePreview" class="px-6 py-2.5 border border-primary-300 text-primary-600 rounded-lg text-sm hover:bg-primary-50">
-            {{ showPreview ? '编辑' : '预览' }}
-          </button>
           <button
             type="submit"
             class="px-8 py-2.5 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
