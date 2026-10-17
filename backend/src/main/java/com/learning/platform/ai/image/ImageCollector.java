@@ -3,6 +3,7 @@ package com.learning.platform.ai.image;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -43,6 +44,8 @@ public class ImageCollector {
     private final int maxPerSource;
     private final ExecutorService executor;
 
+    /** Spring 注入入口；max-total-ms 走配置默认 30s。多构造器时必须显式指定 */
+    @Autowired
     public ImageCollector(List<ImageSearchTool> tools,
                           ObjectMapper objectMapper,
                           AiImageStorage imageStorage,
