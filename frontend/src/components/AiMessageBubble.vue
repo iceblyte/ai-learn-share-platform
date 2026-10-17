@@ -15,9 +15,12 @@ const userStore = useUserStore()
 const TOOL_LABELS: Record<string, string> = {
   search_resources: '搜索资源库',
   get_resource_detail: '查询资源详情',
+  revise_content: '修订回答内容',
 }
 
 const html = computed(() => (props.message.role === 'assistant' ? renderMarkdown(props.message.content) : ''))
+
+const moderatedNotice = '该内容涉嫌违规，无法显示'
 
 const toolLabel = (name: string) => TOOL_LABELS[name] || name
 
@@ -70,10 +73,41 @@ const userInitial = computed(
         </div>
       </div>
 
-      <!-- 用户消息纯文本；助手消息 markdown 渲染 -->
-      <p v-if="message.role === 'user'" class="whitespace-pre-wrap break-words">{{ message.content }}</p>
+      <!-- 违规撤回占位：正文已清空，展示统一提示样式 -->
+      <div v-if="message.moderated" class="flex items-center gap-2 py-1 text-slate-400">
+        <svg class="h-4 w-4 shrink-0 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+        <span>{{ message.content || moderatedNotice }}</span>
+      </div>
+      <!-- 用户消息纯文本；助手消息 markdown 渲染（撤回时不渲染正文） -->
+      <p v-else-if="message.role === 'user'" class="whitespace-pre-wrap break-words">{{ message.content }}</p>
       <!-- eslint-disable-next-line vue/no-v-html —— 内容已经 DOMPurify 净化 -->
       <div v-else class="markdown-body break-words" v-html="html"></div>
+
+      <!-- 配图条（工作流 imageCollect 产出 / 历史快照）：不进正文，正文下方横向排布 -->
+      <div v-if="message.images?.length" class="mt-2 flex flex-wrap gap-2">
+        <a
+          v-for="(image, index) in message.images"
+          :key="`${image.url}-${index}`"
+          :href="image.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="group relative block h-20 w-28 overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+          :title="image.alt"
+        >
+          <img
+            :src="image.url"
+            :alt="image.alt"
+            loading="lazy"
+            class="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+          />
+          <span class="absolute bottom-0 right-0 rounded-tl-md bg-black/45 px-1 text-[10px] text-white">
+            {{ image.source }}
+          </span>
+        </a>
+      </div>
 
       <span v-if="message.streaming" class="mt-1 inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
     </div>

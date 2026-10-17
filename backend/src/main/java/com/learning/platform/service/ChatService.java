@@ -248,10 +248,7 @@ public class ChatService {
                 status = result.status();
                 imagesJson = result.imagesJson();
                 failed = result.status().equals("FAILED");
-                // 记忆写回：正常回答与撤回提示都入窗口（违规正文不入）
-                if (!failed) {
-                    aiService.appendAssistantToMemory(sessionId, content);
-                }
+                // 记忆写回已由工作流收尾（OK 写入 / MODERATED 移除本轮提问），此处不重复处理
             } else {
                 // V1 回退路径：手写工具环 + 全量工具规格
                 String systemPrompt = chatPromptBuilder.buildToolMode(

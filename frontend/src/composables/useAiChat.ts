@@ -12,6 +12,13 @@ import { useRoute } from 'vue-router'
 
 export type ChatRole = 'user' | 'assistant'
 
+/** 回答配图（SSE images 事件 / 历史 images_json 快照） */
+export interface AnswerImage {
+  source: string
+  url: string
+  alt: string
+}
+
 export interface ChatMessage {
   id: number
   role: ChatRole
@@ -19,6 +26,21 @@ export interface ChatMessage {
   streaming?: boolean
   /** 本次回答中调用的工具名（SSE tool 事件，按顺序展示） */
   toolSteps?: string[]
+  /** 回答配图（气泡下方图片条，不进正文） */
+  images?: AnswerImage[]
+  /** 回答因违规被撤回：正文清空，气泡渲染违规占位样式 */
+  moderated?: boolean
+}
+
+/** 解析历史消息的 images_json 快照；非法数据返回 undefined（渲染不受影响） */
+function parseImages(json: string | null | undefined): AnswerImage[] | undefined {
+  if (!json) return undefined
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) && parsed.length ? (parsed as AnswerImage[]) : undefined
+  } catch {
+    return undefined
+  }
 }
 
 export interface UseAiChatOptions {
@@ -91,6 +113,8 @@ export function useAiChat(options: UseAiChatOptions = {}) {
       id: item.id,
       role: item.role,
       content: item.content,
+      images: parseImages(item.imagesJson),
+      moderated: item.status === 'MODERATED' || undefined,
     }))
     messages.value = restored.length
       ? restored
@@ -114,6 +138,8 @@ export function useAiChat(options: UseAiChatOptions = {}) {
         id: item.id,
         role: item.role,
         content: item.content,
+        images: parseImages(item.imagesJson),
+        moderated: item.status === 'MODERATED' || undefined,
       }))
       messages.value = [...older, ...messages.value]
       oldestCursor.value = nextCursor
@@ -326,6 +352,23 @@ export function useAiChat(options: UseAiChatOptions = {}) {
           // 清空已上屏内容与打字机缓冲，等待最终回答重新流入
           pendingText = ''
           assistantMessage.content = ''
+        } else if (eventName === 'images') {
+          // 配图推送（工作流 imageCollect 节点）：气泡下方图片条，不进正文
+          try {
+            const parsed = JSON.parse(data)
+            if (Array.isArray(parsed) && parsed.length) {
+              assistantMessage.images = parsed as AnswerImage[]
+              messages.value = [...messages.value]
+            }
+          } catch {
+            // 非法 JSON 忽略，不影响正文
+          }
+        } else if (eventName === 'moderated') {
+          // 违规撤回：清空已流出正文与打字机缓冲，气泡切换违规占位样式
+          pendingText = ''
+          assistantMessage.content = ''
+          assistantMessage.moderated = true
+          messages.value = [...messages.value]
         } else if (eventName === 'error') {
           streamError = data
         } else if (eventName === 'done') {
@@ -374,7 +417,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     } finally {
       stopReveal()
       assistantMessage.streaming = false
-      if (!assistantMessage.content.trim()) {
+      if (!assistantMessage.moderated && !assistantMessage.content.trim()) {
         assistantMessage.content = '当前没有拿到有效回复，请换个问法再试。'
       }
       messages.value = [...messages.value]

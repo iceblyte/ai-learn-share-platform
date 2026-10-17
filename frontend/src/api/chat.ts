@@ -18,9 +18,11 @@ export interface ChatMessageItem {
   role: 'user' | 'assistant'
   content: string
   contextJson?: string | null
+  /** 配图快照（JSON 数组：[{"source","url","alt"}]，工作流 imageCollect 产出） */
+  imagesJson?: string | null
   tokensUsed: number
   latencyMs: number
-  status: 'OK' | 'FAILED'
+  status: 'OK' | 'FAILED' | 'MODERATED'
   createdAt: string
 }
 

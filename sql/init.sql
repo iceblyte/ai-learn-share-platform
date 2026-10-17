@@ -275,14 +275,24 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     `role` VARCHAR(10) NOT NULL COMMENT '角色: user/assistant',
     `content` TEXT NOT NULL COMMENT '消息内容',
     `context_json` VARCHAR(1000) DEFAULT NULL COMMENT '提问时携带的页面上下文快照',
+    `images_json` VARCHAR(2000) DEFAULT NULL COMMENT '回答配图快照(JSON数组: source/url/alt, 工作流imageCollect产出)',
     `tokens_used` INT NOT NULL DEFAULT 0 COMMENT '消耗token(成本观测)',
     `latency_ms` INT NOT NULL DEFAULT 0 COMMENT '端到端延迟ms',
-    `status` VARCHAR(20) NOT NULL DEFAULT 'OK' COMMENT '状态: OK/FAILED',
+    `status` VARCHAR(20) NOT NULL DEFAULT 'OK' COMMENT '状态: OK/FAILED/MODERATED',
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_cm_session` (`session_id`, `id`),
     KEY `idx_cm_created` (`created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI对话消息表';
+
+-- 存量库升级（扩展五：聊天工作流）；新库直接执行上面的建表语句即可，跳过以下两句。
+-- 注意：MySQL 8 无 ADD COLUMN IF NOT EXISTS，重复执行会报 Duplicate column，可忽略。
+ALTER TABLE `chat_message`
+    ADD COLUMN `images_json` VARCHAR(2000) DEFAULT NULL
+        COMMENT '回答配图快照(JSON数组: source/url/alt, 工作流imageCollect产出)' AFTER `context_json`;
+ALTER TABLE `chat_message`
+    MODIFY COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'OK'
+        COMMENT '状态: OK/FAILED/MODERATED';
 
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正
