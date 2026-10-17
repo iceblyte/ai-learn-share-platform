@@ -10,6 +10,7 @@ import { useUserStore } from '@/store/user'
 import { useAiChat } from '@/composables/useAiChat'
 import AiMessageBubble from '@/components/AiMessageBubble.vue'
 import ChatSessionList from '@/components/ChatSessionList.vue'
+import AiAvatarMark from '@/components/AiAvatarMark.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -146,11 +147,7 @@ function handleCreate() {
 
           <!-- 空会话：居中欢迎区 + 快捷提问 -->
           <div v-if="messages.length <= 1 && !currentSessionId" class="flex flex-col items-center pt-24 text-center">
-            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg shadow-primary-600/25">
-              <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-              </svg>
-            </div>
+            <AiAvatarMark class="h-14 w-14 shadow-lg shadow-primary-600/25 rounded-2xl" />
             <h2 class="mt-5 text-xl font-semibold text-slate-800">AI 学习助手</h2>
             <p class="mt-2 max-w-md text-sm text-slate-400">{{ messages[0]?.content || '可以问我资源内容、学习路径、技术概念，或让我检索平台资料' }}</p>
             <div class="mt-8 flex flex-wrap justify-center gap-2">

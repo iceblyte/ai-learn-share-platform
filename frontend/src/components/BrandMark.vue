@@ -1,0 +1,42 @@
+<script setup lang="ts">
+/**
+ * 品牌标志（方案 C「灵感升腾」）：翻开的书上三颗星逐级升腾——学习点亮灵感。
+ * 青蓝渐变圆角方块，自带底色，任意尺寸缩放（favicon/页头/后台侧栏共用）。
+ */
+</script>
+
+<template>
+  <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="brandBg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#22B7EE" />
+        <stop offset="1" stop-color="#3B5BE8" />
+      </linearGradient>
+      <linearGradient id="brandPage" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#FFFFFF" />
+        <stop offset="1" stop-color="#D9F0FE" />
+      </linearGradient>
+    </defs>
+    <rect width="64" height="64" rx="15" fill="url(#brandBg)" />
+    <ellipse cx="22" cy="10" rx="26" ry="10" fill="#fff" opacity=".13" />
+    <!-- 灵感星（大） -->
+    <path d="M43.5 6.5l2.1 5.4 5.4 2.1-5.4 2.1-2.1 5.4-2.1-5.4-5.4-2.1 5.4-2.1 2.1-5.4z" fill="#FFD54A" />
+    <!-- 次级星 -->
+    <path d="M22.5 9.6l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7.7-1.9z" fill="#FFD54A" opacity=".8" />
+    <!-- 左右书页 -->
+    <path
+      d="M30.6 32.4v17.2c-2.5-1.6-5.6-2.3-8.6-2.1-1.5.1-2.7-1.1-2.7-2.5v-11.6c0-1.3 1-2.4 2.3-2.6 3.2-.4 6.7.3 9 1.6z"
+      fill="url(#brandPage)"
+    />
+    <path
+      d="M33.4 32.4v17.2c2.5-1.6 5.6-2.3 8.6-2.1 1.5.1 2.7-1.1 2.7-2.5v-11.6c0-1.3-1-2.4-2.3-2.6-3.2-.4-6.7.3-9 1.6z"
+      fill="url(#brandPage)"
+    />
+    <path d="M30.6 32.4v17.2" stroke="#A9D7F5" stroke-width="1.2" />
+    <path d="M33.4 32.4v17.2" stroke="#BFE2F8" stroke-width="1.2" />
+    <!-- 升腾轨迹 -->
+    <circle cx="30.9" cy="26.8" r="1.7" fill="#DFF3FF" />
+    <circle cx="35.6" cy="22.4" r="2.1" fill="#EAF7FF" />
+    <path d="M32 25.6c1.2-1.6 2.4-2.4 3.6-3.2" stroke="#DFF3FF" stroke-width="1.3" stroke-linecap="round" fill="none" />
+  </svg>
+</template>
