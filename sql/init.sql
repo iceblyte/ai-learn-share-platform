@@ -285,14 +285,8 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     KEY `idx_cm_created` (`created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI对话消息表';
 
--- 存量库升级（扩展五：聊天工作流）；新库直接执行上面的建表语句即可，跳过以下两句。
--- 注意：MySQL 8 无 ADD COLUMN IF NOT EXISTS，重复执行会报 Duplicate column，可忽略。
-ALTER TABLE `chat_message`
-    ADD COLUMN `images_json` VARCHAR(2000) DEFAULT NULL
-        COMMENT '回答配图快照(JSON数组: source/url/alt, 工作流imageCollect产出)' AFTER `context_json`;
-ALTER TABLE `chat_message`
-    MODIFY COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'OK'
-        COMMENT '状态: OK/FAILED/MODERATED';
+-- 存量库升级（扩展五：聊天工作流）请执行 sql/upgrade-chat-images.sql；
+-- 本文件仅面向全新安装，勿在此重复 ALTER（新库建表已含新列）。
 
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正
