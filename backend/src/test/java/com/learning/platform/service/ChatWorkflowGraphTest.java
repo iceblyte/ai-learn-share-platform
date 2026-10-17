@@ -20,6 +20,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -252,6 +253,58 @@ class ChatWorkflowGraphTest {
                 .isEqualTo("边际效应");
         assertThat(ChatWorkflowService.extractKeyword("Java并发编程实战笔记"))
                 .isEqualTo("Java并发编程实战笔记");
+    }
+
+    // ---------- 资源检索意图路由（无划词） ----------
+
+    private ChatWorkflowService.WorkflowResult runWithMessage(
+            ChatWorkflowService service, String message, RecordingEmitter emitter) {
+        return service.run(1L, null, message, "/ai-chat", "AI 对话",
+                "", null, null, emitter);
+    }
+
+    @Test
+    @DisplayName("无划词但带资源检索意图：确定式调 search_resources 后再生成")
+    void resourceIntentMessage_triggersSearch() {
+        when(resourceSearchTool.execute(anyString(), any())).thenReturn(
+                "{\"keyword\":\"Java\",\"count\":1,\"resources\":[{\"id\":3,\"title\":\"Java并发实战\"}]}");
+        when(aiService.streamGenerate(isNull(), anyString(), anyString(), any(), anyBoolean(),
+                any(), any(), any(), any()))
+                .thenReturn(new AiService.StreamingResult("平台有以下 Java 资源", 42, null));
+
+        RecordingEmitter emitter = new RecordingEmitter();
+        ChatWorkflowService.WorkflowResult result = runWithMessage(
+                newService(true), "平台有哪些 Java 学习资源？", emitter);
+
+        assertThat(result.status()).isEqualTo("OK");
+        verify(resourceSearchTool).execute(contains("Java"), any());
+        assertThat(emitter.tools).contains("search_resources");
+    }
+
+    @Test
+    @DisplayName("无划词且无检索意图（概念解释/学习计划）：不调 search_resources")
+    void nonIntentMessages_skipSearch() {
+        when(aiService.streamGenerate(isNull(), anyString(), anyString(), any(), anyBoolean(),
+                any(), any(), any(), any()))
+                .thenReturn(new AiService.StreamingResult("直接回答", 10, null));
+
+        runWithMessage(newService(true), "帮我制定两周的 Python 学习计划", new RecordingEmitter());
+        runWithMessage(newService(true), "解释一下 happens-before 的含义", new RecordingEmitter());
+
+        verify(resourceSearchTool, never()).execute(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("消息取词：剥检索意图词与资源名词，保留主题词")
+    void searchKeyword_fromMessage() {
+        assertThat(ChatWorkflowService.extractSearchKeyword("平台有哪些 Java 学习资源？"))
+                .isEqualTo("Java");
+        assertThat(ChatWorkflowService.extractSearchKeyword("推荐几本算法入门资料"))
+                .isEqualTo("算法入门");
+        assertThat(ChatWorkflowService.extractSearchKeyword("帮我找一些 SpringBoot 的视频教程"))
+                .isEqualTo("SpringBoot");
+        // 全部剥光时退回原消息关键词提取，不返回空串
+        assertThat(ChatWorkflowService.extractSearchKeyword("有什么资源？")).isNotBlank();
     }
 
     // ---------- Phase 3：审查回路 ----------

@@ -232,12 +232,20 @@ public class ChatWorkflowService {
     }
 
     private String routeAfter(ChatWorkflowState state) {
-        return state.selectedText().isBlank() ? "generate" : "search";
+        // 确定式检索的两个触发条件：有划选文本，或消息带资源检索意图
+        // （"平台有哪些 Java 学习资源"这类问题靠模型自觉不可靠，统一走检索节点）
+        if (!state.selectedText().isBlank()) {
+            return "search";
+        }
+        String keyword = extractSearchKeyword(state.message());
+        return keyword.isBlank() ? "generate" : "search";
     }
 
-    /** search 节点：划选文本提取关键词 → 确定式调 search_resources → 结果入状态 */
+    /** search 节点：划选文本/用户消息提取关键词 → 确定式调 search_resources → 结果入状态 */
     private Map<String, Object> searchNode(ChatWorkflowState state, RunContext ctx) {
-        String keyword = extractKeyword(state.selectedText());
+        String keyword = state.selectedText().isBlank()
+                ? extractSearchKeyword(state.message())
+                : extractKeyword(state.selectedText());
         ctx.emitter().tool(resourceSearchTool.name());
         String arguments;
         try {
@@ -359,6 +367,67 @@ public class ChatWorkflowService {
     }
 
     // ---------- 关键词提取 ----------
+
+    /** 资源类名词：与查找动词同时出现即视为检索意图 */
+    private static final List<String> RESOURCE_NOUNS = List.of(
+            "资源", "资料", "教程", "课程", "书籍", "视频", "文档", "题库", "书单");
+
+    /** 查找类动词（正则片段） */
+    private static final List<String> SEARCH_VERBS = List.of(
+            "有哪些", "有什么", "哪有", "推荐", "帮我", "找一?些", "找找", "找一下", "找本",
+            "搜索", "检索", "查一?下", "查查", "看看", "求");
+
+    /** 检索意图词：从消息提取关键词时逐个剥掉（不进 LIKE 模式） */
+    private static final List<String> INTENT_FILLERS = List.of(
+            "平台上?", "帮(我)?", "请", "给我", "介绍(一下)?", "推荐(几本|一下|一些)?",
+            "有哪些", "有什么", "哪有", "找一?些", "找找", "找一下", "找本", "搜索", "检索",
+            "查一?下", "查查", "看看", "求", "相关", "一些", "几本", "学习", "的",
+            "吗", "呢", "了");
+
+    /**
+     * 用户消息是否带资源检索意图：资源类名词与查找动词同时出现。
+     * 规则判定（不调 LLM），配合 route 条件边把这类问题确定式导去检索节点。
+     */
+    static boolean hasResourceIntent(String message) {
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        boolean hasNoun = RESOURCE_NOUNS.stream().anyMatch(message::contains);
+        if (!hasNoun) {
+            return false;
+        }
+        return SEARCH_VERBS.stream().anyMatch(verb -> message.matches(".*" + verb + ".*"));
+    }
+
+    /**
+     * 用户消息 → 检索关键词：剥意图词/资源名词/标点，保留主题词。
+     * 全部剥光时退回 {@link #extractKeyword}（对整句剥问句前后缀），不返回空串。
+     */
+    static String extractSearchKeyword(String message) {
+        if (!hasResourceIntent(message)) {
+            return "";
+        }
+        String stripped = message;
+        for (String filler : INTENT_FILLERS) {
+            stripped = stripped.replaceAll(filler, "");
+        }
+        for (String noun : RESOURCE_NOUNS) {
+            stripped = stripped.replace(noun, "");
+        }
+        stripped = stripped.replaceAll("[^\\p{L}\\p{N}\\-]+", " ").trim();
+        if (stripped.isEmpty()) {
+            return extractKeyword(message);
+        }
+        return truncated(stripped.replace(" ", ""), KEYWORD_MAX_LENGTH);
+    }
+
+    /** 截断到上限（按码点），超长加省略号 */
+    private static String truncated(String text, int limit) {
+        if (text.length() <= limit) {
+            return text;
+        }
+        return text.substring(0, limit);
+    }
 
     /**
      * 划选文本 → 检索关键词：剥标点/空白（保留字母数字与连字符）、
