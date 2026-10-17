@@ -103,4 +103,28 @@ class ChatPromptBuilderTest {
         assertThat(prompt).doesNotContain("用户划选：");
         assertThat(prompt).contains("资料原文（截断）：正文");
     }
+
+    @Test
+    @DisplayName("检索结果块规则：编号/id 不进正文，禁止确认式回应")
+    void searchResultsRules_forbidIdAndAcknowledgement() {
+        String base = builder.buildToolMode("/ai-chat", "AI 对话", null, null,
+                java.util.List.of("get_resource_detail：查询资源详情"));
+        String prompt = builder.appendSearchResults(base,
+                "{\"keyword\":\"Java\",\"resources\":[{\"id\":31,\"title\":\"JavaGuide\"}]}");
+
+        assertThat(prompt)
+                // 回归：旧规则"用标题和编号"导致 id 泄漏进回答正文
+                .doesNotContain("用标题和编号")
+                .contains("禁止在回答中出现资源编号")
+                .contains("不要回应或确认");
+    }
+
+    @Test
+    @DisplayName("工具模式规则：拿到结果直接正式回答，禁止确认语")
+    void toolModeRules_forbidAcknowledgement() {
+        String prompt = builder.buildToolMode("/ai-chat", "AI 对话", null, null,
+                java.util.List.of("get_resource_detail：查询资源详情"));
+
+        assertThat(prompt).contains("收到");
+    }
 }
