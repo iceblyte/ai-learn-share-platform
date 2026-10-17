@@ -1,8 +1,10 @@
 package com.learning.platform.ai.image;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.learning.platform.service.FileService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.util.List;
 
@@ -59,7 +61,9 @@ class ImageCollectorTest {
     }
 
     private ImageCollector collector(int timeoutMs, ImageSearchTool... tools) {
-        return new ImageCollector(List.of(tools), new ObjectMapper(), true, timeoutMs, 2);
+        // 持久化关闭：本测试只关注收集行为，不做下载与存储
+        return new ImageCollector(List.of(tools), new ObjectMapper(),
+                new AiImageStorage(Mockito.mock(FileService.class), false), true, timeoutMs, 2);
     }
 
     @Test
@@ -99,7 +103,8 @@ class ImageCollectorTest {
                 .isNull();
         assertThat(collector(300).start("学习")).isNull();
 
-        ImageCollector enabled = new ImageCollector(List.of(), new ObjectMapper(), false, 300, 2);
+        ImageCollector enabled = new ImageCollector(List.of(), new ObjectMapper(),
+                new AiImageStorage(Mockito.mock(FileService.class), false), false, 300, 2);
         assertThat(enabled.isActive()).isFalse();
     }
 
@@ -117,7 +122,8 @@ class ImageCollectorTest {
         ImageCollector collector = new ImageCollector(
                 List.of(new FakeTool("pexels", true, 0, false,
                         List.of(IMG_A, IMG_A, IMG_A, IMG_A))),
-                new ObjectMapper(), true, 1000, 2);
+                new ObjectMapper(),
+                new AiImageStorage(Mockito.mock(FileService.class), false), true, 1000, 2);
 
         String json = collector.start("学习").awaitJson();
 
@@ -131,7 +137,8 @@ class ImageCollectorTest {
 
         ImageCollector disabled = new ImageCollector(
                 List.of(new FakeTool("on", true, 0, false, List.of())),
-                new ObjectMapper(), false, 300, 2);
+                new ObjectMapper(),
+                new AiImageStorage(Mockito.mock(FileService.class), false), false, 300, 2);
         assertThat(disabled.isActive()).isFalse();
     }
 }

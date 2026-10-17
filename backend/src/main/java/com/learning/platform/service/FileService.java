@@ -149,6 +149,43 @@ public class FileService {
         }
     }
 
+    /**
+     * 字节落图（AI 配图持久化通道）：下载到的图片字节写入
+     * {@code <subDir>/yyyy/MM/ai_<uuid><ext>}，返回永久访问 URL。
+     * local/OSS 由 storage.type 决定，与资源文件同一套存储。
+     */
+    public String storeImageBytes(byte[] data, String extension, String subDir) {
+        if (data == null || data.length == 0) {
+            throw new BusinessException("图片内容为空");
+        }
+        String ext = extension != null && extension.matches("\\.(jpg|jpeg|png|gif|webp)")
+                ? extension.toLowerCase() : ".jpg";
+        if (ext.equals(".jpeg")) {
+            ext = ".jpg";
+        }
+
+        String datePath = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy/MM"));
+        String newFileName = "ai_" + UUID.randomUUID() + ext;
+        String objectKey = subDir + "/" + datePath + "/" + newFileName;
+
+        if ("oss".equalsIgnoreCase(storageType)) {
+            try (InputStream inputStream = new java.io.ByteArrayInputStream(data)) {
+                getOssClient().putObject(ossBucket, objectKey, inputStream);
+                return ossUrlPrefix + "/" + objectKey;
+            } catch (IOException e) {
+                throw new BusinessException("图片上传失败: " + e.getMessage());
+            }
+        }
+        Path dir = Paths.get(localPath, subDir, datePath);
+        try {
+            Files.createDirectories(dir);
+            Files.write(dir.resolve(newFileName), data);
+        } catch (IOException e) {
+            throw new BusinessException("图片保存失败: " + e.getMessage());
+        }
+        return localUrlPrefix + "/" + objectKey;
+    }
+
     private String uploadToOss(MultipartFile file, String objectKey) {
         try (InputStream inputStream = file.getInputStream()) {
             getOssClient().putObject(ossBucket, objectKey, inputStream);

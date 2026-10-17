@@ -35,6 +35,7 @@ public class ImageCollector {
 
     private final List<ImageSearchTool> activeTools;
     private final ObjectMapper objectMapper;
+    private final AiImageStorage imageStorage;
     private final boolean enabled;
     private final int timeoutMs;
     private final int maxPerSource;
@@ -42,11 +43,13 @@ public class ImageCollector {
 
     public ImageCollector(List<ImageSearchTool> tools,
                           ObjectMapper objectMapper,
+                          AiImageStorage imageStorage,
                           @Value("${ai.image.enabled:true}") boolean enabled,
                           @Value("${ai.image.timeout-ms:8000}") int timeoutMs,
                           @Value("${ai.image.max-per-source:2}") int maxPerSource) {
         this.activeTools = tools.stream().filter(ImageSearchTool::isConfigured).toList();
         this.objectMapper = objectMapper;
+        this.imageStorage = imageStorage;
         this.enabled = enabled;
         this.timeoutMs = timeoutMs;
         this.maxPerSource = maxPerSource;
@@ -87,7 +90,9 @@ public class ImageCollector {
             if (images == null) {
                 return List.of();
             }
-            return images.stream().limit(maxPerSource).toList();
+            // 外链图落平台存储（万相生成图 24h 过期），替换永久 URL 再入库；
+            // 在收集线程上执行，与正文流式并行。失败保留原 URL，见 AiImageStorage。
+            return imageStorage.persist(images.stream().limit(maxPerSource).toList());
         } catch (Exception e) {
             log.warn("Image source {} failed: {}", tool.source(),
                     e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
