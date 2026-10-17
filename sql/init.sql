@@ -285,9 +285,6 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     KEY `idx_cm_created` (`created_at` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI对话消息表';
 
--- 存量库升级（扩展五：聊天工作流）请执行 sql/upgrade-chat-images.sql；
--- 本文件仅面向全新安装，勿在此重复 ALTER（新库建表已含新列）。
-
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正
 -- 请统一执行 sql/seed.sql。
