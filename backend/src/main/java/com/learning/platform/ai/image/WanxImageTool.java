@@ -20,8 +20,9 @@ import java.util.List;
  * <p>API（官方文档核对）：仅异步任务模式——POST image-synthesis
  * （{@code X-DashScope-Async: enable}，size 为 {@code 1024*1024}，星号非 x）
  * 拿 task_id，轮询 GET /api/v1/tasks/{task_id} 至 SUCCEEDED 取
- * {@code output.results[0].url}。生成实测 15-25s：预算内（正文流式时间 +
- * 收集尾等）赶上就出图，赶不上静默出局，绝不阻塞 done。</p>
+ * {@code output.results[0].url}。生成实测 15-25s：轮询预算拉长到 ~24s，
+ * 配合收集器从点火时刻计的总预算（正文流式时间可折抵），生成期间
+ * 与正文流式并行，先完成先用，赶不上静默出局，绝不阻塞 done。</p>
  */
 @Slf4j
 @Component
@@ -30,9 +31,9 @@ public class WanxImageTool implements ImageSearchTool {
     static final String SUBMIT_URL =
             "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis";
     static final String TASK_URL = "https://dashscope.aliyuncs.com/api/v1/tasks/";
-    /** 轮询节奏：3 次 × 2.5s；配合收集总预算兜底 */
-    static final int POLL_ATTEMPTS = 3;
-    static final long POLL_INTERVAL_MS = 2500;
+    /** 轮询节奏：8 次 × 3s ≈ 24s，覆盖生成实测 15-25s；收集总预算兜底 */
+    static final int POLL_ATTEMPTS = 8;
+    static final long POLL_INTERVAL_MS = 3000;
 
     private final String apiKey;
     private final String model;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { searchApi } from '@/api/search'
 import { categoryApi, tagApi } from '@/api/category'
@@ -23,6 +23,7 @@ const sortBy = ref('hot')
 /** 用户在 NL 搜索后是否手动点过排序按钮；未点过时排序由 AI 解析结果决定 */
 const sortTouched = ref(false)
 const toast = ref<{ message: string; type: 'info' | 'error' | 'success' } | null>(null)
+const searchInput = ref<HTMLInputElement | null>(null)
 
 function showToast(message: string, type: 'info' | 'error' | 'success' = 'info') {
   toast.value = { message, type }
@@ -51,6 +52,8 @@ onMounted(async () => {
   if (userStore.isLoggedIn) loadHistory()
   applyQueryTag()
   if (keyword.value || selectedTags.value.length) handleSearch()
+  // 从主页搜索框跳转过来后自动聚焦，用户可直接输入
+  nextTick(() => searchInput.value?.focus())
 })
 
 // 会话内切换 ?tag=（从 /search 点标签跳到另一标签）时同步预选
@@ -256,6 +259,7 @@ function getIntentValue(key: string, value: any): string {
       <div class="flex gap-3">
         <div class="relative flex-1">
           <input
+            ref="searchInput"
             v-model="keyword"
             :placeholder="isNlMode ? '例如：推荐关于Java并发编程且评分最高的前5个资源' : '搜索学习资源...'"
             class="w-full pl-10 pr-24 py-2 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"

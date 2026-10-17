@@ -8,6 +8,22 @@ import { renderMarkdown } from '@/utils/markdown'
 const resources = ref<Resource[]>([])
 const loading = ref(true)
 
+/** 状态筛选：PENDING/PUBLISHED/REJECTED/DRAFT/''（全部），默认待审核 */
+const statusFilter = ref<string>('PENDING')
+const STATUS_TABS: { value: string; label: string }[] = [
+  { value: 'PENDING', label: '待审核' },
+  { value: 'PUBLISHED', label: '已发布' },
+  { value: 'REJECTED', label: '已拒绝' },
+  { value: 'DRAFT', label: '草稿' },
+  { value: '', label: '全部' },
+]
+const STATUS_BADGE: Record<string, { text: string; cls: string }> = {
+  PENDING: { text: '待审核', cls: 'bg-amber-100 text-amber-700' },
+  PUBLISHED: { text: '已发布', cls: 'bg-green-100 text-green-700' },
+  REJECTED: { text: '已拒绝', cls: 'bg-red-100 text-red-700' },
+  DRAFT: { text: '草稿', cls: 'bg-slate-100 text-slate-600' },
+}
+
 const showAuditModal = ref(false)
 const auditTarget = ref<Resource | null>(null)
 const auditAction = ref<'APPROVE' | 'REJECT'>('APPROVE')
@@ -24,16 +40,25 @@ function openViewModal(resource: Resource) {
 /** 弹窗内描述按 markdown 渲染（已 DOMPurify 净化） */
 const viewDescriptionHtml = computed(() => renderMarkdown(viewTarget.value?.description || ''))
 
-onMounted(() => loadPending())
+onMounted(() => loadResources())
 
-async function loadPending() {
+async function loadResources() {
   loading.value = true
   try {
-    const res = await request.get('/admin/resources/pending', { params: { page: 1, size: 50 } })
+    // /admin/resources 支持可选 status：空 = 全部资源（含通过/拒绝/草稿）
+    const res = await request.get('/admin/resources', {
+      params: { page: 1, size: 50, status: statusFilter.value || undefined },
+    })
     resources.value = res.data.data?.records || []
   } catch {} finally {
     loading.value = false
   }
+}
+
+function switchStatus(value: string) {
+  if (statusFilter.value === value) return
+  statusFilter.value = value
+  loadResources()
 }
 
 function confirmAudit(resource: Resource, action: 'APPROVE' | 'REJECT') {
@@ -46,7 +71,7 @@ async function executeAudit() {
   if (!auditTarget.value) return
   try {
     await request.put(`/admin/resources/${auditTarget.value.id}/audit`, { action: auditAction.value })
-    resources.value = resources.value.filter(r => r.id !== auditTarget.value!.id)
+    await loadResources()
   } catch {}
   showAuditModal.value = false
   auditTarget.value = null
@@ -70,6 +95,19 @@ function formatTimeAgo(dateStr: string): string {
   <div>
     <h1 class="text-2xl font-bold text-slate-800 mb-6">资源审核</h1>
 
+    <!-- 状态筛选 -->
+    <div class="flex items-center gap-2 mb-5">
+      <button
+        v-for="tab in STATUS_TABS"
+        :key="tab.value"
+        @click="switchStatus(tab.value)"
+        :class="['px-4 py-1.5 rounded-lg text-sm font-medium transition-colors',
+          statusFilter === tab.value ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
     <div v-if="loading" class="flex justify-center py-12">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
     </div>
@@ -78,8 +116,8 @@ function formatTimeAgo(dateStr: string): string {
       <svg class="w-16 h-16 mx-auto text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
-      <p class="text-lg mb-1">暂无待审核资源</p>
-      <p class="text-sm">所有资源均已处理</p>
+      <p class="text-lg mb-1">该状态下暂无资源</p>
+      <p class="text-sm">可切换上方状态筛选查看其他资源</p>
     </div>
 
     <div v-else class="space-y-3">
@@ -90,7 +128,13 @@ function formatTimeAgo(dateStr: string): string {
       >
         <div class="flex items-start justify-between">
           <div class="flex-1 min-w-0">
-            <h3 class="font-semibold text-slate-800">{{ res.title }}</h3>
+            <div class="flex items-center gap-2">
+              <h3 class="font-semibold text-slate-800">{{ res.title }}</h3>
+              <span
+                v-if="STATUS_BADGE[res.status]"
+                :class="['px-2 py-0.5 rounded text-xs font-medium', STATUS_BADGE[res.status].cls]"
+              >{{ STATUS_BADGE[res.status].text }}</span>
+            </div>
             <p class="text-sm text-slate-500 mt-1 line-clamp-2">{{ res.aiSummary || res.description }}</p>
             <div class="flex items-center gap-3 mt-2 text-xs text-slate-400">
               <span>{{ res.publisher?.nickname || '未知用户' }}</span>
@@ -105,18 +149,20 @@ function formatTimeAgo(dateStr: string): string {
             >
               查看
             </button>
-            <button
-              @click="confirmAudit(res, 'APPROVE')"
-              class="px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-            >
-              通过
-            </button>
-            <button
-              @click="confirmAudit(res, 'REJECT')"
-              class="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-            >
-              拒绝
-            </button>
+            <template v-if="res.status === 'PENDING'">
+              <button
+                @click="confirmAudit(res, 'APPROVE')"
+                class="px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+              >
+                通过
+              </button>
+              <button
+                @click="confirmAudit(res, 'REJECT')"
+                class="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                拒绝
+              </button>
+            </template>
           </div>
         </div>
       </div>
@@ -168,18 +214,20 @@ function formatTimeAgo(dateStr: string): string {
     </template>
     <template #footer>
       <button @click="showViewModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">关闭</button>
-      <button
-        @click="showViewModal = false; confirmAudit(viewTarget!, 'APPROVE')"
-        class="px-4 py-2 text-sm text-white rounded-lg bg-green-500 hover:bg-green-600"
-      >
-        通过
-      </button>
-      <button
-        @click="showViewModal = false; confirmAudit(viewTarget!, 'REJECT')"
-        class="px-4 py-2 text-sm text-white rounded-lg bg-red-500 hover:bg-red-600"
-      >
-        拒绝
-      </button>
+      <template v-if="viewTarget?.status === 'PENDING'">
+        <button
+          @click="showViewModal = false; confirmAudit(viewTarget!, 'APPROVE')"
+          class="px-4 py-2 text-sm text-white rounded-lg bg-green-500 hover:bg-green-600"
+        >
+          通过
+        </button>
+        <button
+          @click="showViewModal = false; confirmAudit(viewTarget!, 'REJECT')"
+          class="px-4 py-2 text-sm text-white rounded-lg bg-red-500 hover:bg-red-600"
+        >
+          拒绝
+        </button>
+      </template>
     </template>
   </AppModal>
 

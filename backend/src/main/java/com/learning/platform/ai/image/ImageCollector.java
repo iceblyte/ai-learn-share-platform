@@ -20,8 +20,9 @@ import java.util.concurrent.TimeoutException;
  *
  * <p><b>与正文流式并发</b>：查询词在请求时即可确定（划选文本或用户问题），
  * 由工作流在生成开始前调用 {@link #start} 点火；正文流完后
- * {@link Session#awaitJson} 至多再等 timeout-ms 收尾—— wanx（15-25s）
- * 与 pexels/undraw（秒级）在同一预算内竞争，先完成先用。</p>
+ * {@link Session#awaitJson} 收尾。等待窗口为「点火后总预算 max-total-ms」
+ * 与「正文流完后尾等 timeout-ms」的较小者——wanx（15-25s）的生成时间
+ * 大部分被正文流式折抵，长回答下能赶上；短回答时静默出局，先完成先用。</p>
  *
  * <p>失败纪律：任一源异常/超时仅该源出局，不阻塞、不抛出；
  * 全部失败时返回 null（不发 images 事件）。</p>
@@ -38,6 +39,7 @@ public class ImageCollector {
     private final AiImageStorage imageStorage;
     private final boolean enabled;
     private final int timeoutMs;
+    private final int maxTotalMs;
     private final int maxPerSource;
     private final ExecutorService executor;
 
@@ -47,11 +49,22 @@ public class ImageCollector {
                           @Value("${ai.image.enabled:true}") boolean enabled,
                           @Value("${ai.image.timeout-ms:8000}") int timeoutMs,
                           @Value("${ai.image.max-per-source:2}") int maxPerSource) {
+        this(tools, objectMapper, imageStorage, enabled, timeoutMs, 30000, maxPerSource);
+    }
+
+    ImageCollector(List<ImageSearchTool> tools,
+                   ObjectMapper objectMapper,
+                   AiImageStorage imageStorage,
+                   boolean enabled,
+                   int timeoutMs,
+                   int maxTotalMs,
+                   int maxPerSource) {
         this.activeTools = tools.stream().filter(ImageSearchTool::isConfigured).toList();
         this.objectMapper = objectMapper;
         this.imageStorage = imageStorage;
         this.enabled = enabled;
         this.timeoutMs = timeoutMs;
+        this.maxTotalMs = maxTotalMs;
         this.maxPerSource = maxPerSource;
         this.executor = Executors.newFixedThreadPool(
                 Math.max(3, Math.min(activeTools.size() * 2, 6)),
@@ -104,17 +117,22 @@ public class ImageCollector {
     public class Session {
 
         private final List<CompletableFuture<List<AnswerImage>>> futures;
+        /** 点火时刻：wanx 等慢源在正文流式期间并行生成，总预算从这里起算 */
+        private final long startedAt = System.currentTimeMillis();
 
         Session(List<CompletableFuture<List<AnswerImage>>> futures) {
             this.futures = futures;
         }
 
         /**
-         * 等待收集完成（总预算 timeout-ms），返回 JSON 数组或 null（全失败）。
-         * 每个未来按剩余预算等待，超时的源直接放弃（后台线程自杀靠工具自身 HTTP 超时）。
+         * 等待收集完成，返回 JSON 数组或 null（全失败）。
+         * 截止时刻 = min(点火 + max-total-ms, 现在 + timeout-ms)：
+         * 正文流式耗时折抵慢源生成时间，同时尾等不超过 timeout-ms，
+         * 短回答不会为图拖长响应。
          */
         public String awaitJson() {
-            long deadline = System.currentTimeMillis() + timeoutMs;
+            long deadline = Math.min(startedAt + maxTotalMs,
+                    System.currentTimeMillis() + timeoutMs);
             List<AnswerImage> collected = new ArrayList<>();
             for (CompletableFuture<List<AnswerImage>> future : futures) {
                 long remaining = deadline - System.currentTimeMillis();

@@ -63,7 +63,7 @@ class ImageCollectorTest {
     private ImageCollector collector(int timeoutMs, ImageSearchTool... tools) {
         // 持久化关闭：本测试只关注收集行为，不做下载与存储
         return new ImageCollector(List.of(tools), new ObjectMapper(),
-                new AiImageStorage(Mockito.mock(FileService.class), false), true, timeoutMs, 2);
+                new AiImageStorage(Mockito.mock(FileService.class), false), true, timeoutMs, 60000, 2);
     }
 
     @Test
@@ -104,7 +104,7 @@ class ImageCollectorTest {
         assertThat(collector(300).start("学习")).isNull();
 
         ImageCollector enabled = new ImageCollector(List.of(), new ObjectMapper(),
-                new AiImageStorage(Mockito.mock(FileService.class), false), false, 300, 2);
+                new AiImageStorage(Mockito.mock(FileService.class), false), false, 300, 60000, 2);
         assertThat(enabled.isActive()).isFalse();
     }
 
@@ -123,7 +123,7 @@ class ImageCollectorTest {
                 List.of(new FakeTool("pexels", true, 0, false,
                         List.of(IMG_A, IMG_A, IMG_A, IMG_A))),
                 new ObjectMapper(),
-                new AiImageStorage(Mockito.mock(FileService.class), false), true, 1000, 2);
+                new AiImageStorage(Mockito.mock(FileService.class), false), true, 1000, 60000, 2);
 
         String json = collector.start("学习").awaitJson();
 
@@ -138,7 +138,7 @@ class ImageCollectorTest {
         ImageCollector disabled = new ImageCollector(
                 List.of(new FakeTool("on", true, 0, false, List.of())),
                 new ObjectMapper(),
-                new AiImageStorage(Mockito.mock(FileService.class), false), false, 300, 2);
+                new AiImageStorage(Mockito.mock(FileService.class), false), false, 300, 60000, 2);
         assertThat(disabled.isActive()).isFalse();
     }
 }
