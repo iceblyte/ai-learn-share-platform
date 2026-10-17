@@ -220,6 +220,8 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     const context = options.getPayloadContext?.()
     const res = await chatApi.createSession(context?.pageContextType, context?.pageContextId)
     currentSessionId.value = res.data.data.id
+    // 新会话即时进左侧列表（此时标题为空，首轮回答结束后再刷新一次）
+    void loadSessions()
     return currentSessionId.value
   }
 
@@ -423,6 +425,10 @@ export function useAiChat(options: UseAiChatOptions = {}) {
       messages.value = [...messages.value]
       sending.value = false
       setSelectedText('')
+      // 会话列表同步：首轮问答后标题/时间/排序已变化，免手动刷新页面
+      if (userStore.isLoggedIn && currentSessionId.value) {
+        void loadSessions()
+      }
     }
   }
 
