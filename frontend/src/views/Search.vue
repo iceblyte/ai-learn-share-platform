@@ -258,13 +258,13 @@ function getIntentValue(key: string, value: any): string {
           <input
             v-model="keyword"
             :placeholder="isNlMode ? '例如：推荐关于Java并发编程且评分最高的前5个资源' : '搜索学习资源...'"
-            class="w-full pl-10 pr-20 py-2 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            class="w-full pl-10 pr-24 py-2 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             @keyup.enter="submitSearch"
           />
           <svg class="absolute left-3 top-2.5 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <span v-if="isNlMode" class="absolute right-12 top-2 text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">AI</span>
+          <span v-if="isNlMode" class="absolute right-16 top-2 text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">AI</span>
           <button
             @click="submitSearch"
             class="absolute right-2 top-1.5 bg-primary-500 text-white px-3 py-1 rounded-full text-xs hover:bg-primary-600 transition-colors"
