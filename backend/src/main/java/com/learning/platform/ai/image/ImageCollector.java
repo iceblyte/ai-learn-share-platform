@@ -35,6 +35,10 @@ public class ImageCollector {
     /** 单次回答配图总数上限 */
     static final int MAX_TOTAL_IMAGES = 4;
 
+    /** 来源展示优先级：数值小者先收集先展示（wanx 按题生成最贴题，pexels 次之，undraw 插画兜底） */
+    private static final java.util.Map<String, Integer> SOURCE_ORDER =
+            java.util.Map.of("wanx", 0, "pexels", 1, "undraw", 2);
+
     private final List<ImageSearchTool> activeTools;
     private final ObjectMapper objectMapper;
     private final AiImageStorage imageStorage;
@@ -62,7 +66,10 @@ public class ImageCollector {
                    int timeoutMs,
                    int maxTotalMs,
                    int maxPerSource) {
-        this.activeTools = tools.stream().filter(ImageSearchTool::isConfigured).toList();
+        this.activeTools = tools.stream().filter(ImageSearchTool::isConfigured)
+                .sorted(java.util.Comparator.comparingInt(
+                        tool -> SOURCE_ORDER.getOrDefault(tool.source(), 99)))
+                .toList();
         this.objectMapper = objectMapper;
         this.imageStorage = imageStorage;
         this.enabled = enabled;

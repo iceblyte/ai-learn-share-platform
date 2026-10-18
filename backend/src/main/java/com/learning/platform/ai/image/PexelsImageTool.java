@@ -101,6 +101,11 @@ public class PexelsImageTool implements ImageSearchTool {
      * 检索词规整：含中文时先经 LLM 译成英文关键词（收集线程并行执行，
      * 4s 超时兜底）；翻译失败/为空回退原词。英文词只保留字母数字空格，
      * 防止模型输出解释性文字污染 URL。
+     *
+     * <p>翻译要求"可视化的具体场景或物体"：抽象概念词（algorithm、
+     * study、success）在图库里只会命中大学校园、毕业照这类泛化图片，
+     * 与"算法学习"类回答观感严重不符——宁可要"code on screen"这种
+     * 具体场景。</p>
      */
     String toSearchQuery(String query) {
         if (query == null || !CJK.matcher(query).find()) {
@@ -109,6 +114,10 @@ public class PexelsImageTool implements ImageSearchTool {
         try {
             String en = aiService.completeText(
                     "把下面的中文主题翻译成适合图片素材库检索的英文关键词（1-3个单词）。"
+                            + "必须选择可视化的具体场景或物体（例如：编程学习→programming code screen，"
+                            + "考研数学→math textbook notebook，数据结构→computer code）。"
+                            + "禁止输出抽象概念词（algorithm、study、success、knowledge 这类）"
+                            + "和校园/毕业场景词（university、campus、graduation）。"
                             + "只输出英文词组本身，不要任何标点、编号或解释：\n" + query,
                     24, 4000);
             if (en == null) {
