@@ -351,38 +351,41 @@ async function loadOlderAnchored() {
               </button>
             </div>
 
-            <div class="flex items-end gap-2">
-              <!-- 智能搜索开关（联网检索，回答附来源） -->
-              <button
-                class="flex h-11 shrink-0 items-center gap-1 rounded-2xl border px-3 text-xs transition"
-                :class="webSearchEnabled
-                  ? 'border-primary-500 bg-primary-50 text-primary-600'
-                  : 'border-slate-300 bg-white text-slate-500 hover:border-primary-300 hover:text-primary-600'"
-                :title="webSearchEnabled ? '联网搜索已开启：回答将引用网页来源' : '开启后回答会联网检索并附来源'"
-                @click="webSearchEnabled = !webSearchEnabled"
-              >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c2.505 0 4.585-4.03 4.585-9S14.505 3 12 3m0 18c-2.505 0-4.585-4.03-4.585-9S9.495 3 12 3m0 0a9 9 0 019 9"/>
-                </svg>
-                智能搜索
-              </button>
+            <!-- 输入容器：上方输入区，底部工具行（智能搜索 | 发送） -->
+            <div class="rounded-2xl border border-slate-300 bg-white transition focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-100">
               <textarea
                 v-model="input"
-                rows="3"
+                rows="2"
                 placeholder="输入你的问题..."
-                class="min-h-[5.5rem] flex-1 resize-none rounded-2xl border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                class="w-full resize-none bg-transparent px-3 pt-2.5 text-sm text-slate-700 outline-none"
                 @keydown.enter.exact.prevent="sendFromInput"
               ></textarea>
-              <button
-                :disabled="sending || !input.trim()"
-                class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-600 text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                @click="sendFromInput"
-              >
-                <svg v-if="!sending" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-9.193-5.106A1 1 0 004 6.944v10.112a1 1 0 001.559.832l9.193-5.106a1 1 0 000-1.664z"/>
-                </svg>
-                <div v-else class="h-5 w-5 animate-spin rounded-full border-2 border-white/35 border-t-white"></div>
-              </button>
+              <div class="flex items-center justify-between px-1.5 pb-1.5">
+                <!-- 智能搜索开关（联网检索，回答附来源） -->
+                <button
+                  class="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition"
+                  :class="webSearchEnabled
+                    ? 'border-primary-500 bg-primary-50 text-primary-600'
+                    : 'border-transparent text-slate-500 hover:bg-slate-100 hover:text-primary-600'"
+                  :title="webSearchEnabled ? '联网搜索已开启：回答将引用网页来源' : '开启后回答会联网检索并附来源'"
+                  @click="webSearchEnabled = !webSearchEnabled"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c2.505 0 4.585-4.03 4.585-9S14.505 3 12 3m0 18c-2.505 0-4.585-4.03-4.585-9S9.495 3 12 3m0 0a9 9 0 019 9"/>
+                  </svg>
+                  智能搜索
+                </button>
+                <button
+                  :disabled="sending || !input.trim()"
+                  class="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-600 text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  @click="sendFromInput"
+                >
+                  <svg v-if="!sending" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-9.193-5.106A1 1 0 004 6.944v10.112a1 1 0 001.559.832l9.193-5.106a1 1 0 000-1.664z"/>
+                  </svg>
+                  <div v-else class="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white"></div>
+                </button>
+              </div>
             </div>
           </div>
         </template>
