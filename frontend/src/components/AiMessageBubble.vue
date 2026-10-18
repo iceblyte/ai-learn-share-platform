@@ -5,11 +5,12 @@
  * 智能搜索来源：回答下方来源条，点击展开来源列表；sidePanel 模式下
  * 由父页面打开右侧来源面板（emit viewSources）。
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch, onUnmounted } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { useUserStore } from '@/store/user'
 import AiAvatarMark from '@/components/AiAvatarMark.vue'
 import type { ChatMessage } from '@/composables/useAiChat'
+import type { AnswerImage } from '@/composables/useAiChat'
 
 const props = defineProps<{
   message: ChatMessage
@@ -35,6 +36,20 @@ const TOOL_LABELS: Record<string, string> = {
 const html = computed(() => (props.message.role === 'assistant' ? renderMarkdown(props.message.content) : ''))
 
 const moderatedNotice = '该内容涉嫌违规，无法显示'
+
+/** 页内大图预览：点击配图打开，Esc / 点遮罩 / 点关闭按钮均可关闭（不跳新页面） */
+const previewImage = ref<AnswerImage | null>(null)
+
+const onPreviewKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') previewImage.value = null
+}
+
+watch(previewImage, (img) => {
+  if (img) window.addEventListener('keydown', onPreviewKeydown)
+  else window.removeEventListener('keydown', onPreviewKeydown)
+})
+
+onUnmounted(() => window.removeEventListener('keydown', onPreviewKeydown))
 
 const toolLabel = (name: string) => TOOL_LABELS[name] || name
 
@@ -149,16 +164,15 @@ const userInitial = computed(
         </div>
       </div>
 
-      <!-- 配图条（工作流 imageCollect 产出 / 历史快照）：不进正文，正文下方横向排布 -->
+      <!-- 配图条（工作流 imageCollect 产出 / 历史快照）：不进正文，正文下方横向排布；
+           点击在本页内放大预览，不跳转新页面 -->
       <div v-if="message.images?.length" class="mt-2 flex flex-wrap gap-2">
-        <a
+        <button
           v-for="(image, index) in message.images"
           :key="`${image.url}-${index}`"
-          :href="image.url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="group relative block h-20 w-28 overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
+          class="group relative block h-20 w-28 cursor-zoom-in overflow-hidden rounded-lg border border-slate-200 bg-slate-50"
           :title="image.alt"
+          @click="previewImage = image"
         >
           <img
             :src="image.url"
@@ -169,8 +183,36 @@ const userInitial = computed(
           <span class="absolute bottom-0 right-0 rounded-tl-md bg-black/45 px-1 text-[10px] text-white">
             {{ image.source }}
           </span>
-        </a>
+        </button>
       </div>
+
+      <!-- 页内大图预览遮罩：Teleport 到 body，避免悬浮窗层级裁剪 -->
+      <Teleport to="body">
+        <div
+          v-if="previewImage"
+          class="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-6"
+          @click.self="previewImage = null"
+        >
+          <div class="relative max-h-full max-w-full">
+            <button
+              class="absolute -top-3 -right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg leading-none text-slate-600 shadow-lg transition hover:bg-slate-100"
+              title="关闭预览"
+              @click="previewImage = null"
+            >
+              ×
+            </button>
+            <img
+              :src="previewImage.url"
+              :alt="previewImage.alt"
+              class="max-h-[80vh] max-w-[86vw] rounded-xl object-contain shadow-2xl"
+            />
+            <div class="mt-2 flex items-center justify-between gap-3 text-xs text-slate-300">
+              <span class="truncate">{{ previewImage.alt }}</span>
+              <span class="flex-shrink-0 rounded bg-white/15 px-1.5 py-0.5">{{ previewImage.source }}</span>
+            </div>
+          </div>
+        </div>
+      </Teleport>
 
       <span v-if="message.streaming" class="mt-1 inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
     </div>
