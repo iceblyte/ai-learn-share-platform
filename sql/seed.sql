@@ -17,9 +17,11 @@ SET CHARACTER SET utf8mb4;
 -- ============================================
 -- 1. 默认账号
 -- ============================================
+-- 密码说明：admin / admin123；publisher 及第 3 节全部测试用户 / 123456
+-- （hash 为 BCrypt("123456")，与后端 UserService.DEFAULT_PASSWORD 一致）
 INSERT IGNORE INTO `user` (`username`, `email`, `password_hash`, `nickname`, `bio`, `role`, `points`) VALUES
 ('admin', 'admin@learning.com', '$2b$10$xQfG5lnviqRGoZ3O6K00/.Sd8Ivi2.EJTxq8bHMHu8HdI9fvrfdmO', '系统管理员', '负责平台运营、资源审核和用户管理。', 'ADMIN', 1000),
-('publisher', 'publisher@learning.com', '$2b$10$4Qe0TS.kFLsbVqioXmBuPO2m.xvhwYaR02TQEw030VrJ0.GCjU1.G', '资源发布者', '默认测试发布者账号。', 'PUBLISHER', 500);
+('publisher', 'publisher@learning.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '资源发布者', '默认测试发布者账号。', 'PUBLISHER', 500);
 
 -- ============================================
 -- 2. 默认分类与标签
@@ -59,18 +61,18 @@ INSERT IGNORE INTO `tag` (`name`, `usage_count`) VALUES
 -- 3. 测试用户 (密码均为 123456, BCrypt加密)
 -- ============================================
 INSERT IGNORE INTO `user` (`username`, `email`, `password_hash`, `nickname`, `bio`, `role`, `points`) VALUES
-('zhangsan', 'zhangsan@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '张三', '热爱学习，乐于分享。主要关注 Java 后端开发和分布式系统。', 'PUBLISHER', 850),
-('lisi', 'lisi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '李明', '算法竞赛爱好者，ACM 金牌选手。', 'PUBLISHER', 720),
-('wangwu', 'wangwu@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '王教授', '清华大学计算机系教授，专注于操作系统和分布式系统研究。', 'PUBLISHER', 1200),
-('zhaoliu', 'zhaoliu@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '赵同学', '大三学生，正在准备考研。', 'USER', 150),
-('sunqi', 'sunqi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '孙七', 'Python 数据分析师，喜欢分享数据分析和机器学习相关资源。', 'PUBLISHER', 680),
-('zhouba', 'zhouba@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '周八', '前端开发工程师，Vue/React 都有涉猎。', 'PUBLISHER', 550),
-('wujiu', 'wujiu@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '吴九', '英语学习爱好者，四六级高分通过。', 'PUBLISHER', 420),
-('zhengshi', 'zhengshi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '郑十', '数据库 DBA，专注于 MySQL 性能优化。', 'PUBLISHER', 380),
-('qianyi', 'qianyi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '钱一', '准备秋招的后端学习者，关注 Java、MySQL 和面试题。', 'USER', 230),
-('fenger', 'fenger@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '冯二', '热衷前端工程化和 Vue 生态。', 'USER', 260),
-('chenthree', 'chenthree@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '陈三', '考研用户，主要关注高数、线代、概率论资料。', 'USER', 190),
-('liusi', 'liusi@test.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '刘四', '在准备英语和计算机等级考试，也会收藏算法题单。', 'USER', 210);
+('zhangsan', 'zhangsan@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '张三', '热爱学习，乐于分享。主要关注 Java 后端开发和分布式系统。', 'PUBLISHER', 850),
+('lisi', 'lisi@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '李明', '算法竞赛爱好者，ACM 金牌选手。', 'PUBLISHER', 720),
+('wangwu', 'wangwu@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '王教授', '清华大学计算机系教授，专注于操作系统和分布式系统研究。', 'PUBLISHER', 1200),
+('zhaoliu', 'zhaoliu@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '赵同学', '大三学生，正在准备考研。', 'USER', 150),
+('sunqi', 'sunqi@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '孙七', 'Python 数据分析师，喜欢分享数据分析和机器学习相关资源。', 'PUBLISHER', 680),
+('zhouba', 'zhouba@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '周八', '前端开发工程师，Vue/React 都有涉猎。', 'PUBLISHER', 550),
+('wujiu', 'wujiu@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '吴九', '英语学习爱好者，四六级高分通过。', 'PUBLISHER', 420),
+('zhengshi', 'zhengshi@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '郑十', '数据库 DBA，专注于 MySQL 性能优化。', 'PUBLISHER', 380),
+('qianyi', 'qianyi@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '钱一', '准备秋招的后端学习者，关注 Java、MySQL 和面试题。', 'USER', 230),
+('fenger', 'fenger@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '冯二', '热衷前端工程化和 Vue 生态。', 'USER', 260),
+('chenthree', 'chenthree@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '陈三', '考研用户，主要关注高数、线代、概率论资料。', 'USER', 190),
+('liusi', 'liusi@test.com', '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6', '刘四', '在准备英语和计算机等级考试，也会收藏算法题单。', 'USER', 210);
 
 -- ============================================
 -- 4. 学习资源

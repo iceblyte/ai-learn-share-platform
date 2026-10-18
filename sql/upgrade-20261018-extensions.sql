@@ -52,8 +52,39 @@ DELIMITER ;
 CALL `upgrade_add_sources_json`();
 DROP PROCEDURE `upgrade_add_sources_json`;
 
+-- ------------------------------------------------------------
+-- 3. 修复 seed.sql 测试账号密码（旧 hash 为无效值，无法登录）
+--    统一重置为 123456（BCrypt），与后端新增用户默认密码一致
+--    admin 保持 admin123 不变
+-- ------------------------------------------------------------
+UPDATE `user`
+SET `password_hash` = '$2b$10$i3.c/y0BUgAyok1nhBHuFO10FJJ078TLmJLTPpXssik1hVlkVcBa6'
+WHERE `username` IN (
+    'publisher', 'zhangsan', 'lisi', 'wangwu', 'zhaoliu', 'sunqi', 'zhouba',
+    'wujiu', 'zhengshi', 'qianyi', 'fenger', 'chenthree', 'liusi'
+);
+
+-- ------------------------------------------------------------
+-- 4. AI 助手昵称去空格（"AI 助手" → "AI助手"）
+--    @提及按"非空白连续段"匹配，带空格的昵称永远匹配不中
+-- ------------------------------------------------------------
+UPDATE `user`
+SET `nickname` = 'AI助手'
+WHERE `username` = 'ai_assistant' AND `nickname` <> 'AI助手';
+
+-- 历史评论里的旧提及写法同步替换，保证高亮与触发
+UPDATE `comment`
+SET `content` = REPLACE(`content`, '@AI 助手', '@AI助手')
+WHERE `content` LIKE '%@AI 助手%';
+
+-- 历史通知文案同步
+UPDATE `notification`
+SET `content` = REPLACE(`content`, 'AI 助手 为你的评论生成了资源总结', 'AI助手 为你的评论生成了资源总结')
+WHERE `content` LIKE '%AI 助手 为你的评论生成了资源总结%';
+
 -- ============================================================
 -- 执行完毕。验证（可选）：
 --   SHOW COLUMNS FROM chat_message LIKE 'sources_json';
 --   SHOW TABLES LIKE 'notification';
+--   SELECT username, nickname FROM user WHERE username = 'ai_assistant';
 -- ============================================================
