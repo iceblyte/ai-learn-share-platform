@@ -7,6 +7,7 @@ import com.learning.platform.entity.*;
 import com.learning.platform.mapper.*;
 import com.learning.platform.service.FileService;
 import com.learning.platform.service.ResourceService;
+import com.learning.platform.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,6 +38,28 @@ public class UserController {
     private final RatingMapper ratingMapper;
     private final FileService fileService;
     private final PublisherApplicationMapper publisherApplicationMapper;
+    private final UserService userService;
+
+    /**
+     * 公开用户主页信息（匿名可访问）：仅公开字段 + 统计 + viewer 视角标记。
+     * 方法级 permitAll 覆盖类级 isAuthenticated。
+     */
+    @GetMapping("/{id}")
+    @PreAuthorize("permitAll()")
+    public Result<Map<String, Object>> publicProfile(@PathVariable Long id, Authentication auth) {
+        Long viewerId = auth != null ? (Long) auth.getPrincipal() : null;
+        return Result.success(userService.getPublicProfile(viewerId, id));
+    }
+
+    /** 某用户已发布的资源分页（匿名可访问，不含草稿/待审核/已拒绝） */
+    @GetMapping("/{id}/resources")
+    @PreAuthorize("permitAll()")
+    public Result<PageResult<Resource>> userPublishedResources(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return Result.success(userService.listUserPublishedResources(id, page, size));
+    }
 
     @GetMapping("/profile")
     public Result<User> getProfile(Authentication auth) {

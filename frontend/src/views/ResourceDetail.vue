@@ -434,23 +434,38 @@ function getAvatarUrl(user: any): string | null {
 
             <!-- Publisher Info -->
             <div class="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
-              <img
-                v-if="getAvatarUrl(resource.publisher)"
-                :src="getAvatarUrl(resource.publisher)!"
-                class="w-10 h-10 rounded-full object-cover"
-                alt="avatar"
-              />
-              <div v-else class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                <span class="text-sm font-medium text-primary-600">
-                  {{ resource.publisher?.nickname?.[0] || '用' }}
-                </span>
-              </div>
-              <div>
-                <p class="text-sm font-medium">{{ resource.publisher?.nickname }}</p>
-                <p class="text-xs text-slate-400">
-                  发布于 {{ new Date(resource.createdAt).toLocaleDateString() }}
-                  <span v-if="followStats && followStats.followers > 0">· {{ followStats.followers }} 位关注者</span>
-                </p>
+              <router-link
+                v-if="resource.publisher"
+                :to="`/user/${resource.publisher.id}`"
+                class="flex items-center gap-3 group cursor-pointer"
+              >
+                <img
+                  v-if="getAvatarUrl(resource.publisher)"
+                  :src="getAvatarUrl(resource.publisher)!"
+                  class="w-10 h-10 rounded-full object-cover group-hover:ring-2 group-hover:ring-primary-200 transition-all"
+                  alt="avatar"
+                />
+                <div v-else class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                  <span class="text-sm font-medium text-primary-600">
+                    {{ resource.publisher?.nickname?.[0] || '用' }}
+                  </span>
+                </div>
+                <div>
+                  <p class="text-sm font-medium group-hover:text-primary-600 transition-colors">{{ resource.publisher?.nickname }}</p>
+                  <p class="text-xs text-slate-400">
+                    发布于 {{ new Date(resource.createdAt).toLocaleDateString() }}
+                    <span v-if="followStats && followStats.followers > 0">· {{ followStats.followers }} 位关注者</span>
+                  </p>
+                </div>
+              </router-link>
+              <div v-else class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+                  <span class="text-sm font-medium text-slate-400">?</span>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-slate-400">已注销用户</p>
+                  <p class="text-xs text-slate-400">发布于 {{ new Date(resource.createdAt).toLocaleDateString() }}</p>
+                </div>
               </div>
               <button
                 v-if="canFollow && followStats"

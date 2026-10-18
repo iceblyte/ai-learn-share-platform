@@ -48,6 +48,11 @@ function goToResource(id: number) {
   router.push(`/resource/${id}`)
 }
 
+/** 点击发布者昵称/头像进入用户主页（阻止冒泡，避免触发整卡跳转） */
+function goPublisher(publisher?: { id: number } | null) {
+  if (publisher?.id) router.push(`/user/${publisher.id}`)
+}
+
 async function goToCategory(id: number | null) {
   activeCategory.value = id
   if (id === null) {
@@ -166,7 +171,7 @@ function formatTimeAgo(dateStr: string): string {
                 </span>
               </div>
               <div class="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
-                <span class="text-xs text-slate-400">{{ res.publisher?.nickname }}</span>
+                <span class="text-xs text-slate-400 hover:text-primary-600 cursor-pointer transition-colors" @click.stop="goPublisher(res.publisher)">{{ res.publisher?.nickname || '已注销用户' }}</span>
                 <span class="text-xs text-slate-400 flex items-center gap-0.5">
                   <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -272,13 +277,13 @@ function formatTimeAgo(dateStr: string): string {
                 </span>
               </div>
               <div class="flex items-center justify-between mt-3 pt-2 border-t border-slate-100">
-                <div class="flex items-center gap-1">
-                  <div class="w-5 h-5 bg-primary-100 rounded-full flex items-center justify-center">
+                <div class="flex items-center gap-1 cursor-pointer group" @click.stop="goPublisher(res.publisher)">
+                  <div class="w-5 h-5 bg-primary-100 rounded-full flex items-center justify-center group-hover:ring-2 group-hover:ring-primary-200 transition-all">
                     <span class="text-[10px] font-medium text-primary-600">
                       {{ res.publisher?.nickname?.[0] || '用' }}
                     </span>
                   </div>
-                  <span class="text-xs text-slate-500">{{ res.publisher?.nickname }}</span>
+                  <span class="text-xs text-slate-500 group-hover:text-primary-600 transition-colors">{{ res.publisher?.nickname || '已注销用户' }}</span>
                 </div>
                 <div class="flex items-center gap-2 text-xs text-slate-400">
                   <span class="flex items-center gap-0.5">

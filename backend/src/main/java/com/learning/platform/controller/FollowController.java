@@ -1,5 +1,6 @@
 package com.learning.platform.controller;
 
+import com.learning.platform.common.PageResult;
 import com.learning.platform.common.Result;
 import com.learning.platform.service.FollowService;
 import lombok.RequiredArgsConstructor;
@@ -42,5 +43,27 @@ public class FollowController {
     public Result<List<Map<String, Object>>> myFollowing(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         return Result.success(followService.getFollowingUsers(userId));
+    }
+
+    /** 某用户的粉丝分页列表（用户主页用，匿名可访问） */
+    @GetMapping("/{id}/followers")
+    @PreAuthorize("permitAll()")
+    public Result<PageResult<Map<String, Object>>> followers(
+            @PathVariable Long id, Authentication auth,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long viewerId = auth != null ? (Long) auth.getPrincipal() : null;
+        return Result.success(followService.pageFollowers(viewerId, id, page, size));
+    }
+
+    /** 某用户关注的人的分页列表（用户主页用，匿名可访问） */
+    @GetMapping("/{id}/following")
+    @PreAuthorize("permitAll()")
+    public Result<PageResult<Map<String, Object>>> following(
+            @PathVariable Long id, Authentication auth,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Long viewerId = auth != null ? (Long) auth.getPrincipal() : null;
+        return Result.success(followService.pageFollowing(viewerId, id, page, size));
     }
 }

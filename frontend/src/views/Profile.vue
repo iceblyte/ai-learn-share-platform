@@ -6,16 +6,24 @@ import { resourceApi } from '@/api/resource'
 import type { Resource } from '@/types'
 import { useRouter, useRoute } from 'vue-router'
 import AppModal from '@/components/AppModal.vue'
+import FollowUserList from '@/components/FollowUserList.vue'
 
 const userStore = useUserStore()
 const router = useRouter()
 const route = useRoute()
 // 支持 /profile?tab=drafts 直达草稿箱（存草稿成功后从发布页跳转过来）
-const activeTab = ref(route.query.tab === 'drafts' ? 'drafts' : 'published')
+// 支持 /profile?tab=followers|following 直达粉丝/关注列表
+const SOCIAL_TABS = ['followers', 'following']
+const activeTab = ref(
+  route.query.tab === 'drafts' ? 'drafts'
+    : SOCIAL_TABS.includes(route.query.tab as string) ? (route.query.tab as string)
+    : 'published'
+)
 const favorites = ref<Resource[]>([])
 const myResources = ref<Resource[]>([])
 const drafts = ref<Resource[]>([])
 const stats = ref({ publishedCount: 0, totalViews: 0, totalLikes: 0, avgRating: 0, totalFavorites: 0 })
+const followCounts = ref({ followers: 0, following: 0 })
 const loading = ref(false)
 
 const profileForm = ref({
@@ -106,7 +114,16 @@ onMounted(async () => {
   }
   loadStats()
   loadApplication()
+  loadFollowCounts()
 })
+
+async function loadFollowCounts() {
+  if (!userStore.userInfo?.id) return
+  try {
+    const res = await userApi.getFollowStats(userStore.userInfo.id)
+    followCounts.value = { followers: res.data.data.followers, following: res.data.data.following }
+  } catch {}
+}
 
 async function loadMyResources() {
   activeTab.value = 'published'
@@ -255,18 +272,14 @@ function getGradient(index: number) {
           </p>
 
           <!-- Stats -->
-          <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100">
+          <div class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-100">
             <div class="text-center">
-              <p class="text-lg font-bold text-slate-800">{{ stats.publishedCount }}</p>
-              <p class="text-xs text-slate-400">发布</p>
+              <p class="text-lg font-bold text-slate-800">{{ followCounts.followers }}</p>
+              <p class="text-xs text-slate-400">粉丝</p>
             </div>
             <div class="text-center">
-              <p class="text-lg font-bold text-slate-800">{{ stats.totalLikes }}</p>
-              <p class="text-xs text-slate-400">获赞</p>
-            </div>
-            <div class="text-center">
-              <p class="text-lg font-bold text-slate-800">{{ stats.totalFavorites }}</p>
-              <p class="text-xs text-slate-400">收藏</p>
+              <p class="text-lg font-bold text-slate-800">{{ followCounts.following }}</p>
+              <p class="text-xs text-slate-400">关注</p>
             </div>
           </div>
 
@@ -313,6 +326,34 @@ function getGradient(index: number) {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
               草稿箱
+            </button>
+            <button
+              @click="editMode = false; activeTab = 'followers'"
+              :class="[
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm w-full transition-colors',
+                activeTab === 'followers' && !editMode
+                  ? 'bg-primary-50 text-primary-600 font-medium'
+                  : 'text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+              我的粉丝
+            </button>
+            <button
+              @click="editMode = false; activeTab = 'following'"
+              :class="[
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm w-full transition-colors',
+                activeTab === 'following' && !editMode
+                  ? 'bg-primary-50 text-primary-600 font-medium'
+                  : 'text-slate-600 hover:bg-slate-50'
+              ]"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+              </svg>
+              我的关注
             </button>
             <button
               @click="activeTab = 'stats'; editMode = false"
@@ -382,6 +423,28 @@ function getGradient(index: number) {
             ]"
           >
             草稿箱
+          </button>
+          <button
+            @click="editMode = false; activeTab = 'followers'"
+            :class="[
+              'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              activeTab === 'followers' && !editMode
+                ? 'bg-primary-500 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            ]"
+          >
+            我的粉丝
+          </button>
+          <button
+            @click="editMode = false; activeTab = 'following'"
+            :class="[
+              'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+              activeTab === 'following' && !editMode
+                ? 'bg-primary-500 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            ]"
+          >
+            我的关注
           </button>
           <button
             @click="activeTab = 'stats'; editMode = false"
@@ -564,6 +627,11 @@ function getGradient(index: number) {
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Followers / Following -->
+        <div v-else-if="(activeTab === 'followers' || activeTab === 'following') && !editMode && userStore.userInfo">
+          <FollowUserList :user-id="userStore.userInfo.id" :mode="activeTab" @click.stop />
         </div>
 
         <!-- Learning Stats -->

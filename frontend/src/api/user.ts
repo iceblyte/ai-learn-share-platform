@@ -1,5 +1,5 @@
 import request from './request'
-import type { ApiResponse, Resource, User, FollowStats, FollowedUser } from '@/types'
+import type { ApiResponse, Resource, User, FollowStats, FollowedUser, PublicUserProfile, FollowPageItem, PageData } from '@/types'
 
 export const userApi = {
   getProfile() {
@@ -45,5 +45,21 @@ export const userApi = {
   /** 我关注的用户列表（评论 @ 选择器数据源） */
   getFollowingList() {
     return request.get<ApiResponse<FollowedUser[]>>('/users/following')
+  },
+  /** 公开用户主页信息（匿名可访问） */
+  getPublicProfile(userId: number) {
+    return request.get<ApiResponse<PublicUserProfile>>(`/users/${userId}`)
+  },
+  /** 某用户已发布的资源分页（匿名可访问） */
+  getUserPublishedResources(userId: number, page = 1, size = 10) {
+    return request.get<ApiResponse<PageData<Resource>>>(`/users/${userId}/resources`, { params: { page, size } })
+  },
+  /** 某用户的粉丝分页列表（匿名可访问） */
+  getFollowers(userId: number, page = 1, size = 20) {
+    return request.get<ApiResponse<PageData<FollowPageItem>>>(`/users/${userId}/followers`, { params: { page, size } })
+  },
+  /** 某用户关注的人的分页列表（匿名可访问） */
+  getFollowingPage(userId: number, page = 1, size = 20) {
+    return request.get<ApiResponse<PageData<FollowPageItem>>>(`/users/${userId}/following`, { params: { page, size } })
   },
 }

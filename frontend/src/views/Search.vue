@@ -481,9 +481,9 @@ function getIntentValue(key: string, value: any): string {
                   </span>
                 </div>
                 <div class="flex items-center gap-4 mt-2 text-xs text-slate-400">
-                  <span class="flex items-center gap-1">
+                  <span class="flex items-center gap-1 cursor-pointer hover:text-primary-600 transition-colors" @click.stop="res.publisher?.id && router.push(`/user/${res.publisher.id}`)">
                     <div class="w-4 h-4 bg-primary-100 rounded-full flex items-center justify-center"><span class="text-[8px] text-primary-600">{{ res.publisher?.nickname?.[0] || '用' }}</span></div>
-                    {{ res.publisher?.nickname }}
+                    {{ res.publisher?.nickname || '已注销用户' }}
                   </span>
                   <span>{{ res.createdAt?.split('T')[0] }}</span>
                   <span class="flex items-center gap-0.5">

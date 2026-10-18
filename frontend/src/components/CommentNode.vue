@@ -71,28 +71,37 @@ async function handleLike() {
 
 <template>
   <div class="flex gap-3">
-    <!-- 头像 -->
-    <img
+    <!-- 头像（可点击进入用户主页） -->
+    <component
+      :is="comment.user ? 'router-link' : 'div'"
       v-if="avatar(comment.user)"
-      :src="avatar(comment.user)!"
-      class="rounded-full object-cover flex-shrink-0"
+      :to="comment.user ? `/user/${comment.user.id}` : undefined"
+      class="rounded-full object-cover flex-shrink-0 cursor-pointer"
       :class="depth === 0 ? 'w-8 h-8' : 'w-6 h-6'"
       alt="avatar"
-    />
-    <div
+    >
+      <img :src="avatar(comment.user)!" class="w-full h-full rounded-full object-cover" alt="avatar" />
+    </component>
+    <component
+      :is="comment.user ? 'router-link' : 'div'"
       v-else
+      :to="comment.user ? `/user/${comment.user.id}` : undefined"
       class="rounded-full flex items-center justify-center flex-shrink-0"
       :class="depth === 0 ? 'w-8 h-8 bg-green-100' : 'w-6 h-6 bg-primary-100'"
     >
       <span class="font-medium" :class="depth === 0 ? 'text-xs text-green-600' : 'text-[10px] text-primary-600'">
         {{ comment.user?.nickname?.[0] || '用' }}
       </span>
-    </div>
+    </component>
 
     <!-- 内容 -->
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2">
-        <span class="text-sm font-medium">{{ comment.user?.nickname }}</span>
+        <component
+          :is="comment.user ? 'router-link' : 'span'"
+          :to="comment.user ? `/user/${comment.user.id}` : undefined"
+          :class="['text-sm font-medium', comment.user ? 'hover:text-primary-600 transition-colors cursor-pointer' : 'text-slate-400']"
+        >{{ comment.user?.nickname || '已注销用户' }}</component>
         <span
           v-if="comment.user && (resource as any)?.publisherId && comment.user.id === (resource as any).publisherId"
           class="text-xs bg-primary-100 text-primary-600 px-1.5 py-0.5 rounded"

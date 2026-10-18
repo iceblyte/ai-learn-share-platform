@@ -26,6 +26,31 @@ export interface FollowedUser {
   avatarUrl: string
 }
 
+/** 公开用户主页信息（匿名可看；viewer 视角字段由后端计算） */
+export interface PublicUserProfile {
+  id: number
+  username: string
+  nickname: string
+  avatarUrl: string
+  bio: string
+  role: 'USER' | 'PUBLISHER' | 'ADMIN' | string
+  createdAt: string
+  followers: number
+  following: number
+  publishedCount: number
+  isSelf: boolean
+  isFollowing: boolean
+}
+
+/** 粉丝/关注分页列表条目 */
+export interface FollowPageItem {
+  id: number
+  nickname: string
+  avatarUrl: string
+  bio: string
+  isFollowing: boolean
+}
+
 export interface LoginRequest {
   username: string
   password: string
