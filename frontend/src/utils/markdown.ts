@@ -32,6 +32,30 @@ function normalizeMarkdown(text: string): string {
       continue
     }
     if (inCodeFence) continue
+    // 加粗边界容错：CommonMark 的 ** 定界规则在紧贴汉字时会失效——
+    // "选择**JDK25**" 的开 ** 前是汉字（非空白非标点），被判定为闭合
+    // 标记，整对 ** 变字面星号。成对扫描 **…**，在前/后紧贴汉字的
+    // 外侧补一个半角空格（边界是空白/标点/代码反引号的正常写法不动）
+    lines[i] = lines[i].replace(/\*\*([^*\n]+?)\*\*/g, (match, _inner: string, offset: number) => {
+      const cjk = (ch: string | undefined) => !!ch && /[\u4e00-\u9fff]/.test(ch)
+      const before = offset > 0 ? lines[i][offset - 1] : ''
+      const after = lines[i][offset + match.length] || ''
+      return (cjk(before) ? ' ' : '') + match + (cjk(after) ? ' ' : '')
+    })
+    // URL 尾界容错：linkify 会把紧随 URL 的全角字符一并吞进链接
+    // （"https://a.com，选择…" 整段变成一条链接）。URL 的合法字符
+    // 不含 CJK 与全角标点，在其交界处补一个半角空格
+    lines[i] = lines[i].replace(
+      /(https?:\/\/[^\s\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]+)(?=[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef])/g,
+      '$1 ')
+    // 表格前补空行：表格行紧贴普通文字时不会被识别为表格
+    if (
+      /^\s*\|.*\|\s*$/.test(lines[i]) && i > 0 && lines[i - 1].trim() !== '' &&
+      !/^\s*\|/.test(lines[i - 1])
+    ) {
+      lines.splice(i, 0, '')
+      i++
+    }
     // 标题容错："##第一周"（井号后无空格）不是合法 ATX 标题，CommonMark 按普通
     // 文本渲染，页面会原样出现 "##"。在井号串与内容之间补一个半角空格；
     // "##已带空格" 与 "###"（纯井号行）不受影响
