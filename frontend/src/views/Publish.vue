@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { resourceApi } from '@/api/resource'
 import { categoryApi, tagApi } from '@/api/category'
+import { configApi } from '@/api/config'
 import type { Category, Tag } from '@/types'
 import { marked } from 'marked'
 import AppModal from '@/components/AppModal.vue'
@@ -11,6 +12,8 @@ const router = useRouter()
 const route = useRoute()
 const categories = ref<Category[]>([])
 const tags = ref<Tag[]>([])
+/** 管理后台关闭自动摘要后，发布页隐藏"AI 智能摘要"说明块 */
+const summaryAutoEnabled = ref(true)
 const loading = ref(false)
 const isDrafting = ref(false)
 const error = ref('')
@@ -60,6 +63,12 @@ onMounted(async () => {
   ])
   categories.value = catRes.data.data
   tags.value = tagRes.data.data
+
+  // 展示类开关：失败保持默认（显示说明），不影响主流程
+  try {
+    const cfgRes = await configApi.getAiSummaryEnabled()
+    summaryAutoEnabled.value = cfgRes.data.data.enabled
+  } catch {}
 
   // Edit mode: load existing resource
   const editParam = route.query.edit
@@ -661,8 +670,8 @@ function handlePreview() {
         </div>
       </div>
 
-      <!-- AI Summary Preview -->
-      <div class="bg-gradient-to-r from-purple-50 to-primary-50 border border-purple-200 rounded-xl p-4">
+      <!-- AI Summary Preview（管理后台关闭自动摘要后隐藏） -->
+      <div v-if="summaryAutoEnabled" class="bg-gradient-to-r from-purple-50 to-primary-50 border border-purple-200 rounded-xl p-4">
         <div class="flex items-center gap-2 mb-2">
           <div class="w-5 h-5 bg-purple-500 rounded flex items-center justify-center">
             <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
