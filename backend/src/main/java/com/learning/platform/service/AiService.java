@@ -226,8 +226,16 @@ public class AiService {
     public StreamingResult streamChat(Long sessionId, String message, String systemPrompt,
                                       ChatToolContext toolContext, Consumer<String> onChunk,
                                       Consumer<String> onTool, Runnable onReset) {
+        return streamChat(sessionId, message, systemPrompt, toolContext,
+                chatToolRegistry.specifications(), onChunk, onTool, onReset);
+    }
+
+    /** 显式传入工具规格（智能搜索门控：未开启时排除 web_search），其余同上 */
+    public StreamingResult streamChat(Long sessionId, String message, String systemPrompt,
+                                      ChatToolContext toolContext, List<ToolSpecification> toolSpecs,
+                                      Consumer<String> onChunk, Consumer<String> onTool, Runnable onReset) {
         StreamingResult result = streamGenerate(sessionId, systemPrompt, message,
-                chatToolRegistry.specifications(), true, toolContext, onChunk, onTool, onReset);
+                toolSpecs, true, toolContext, onChunk, onTool, onReset);
         // V1 行为保持：成功回答写回记忆窗口（工作流路径由调用方审查后再写）
         if (!result.failed() && result.content() != null) {
             appendAssistantToMemory(sessionId, result.content());

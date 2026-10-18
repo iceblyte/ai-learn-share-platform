@@ -49,6 +49,7 @@ $env:AI_API_KEY = "your_deepseek_api_key"   # 在 platform.deepseek.com/api_keys
 $env:AI_CONNECT_TIMEOUT_MS = "5000"
 $env:AI_READ_TIMEOUT_MS = "20000"
 $env:AI_CHAT_TIMEOUT_MS = "120000"
+$env:TAVILY_API_KEY = "your_tavily_api_key"   # 智能搜索（联网检索），tavily.com 免费申请，未配置时智能搜索自动降级
 
 # 阿里云 OSS 配置 (文件存储，密钥填写在 application-local.yml)
 $env:STORAGE_TYPE = "oss"   # 或 "local" 使用本地存储

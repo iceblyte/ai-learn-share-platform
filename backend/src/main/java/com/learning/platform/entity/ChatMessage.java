@@ -25,6 +25,9 @@ public class ChatMessage {
     /** 配图快照（JSON 数组：[{"source","url","alt"}]，工作流 imageCollect 产出） */
     private String imagesJson;
 
+    /** 联网搜索来源快照（JSON 数组：[{"title","url","snippet"}]，智能搜索开启时） */
+    private String sourcesJson;
+
     private String contextJson;
 
     private Integer tokensUsed;

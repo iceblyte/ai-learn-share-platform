@@ -38,6 +38,14 @@ public class ChatToolRegistry {
         return tools.values().stream().map(ChatTool::toSpecification).toList();
     }
 
+    /** 全部工具规格，按名排除（如智能搜索未开启时排除 web_search） */
+    public List<ToolSpecification> specificationsExcluding(String... toolNames) {
+        var excluded = java.util.Set.of(toolNames);
+        return tools.values().stream()
+                .filter(tool -> !excluded.contains(tool.name()))
+                .map(ChatTool::toSpecification).toList();
+    }
+
     public boolean isEmpty() {
         return tools.isEmpty();
     }
@@ -54,6 +62,15 @@ public class ChatToolRegistry {
     /** 供提示词动态生成工具清单：名称 + 用途描述 */
     public List<String> describeTools() {
         return tools.values().stream()
+                .map(tool -> tool.name() + "：" + tool.description())
+                .toList();
+    }
+
+    /** 工具清单（按名排除），与 specificationsExcluding 配套用于提示词 */
+    public List<String> describeToolsExcluding(String... toolNames) {
+        var excluded = java.util.Set.of(toolNames);
+        return tools.values().stream()
+                .filter(tool -> !excluded.contains(tool.name()))
                 .map(tool -> tool.name() + "：" + tool.description())
                 .toList();
     }

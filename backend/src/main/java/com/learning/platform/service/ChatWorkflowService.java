@@ -5,6 +5,8 @@ import com.learning.platform.ai.ChatToolContext;
 import com.learning.platform.ai.ChatToolRegistry;
 import com.learning.platform.ai.ChatWorkflowState;
 import com.learning.platform.ai.ResourceSearchTool;
+import com.learning.platform.ai.WebSearchTool;
+import com.learning.platform.ai.WebSource;
 import com.learning.platform.ai.image.ImageCollector;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import lombok.extern.slf4j.Slf4j;
@@ -97,9 +99,12 @@ public class ChatWorkflowService {
         return enabled;
     }
 
-    /** 工作流模式暴露给模型的工具：search_resources 由图确定式调用，不重复暴露 */
-    List<ToolSpecification> generateToolSpecs() {
-        return chatToolRegistry.specifications().stream()
+    /** 工作流模式暴露给模型的工具：search_resources 由图确定式调用，不重复暴露；
+     *  智能搜索未开启时同样排除 web_search */
+    List<ToolSpecification> generateToolSpecs(boolean webSearch) {
+        return chatToolRegistry.specificationsExcluding(webSearch
+                ? new String[0]
+                : new String[]{WebSearchTool.TOOL_NAME}).stream()
                 .filter(spec -> !ResourceSearchTool.TOOL_NAME.equals(spec.name()))
                 .toList();
     }
@@ -108,7 +113,7 @@ public class ChatWorkflowService {
      * 本次提问的运行期上下文：图状态之外的一切（身份、SSE emitter、工具上下文、
      * 并发取图会话）。节点 lambda 经编译期闭包读取，不进序列化状态。
      */
-    record RunContext(Long userId, Long sessionId, String route,
+    record RunContext(Long userId, Long sessionId, String route, boolean webSearch,
                       ChatToolContext toolContext, ChatStreamFactory.ChatStreamEmitter emitter,
                       ImageCollector.Session imageSession) {
     }
@@ -133,7 +138,7 @@ public class ChatWorkflowService {
     // ---------- 执行入口 ----------
 
     public record WorkflowResult(String content, Integer tokensUsed, String status,
-                                 String imagesJson, String error) {
+                                 String imagesJson, String error, String sourcesJson) {
         public boolean moderated() {
             return "MODERATED".equals(status);
         }
@@ -145,11 +150,12 @@ public class ChatWorkflowService {
      */
     public WorkflowResult run(Long userId, Long sessionId, String message, String route,
                               String pageTitle, String pageContextType, Long pageContextId,
-                              String selectedText, ChatStreamFactory.ChatStreamEmitter emitter) {
+                              String selectedText, boolean webSearch,
+                              ChatStreamFactory.ChatStreamEmitter emitter) {
         if (!enabled) {
             throw new IllegalStateException("聊天工作流未启用");
         }
-        RunContext ctx = new RunContext(userId, sessionId, route,
+        RunContext ctx = new RunContext(userId, sessionId, route, webSearch,
                 new ChatToolContext(userId, pageContextType, pageContextId, selectedText), emitter,
                 imageCollector.start(extractImageQuery(selectedText, message)));
 
@@ -181,13 +187,32 @@ public class ChatWorkflowService {
                     aiService.removeLastExchange(sessionId);
                 }
             }
+            // 智能搜索来源：web_search 工具有结果时推送 SSE sources 并随结果落库
+            String sourcesJson = emitWebSources(ctx);
             return new WorkflowResult(content, finalState.tokensUsed(), status,
                     finalState.imagesJson().isBlank() ? null : finalState.imagesJson(),
-                    "FAILED".equals(status) ? content : null);
+                    "FAILED".equals(status) ? content : null,
+                    sourcesJson);
         } catch (Exception e) {
             log.error("Chat workflow execution failed", e);
             return new WorkflowResult("服务器开小差了，请稍后再试。", null, "FAILED", null,
-                    "服务器开小差了，请稍后再试。");
+                    "服务器开小差了，请稍后再试。", null);
+        }
+    }
+
+    /** web_search 工具有结果时推送 sources 事件并返回 JSON（供落库） */
+    private String emitWebSources(RunContext ctx) {
+        try {
+            List<WebSource> sources = ctx.toolContext().getWebSources();
+            if (sources == null || sources.isEmpty()) {
+                return null;
+            }
+            String json = objectMapper.writeValueAsString(sources);
+            ctx.emitter().sources(json);
+            return json;
+        } catch (Exception e) {
+            log.warn("Failed to emit web sources: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -270,11 +295,12 @@ public class ChatWorkflowService {
 
     /** generate 节点：组装提示词（基础 + 检索结果）→ 复用 AiService 流式生成 */
     private Map<String, Object> generateNode(ChatWorkflowState state, RunContext ctx) {
+        String basePrompt = chatPromptBuilder.appendSearchResults(buildSystemPrompt(state), state.searchResultsJson());
         AiService.StreamingResult result = aiService.streamGenerate(
                 ctx.sessionId(),
-                buildSystemPrompt(state),
+                ChatPromptBuilder.withWebSearchHint(basePrompt, ctx.webSearch()),
                 state.message(),
-                generateToolSpecs(),
+                generateToolSpecs(ctx.webSearch()),
                 true,
                 ctx.toolContext(),
                 ctx.emitter()::text,
@@ -341,9 +367,9 @@ public class ChatWorkflowService {
         ctx.emitter().reset();
         AiService.StreamingResult result = aiService.streamGenerate(
                 ctx.sessionId(),
-                buildSystemPrompt(state),
+                ChatPromptBuilder.withWebSearchHint(buildSystemPrompt(state), ctx.webSearch()),
                 state.message(),
-                generateToolSpecs(),
+                generateToolSpecs(ctx.webSearch()),
                 false,
                 ctx.toolContext(),
                 ctx.emitter()::text,

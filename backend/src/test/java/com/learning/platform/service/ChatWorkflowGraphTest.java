@@ -40,6 +40,7 @@ class ChatWorkflowGraphTest {
         final List<String> tools = new ArrayList<>();
         final List<String> images = new ArrayList<>();
         final List<String> moderated = new ArrayList<>();
+        final List<String> sources = new ArrayList<>();
         int resets;
 
         @Override
@@ -65,6 +66,11 @@ class ChatWorkflowGraphTest {
         @Override
         public void moderated(String notice) {
             moderated.add(notice);
+        }
+
+        @Override
+        public void sources(String sourcesJson) {
+            sources.add(sourcesJson);
         }
     }
 
@@ -112,7 +118,7 @@ class ChatWorkflowGraphTest {
     private ChatWorkflowService.WorkflowResult run(ChatWorkflowService service, String selectedText) {
         RecordingEmitter emitter = new RecordingEmitter();
         return service.run(1L, null, "解释一下这个概念", "/resources/1", "资源详情",
-                "RESOURCE", 9L, selectedText, emitter);
+                "RESOURCE", 9L, selectedText, false, emitter);
     }
 
     @Test
@@ -145,7 +151,7 @@ class ChatWorkflowGraphTest {
         RecordingEmitter emitter = new RecordingEmitter();
         ChatWorkflowService.WorkflowResult result = newService(true).run(1L, null,
                 "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L,
-                "happens-before是什么意思？", emitter);
+                "happens-before是什么意思？", false, emitter);
 
         assertThat(result.status()).isEqualTo("OK");
         // search 节点产出 tool 事件（沿用现有协议），关键词取自划选文本
@@ -221,7 +227,7 @@ class ChatWorkflowGraphTest {
 
         RecordingEmitter emitter = new RecordingEmitter();
         ChatWorkflowService.WorkflowResult result = newService(true).run(1L, null,
-                "讲讲 Java 并发", "/", "AI学习平台", "", null, null, emitter);
+                "讲讲 Java 并发", "/", "AI学习平台", "", null, null, false, emitter);
 
         assertThat(result.status()).isEqualTo("OK");
         assertThat(result.imagesJson()).contains("pexels");
@@ -260,7 +266,7 @@ class ChatWorkflowGraphTest {
     private ChatWorkflowService.WorkflowResult runWithMessage(
             ChatWorkflowService service, String message, RecordingEmitter emitter) {
         return service.run(1L, null, message, "/ai-chat", "AI 对话",
-                "", null, null, emitter);
+                "", null, null, false, emitter);
     }
 
     @Test
@@ -357,7 +363,7 @@ class ChatWorkflowGraphTest {
 
         RecordingEmitter emitter = new RecordingEmitter();
         ChatWorkflowService.WorkflowResult result = newService(true).run(1L, 7L,
-                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, emitter);
+                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, false, emitter);
 
         assertThat(result.status()).isEqualTo("OK");
         assertThat(emitter.resets).isZero();
@@ -378,7 +384,7 @@ class ChatWorkflowGraphTest {
 
         RecordingEmitter emitter = new RecordingEmitter();
         ChatWorkflowService.WorkflowResult result = newService(true).run(1L, 7L,
-                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, emitter);
+                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, false, emitter);
 
         assertThat(result.status()).isEqualTo("OK");
         assertThat(result.content()).isEqualTo("回答已修订为安全表述");
@@ -402,7 +408,7 @@ class ChatWorkflowGraphTest {
 
         RecordingEmitter emitter = new RecordingEmitter();
         ChatWorkflowService.WorkflowResult result = newService(true).run(1L, 7L,
-                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, emitter);
+                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, false, emitter);
 
         assertThat(result.status()).isEqualTo("OK");
         assertThat(result.content()).isEqualTo("重答的安全回答");
@@ -425,7 +431,7 @@ class ChatWorkflowGraphTest {
 
         RecordingEmitter emitter = new RecordingEmitter();
         ChatWorkflowService.WorkflowResult result = newService(true).run(1L, 7L,
-                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, emitter);
+                "解释一下这个概念", "/resources/1", "资源详情", "RESOURCE", 9L, null, false, emitter);
 
         assertThat(result.status()).isEqualTo("MODERATED");
         assertThat(result.content()).isEqualTo("该内容涉嫌违规，无法显示");

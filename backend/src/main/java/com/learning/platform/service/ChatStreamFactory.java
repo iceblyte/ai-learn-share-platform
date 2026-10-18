@@ -39,7 +39,7 @@ import java.util.function.Consumer;
 @Component
 public class ChatStreamFactory {
 
-    /** 聊天调用向流上写事件的五通道：正文增量 + 工具调用通知 + 正文回滚 + 图片 + 违规撤回 */
+    /** 聊天调用向流上写事件的六通道：正文增量 + 工具调用通知 + 正文回滚 + 图片 + 违规撤回 + 联网来源 */
     public interface ChatStreamEmitter {
         void text(String chunk);
 
@@ -63,6 +63,13 @@ public class ChatStreamFactory {
          * 前端清空该条回答正文并显示违规提示文案。
          */
         void moderated(String notice);
+
+        /**
+         * 联网搜索来源（智能搜索开启且 web_search 工具有结果时）：
+         * data 为 JSON 数组 [{"title":"…","url":"…","snippet":"…"}]，
+         * 前端在回答下方渲染来源条与来源面板。
+         */
+        void sources(String sourcesJson);
     }
 
     /** 兼容旧签名：只有正文通道的调用 */
@@ -101,6 +108,11 @@ public class ChatStreamFactory {
                         @Override
                         public void moderated(String notice) {
                             sink.next(ServerSentEvent.<String>builder(notice).event("moderated").build());
+                        }
+
+                        @Override
+                        public void sources(String sourcesJson) {
+                            sink.next(ServerSentEvent.<String>builder(sourcesJson).event("sources").build());
                         }
                     });
                     sink.complete();

@@ -6,6 +6,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.platform.ai.ChatToolContext;
 import com.learning.platform.ai.ChatToolRegistry;
+import com.learning.platform.ai.WebSearchTool;
+import com.learning.platform.ai.WebSource;
 import com.learning.platform.common.BusinessException;
 import com.learning.platform.common.CursorPageResult;
 import com.learning.platform.common.PageResult;
@@ -205,6 +207,11 @@ public class ChatService {
             public void moderated(String notice) {
                 onChunk.accept(notice);
             }
+
+            @Override
+            public void sources(String sourcesJson) {
+                // 旧三通道适配层不消费来源事件
+            }
         });
     }
 
@@ -236,33 +243,46 @@ public class ChatService {
         Integer tokensUsed;
         String status;
         String imagesJson = null;
+        String sourcesJson = null;
         boolean failed = false;
         try {
             if (chatWorkflowService.isEnabled()) {
                 // 工作流路径：图内完成检索/生成/取图/审查
+                boolean webSearch = Boolean.TRUE.equals(request.getWebSearch());
                 ChatWorkflowService.WorkflowResult result = chatWorkflowService.run(
                         userId, sessionId, message, request.getRoute(), request.getPageTitle(),
-                        request.getPageContextType(), pageResourceId, request.getSelectedText(), emitter);
+                        request.getPageContextType(), pageResourceId, request.getSelectedText(),
+                        webSearch, emitter);
                 content = result.content() == null ? "AI 服务请求失败，请稍后再试。" : result.content();
                 tokensUsed = result.tokensUsed() == null ? 0 : result.tokensUsed();
                 status = result.status();
                 imagesJson = result.imagesJson();
+                sourcesJson = result.sourcesJson();
                 failed = result.status().equals("FAILED");
                 // 记忆写回已由工作流收尾（OK 写入 / MODERATED 移除本轮提问），此处不重复处理
             } else {
-                // V1 回退路径：手写工具环 + 全量工具规格
-                String systemPrompt = chatPromptBuilder.buildToolMode(
+                // V1 回退路径：手写工具环 + 按开关门控的工具规格
+                boolean webSearch = Boolean.TRUE.equals(request.getWebSearch());
+                String[] gatedTools = webSearch ? new String[0] : new String[]{WebSearchTool.TOOL_NAME};
+                String systemPrompt = ChatPromptBuilder.withWebSearchHint(chatPromptBuilder.buildToolMode(
                         request.getRoute(), request.getPageTitle(),
                         request.getSelectedText(), pageResourceId,
-                        chatToolRegistry.describeTools());
+                        chatToolRegistry.describeToolsExcluding(gatedTools)), webSearch);
                 ChatToolContext toolContext = new ChatToolContext(
                         userId, request.getPageContextType(), request.getPageContextId(), request.getSelectedText());
                 AiService.StreamingResult result = aiService.streamChat(sessionId, message, systemPrompt,
-                        toolContext, emitter::text, emitter::tool, emitter::reset);
+                        toolContext, chatToolRegistry.specificationsExcluding(gatedTools),
+                        emitter::text, emitter::tool, emitter::reset);
                 failed = result == null || result.failed();
                 content = failed ? "AI 服务请求失败，请稍后再试。" : result.content();
                 tokensUsed = (!failed && result.tokensUsed() != null) ? result.tokensUsed() : 0;
                 status = failed ? "FAILED" : "OK";
+                // 智能搜索来源：推 SSE 事件并随消息落库
+                List<WebSource> webSources = toolContext.getWebSources();
+                if (webSources != null && !webSources.isEmpty()) {
+                    sourcesJson = objectMapper.writeValueAsString(webSources);
+                    emitter.sources(sourcesJson);
+                }
             }
         } catch (Exception e) {
             failed = true;
@@ -278,6 +298,7 @@ public class ChatService {
         assistantMessage.setRole("assistant");
         assistantMessage.setContent(content);
         assistantMessage.setImagesJson(imagesJson);
+        assistantMessage.setSourcesJson(sourcesJson);
         assistantMessage.setStatus(status);
         assistantMessage.setTokensUsed(failed ? 0 : (tokensUsed == null ? 0 : tokensUsed));
         assistantMessage.setLatencyMs((int) Math.min(latency, Integer.MAX_VALUE));

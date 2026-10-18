@@ -23,4 +23,7 @@ public class AiChatRequest {
     /** 用户划选的文本片段（防滥用限长） */
     @Size(max = 500, message = "划选文本不能超过500字")
     private String selectedText;
+
+    /** 智能搜索开关：true 时暴露 web_search 联网搜索工具并在回答后回传来源 */
+    private Boolean webSearch;
 }

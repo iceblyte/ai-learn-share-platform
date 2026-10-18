@@ -1,7 +1,10 @@
 package com.learning.platform.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.learning.platform.ai.ChatToolContext;
 import com.learning.platform.ai.ChatToolRegistry;
+import com.learning.platform.ai.WebSearchTool;
+import com.learning.platform.ai.WebSource;
 import com.learning.platform.common.PageResult;
 import com.learning.platform.common.Result;
 import com.learning.platform.dto.AiChatRequest;
@@ -81,23 +84,42 @@ public class AiController {
         // function calling 改造：模型按需调工具查库，不再预取资源正文
         boolean onResourcePage = ChatContext.TYPE_RESOURCE.equals(request.getPageContextType());
         Long pageResourceId = onResourcePage ? request.getPageContextId() : null;
+        boolean webSearch = Boolean.TRUE.equals(request.getWebSearch());
+        String[] gatedTools = webSearch ? new String[0] : new String[]{WebSearchTool.TOOL_NAME};
 
         // 工作流启用：LangGraph4j 图编排（划词路由/取图/审查）；关闭：V1 回退
         if (chatWorkflowService.isEnabled()) {
             return chatStreamFactory.streamEvents(emitter -> chatWorkflowService.run(
                     null, null, request.getMessage(), request.getRoute(), request.getPageTitle(),
-                    request.getPageContextType(), pageResourceId, request.getSelectedText(), emitter));
+                    request.getPageContextType(), pageResourceId, request.getSelectedText(),
+                    webSearch, emitter));
         }
 
-        String systemPrompt = chatPromptBuilder.buildToolMode(
+        String systemPrompt = ChatPromptBuilder.withWebSearchHint(chatPromptBuilder.buildToolMode(
                 request.getRoute(), request.getPageTitle(),
                 request.getSelectedText(), pageResourceId,
-                chatToolRegistry.describeTools());
+                chatToolRegistry.describeToolsExcluding(gatedTools)), webSearch);
         ChatToolContext toolContext = new ChatToolContext(
                 null, request.getPageContextType(), request.getPageContextId(), request.getSelectedText());
-        return chatStreamFactory.streamEvents(emitter ->
-                aiService.streamChat(request.getMessage(), systemPrompt, toolContext,
-                        emitter::text, emitter::tool, emitter::reset));
+        return chatStreamFactory.streamEvents(emitter -> {
+            aiService.streamChat(null, request.getMessage(), systemPrompt, toolContext,
+                    chatToolRegistry.specificationsExcluding(gatedTools),
+                    emitter::text, emitter::tool, emitter::reset);
+            emitWebSources(toolContext, emitter);
+        });
+    }
+
+    /** 智能搜索开启且工具有结果时，把来源 JSON 推给前端（SSE sources 事件） */
+    static void emitWebSources(ChatToolContext toolContext, ChatStreamFactory.ChatStreamEmitter emitter) {
+        try {
+            List<WebSource> sources = toolContext == null ? null : toolContext.getWebSources();
+            if (sources != null && !sources.isEmpty()) {
+                ObjectMapper mapper = new ObjectMapper();
+                emitter.sources(mapper.writeValueAsString(sources));
+            }
+        } catch (Exception ignored) {
+            // 来源推送失败不影响回答
+        }
     }
 
     private PageResult<Map<String, Object>> toPage(List<Map<String, Object>> records, int page, int size) {

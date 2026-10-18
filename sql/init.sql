@@ -276,6 +276,7 @@ CREATE TABLE IF NOT EXISTS `chat_message` (
     `content` TEXT NOT NULL COMMENT '消息内容',
     `context_json` VARCHAR(1000) DEFAULT NULL COMMENT '提问时携带的页面上下文快照',
     `images_json` VARCHAR(2000) DEFAULT NULL COMMENT '回答配图快照(JSON数组: source/url/alt, 工作流imageCollect产出)',
+    `sources_json` VARCHAR(4000) DEFAULT NULL COMMENT '联网搜索来源快照(JSON数组: title/url/snippet, 智能搜索开启时)',
     `tokens_used` INT NOT NULL DEFAULT 0 COMMENT '消耗token(成本观测)',
     `latency_ms` INT NOT NULL DEFAULT 0 COMMENT '端到端延迟ms',
     `status` VARCHAR(20) NOT NULL DEFAULT 'OK' COMMENT '状态: OK/FAILED/MODERATED',

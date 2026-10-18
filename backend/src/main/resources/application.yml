@@ -85,6 +85,11 @@ ai:
     ai-review-timeout-ms: ${AI_MODERATION_TIMEOUT_MS:15000}
     revision-max-tokens: ${AI_MODERATION_REVISION_TOKENS:1024}
 
+# Tavily 联网搜索（智能搜索按钮）：key 从 https://tavily.com 获取（免费档每月 1000 次）
+tavily:
+  api-key: ${TAVILY_API_KEY:}
+  max-results: ${TAVILY_MAX_RESULTS:5}
+
 # MyBatis-Plus
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml
