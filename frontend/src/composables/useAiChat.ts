@@ -91,6 +91,8 @@ export function useAiChat(options: UseAiChatOptions = {}) {
   let ensureSessionPromise: Promise<number | null> | null = null
   /** 进行中的流式回答数量：sending 只表示"至少有一条流在生成"，不再阻塞新提问 */
   let activeStreams = 0
+  /** 按会话归档的进行中流式气泡：切换会话后再切回，把未完成的流接回视图 */
+  const liveStreamMessages = new Map<number, ChatMessage[]>()
 
   /** 智能搜索开关：开启后请求携带 webSearch=true，后端走 Tavily 联网检索并回传来源 */
   const webSearchEnabled = ref(false)
@@ -184,6 +186,12 @@ export function useAiChat(options: UseAiChatOptions = {}) {
   async function openSession(sessionId: number) {
     await loadSessionMessages(sessionId)
     currentSessionId.value = sessionId
+    // 切回仍有流式输出进行中的会话：把未完成的流式气泡接回视图，
+    // 内容随流继续更新（此前切走再切回会丢失剩余流式输出的显示）
+    const live = liveStreamMessages.get(sessionId)?.filter((m) => m.streaming)
+    if (live?.length) {
+      messages.value = [...messages.value, ...live]
+    }
     input.value = ''
   }
 
@@ -199,6 +207,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     await chatApi.deleteSession(sessionId)
     sessions.value = sessions.value.filter((item) => item.id !== sessionId)
     sessionsTotal.value = Math.max(0, sessionsTotal.value - 1)
+    liveStreamMessages.delete(sessionId)
     if (currentSessionId.value === sessionId) {
       startNewSession()
     }
@@ -327,8 +336,10 @@ export function useAiChat(options: UseAiChatOptions = {}) {
         revealFinish = resolve
       })
 
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      // 本条流所属的持久会话 id（在 try 外声明：finally 清理流式归档时使用）
+      let streamSessionId: number | null = null
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (userStore.token) {
         headers.Authorization = `Bearer ${userStore.token}`
       }
@@ -356,9 +367,11 @@ export function useAiChat(options: UseAiChatOptions = {}) {
         const sessionId = await ensureSession()
         if (!sessionId) return
         url = `/api/v1/chat/sessions/${sessionId}/messages`
-        // 会话标题在后端保存用户消息时即已生成，此刻立刻刷新左侧列表，
-        // 不必等整条回答流结束（首次提问时标题"空白到出现"的间隔最明显）
-        void loadSessions()
+        streamSessionId = sessionId
+        // 归档流式气泡：切换到其他会话再切回时，未完成的流式输出能接回视图
+        const liveList = liveStreamMessages.get(sessionId) ?? []
+        liveList.push(assistantMessage)
+        liveStreamMessages.set(sessionId, liveList)
       }
 
       const response = await fetch(url, {
@@ -387,8 +400,15 @@ export function useAiChat(options: UseAiChatOptions = {}) {
       const decoder = new TextDecoder('utf-8')
       let buffer = ''
       let streamError = ''
+      let sessionRefreshed = false
 
       const dispatchSseEvent = (eventName: string, data: string) => {
+        // 后端在保存用户消息时即生成会话标题：首个 SSE 事件到达说明消息已落库，
+        // 此刻就刷新左侧列表，标题不必等整条回答结束才出现
+        if (!sessionRefreshed && userStore.isLoggedIn) {
+          sessionRefreshed = true
+          void loadSessions()
+        }
         if (eventName === 'message') {
           pendingText += data
           startReveal()
@@ -480,8 +500,15 @@ export function useAiChat(options: UseAiChatOptions = {}) {
       activeStreams = Math.max(0, activeStreams - 1)
       sending.value = activeStreams > 0
       setSelectedText('')
-      // 会话列表同步：首轮问答后标题/时间/排序已变化，免手动刷新页面
-      if (userStore.isLoggedIn && currentSessionId.value) {
+      // 会话列表同步：从流式归档移除本条（用本条流自己的会话 id，
+      // 不能读 currentSessionId——用户可能已切换到其他会话）
+      if (streamSessionId) {
+        const list = liveStreamMessages.get(streamSessionId)
+        if (list) {
+          const remaining = list.filter((m) => m !== assistantMessage)
+          if (remaining.length) liveStreamMessages.set(streamSessionId, remaining)
+          else liveStreamMessages.delete(streamSessionId)
+        }
         void loadSessions()
       }
     }
