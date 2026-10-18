@@ -34,7 +34,7 @@ import java.util.stream.Collectors;
 public class AiAssistantService {
 
     public static final String USERNAME = "ai_assistant";
-    public static final String NICKNAME = "AI 助手";
+    public static final String NICKNAME = "AI助手";
 
     private static final int RECENT_COMMENT_LIMIT = 10;
     private static final int MAX_SUMMARY_TOKENS = 800;
@@ -151,7 +151,7 @@ public class AiAssistantService {
 
         // 通知触发者（助手→用户，不会被 notify 的自通知过滤拦截）
         notificationService.notify(trigger.getUserId(), Notification.TYPE_REPLY,
-                assistantId, resourceId, triggerCommentId, "AI 助手 为你的评论生成了资源总结");
+                assistantId, resourceId, triggerCommentId, "AI助手 为你的评论生成了资源总结");
     }
 
     private String buildPrompt(Resource resource, String discussion, String triggerContent) {
