@@ -20,6 +20,8 @@ export interface ChatMessageItem {
   contextJson?: string | null
   /** 配图快照（JSON 数组：[{"source","url","alt"}]，工作流 imageCollect 产出） */
   imagesJson?: string | null
+  /** 联网搜索来源快照（JSON 数组：[{"title","url","snippet"}]，智能搜索开启时） */
+  sourcesJson?: string | null
   tokensUsed: number
   latencyMs: number
   status: 'OK' | 'FAILED' | 'MODERATED'

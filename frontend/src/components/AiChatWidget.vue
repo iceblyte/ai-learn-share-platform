@@ -36,6 +36,7 @@ const {
   sending,
   input,
   currentSessionId,
+  webSearchEnabled,
   sendMessage,
   loadingOlder,
   hasOlderMessages,
@@ -351,6 +352,20 @@ async function loadOlderAnchored() {
             </div>
 
             <div class="flex items-end gap-2">
+              <!-- 智能搜索开关（联网检索，回答附来源） -->
+              <button
+                class="flex h-11 shrink-0 items-center gap-1 rounded-2xl border px-3 text-xs transition"
+                :class="webSearchEnabled
+                  ? 'border-primary-500 bg-primary-50 text-primary-600'
+                  : 'border-slate-300 bg-white text-slate-500 hover:border-primary-300 hover:text-primary-600'"
+                :title="webSearchEnabled ? '联网搜索已开启：回答将引用网页来源' : '开启后回答会联网检索并附来源'"
+                @click="webSearchEnabled = !webSearchEnabled"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c2.505 0 4.585-4.03 4.585-9S14.505 3 12 3m0 18c-2.505 0-4.585-4.03-4.585-9S9.495 3 12 3m0 0a9 9 0 019 9"/>
+                </svg>
+                智能搜索
+              </button>
               <textarea
                 v-model="input"
                 rows="3"

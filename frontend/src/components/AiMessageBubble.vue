@@ -2,21 +2,34 @@
 /**
  * AI 消息气泡：用户消息靠右（头像在右），助手消息 markdown 渲染靠左
  * （品牌头像在左），并在回答上方展示"调用 xx 工具"状态（SSE tool 事件）。
+ * 智能搜索来源：回答下方来源条，点击展开来源列表；sidePanel 模式下
+ * 由父页面打开右侧来源面板（emit viewSources）。
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { useUserStore } from '@/store/user'
 import AiAvatarMark from '@/components/AiAvatarMark.vue'
 import type { ChatMessage } from '@/composables/useAiChat'
 
-const props = defineProps<{ message: ChatMessage }>()
+const props = defineProps<{
+  message: ChatMessage
+  /** 全屏对话页模式：点击"查看来源"交给父组件开右侧面板 */
+  sidePanel?: boolean
+}>()
+
+const emit = defineEmits<{
+  viewSources: [sources: ChatMessage['sources']]
+}>()
 
 const userStore = useUserStore()
+
+const expanded = ref(false)
 
 const TOOL_LABELS: Record<string, string> = {
   search_resources: '搜索资源库',
   get_resource_detail: '查询资源详情',
   revise_content: '修订回答内容',
+  web_search: '联网搜索',
 }
 
 const html = computed(() => (props.message.role === 'assistant' ? renderMarkdown(props.message.content) : ''))
@@ -24,6 +37,24 @@ const html = computed(() => (props.message.role === 'assistant' ? renderMarkdown
 const moderatedNotice = '该内容涉嫌违规，无法显示'
 
 const toolLabel = (name: string) => TOOL_LABELS[name] || name
+
+const hasSources = computed(() => !!props.message.sources?.length)
+
+function onSourcesClick() {
+  if (props.sidePanel) {
+    emit('viewSources', props.message.sources)
+  } else {
+    expanded.value = !expanded.value
+  }
+}
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
 
 const userInitial = computed(
   () =>
@@ -79,6 +110,36 @@ const userInitial = computed(
       <p v-else-if="message.role === 'user'" class="whitespace-pre-wrap break-words">{{ message.content }}</p>
       <!-- eslint-disable-next-line vue/no-v-html —— 内容已经 DOMPurify 净化 -->
       <div v-else class="markdown-body break-words" v-html="html"></div>
+
+      <!-- 联网搜索来源条（智能搜索开启且有结果时） -->
+      <div v-if="hasSources" class="mt-2 border-t border-slate-100 pt-2">
+        <button
+          class="flex items-center gap-1.5 text-[11px] text-primary-600 hover:text-primary-700"
+          @click="onSourcesClick"
+        >
+          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <span>已搜索 {{ message.sources!.length }} 个网页 · 查看来源</span>
+          <svg v-if="!sidePanel" class="h-3 w-3 transition-transform" :class="expanded ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <!-- 内联展开来源列表（悬浮窗 / 未开启侧栏模式） -->
+        <div v-if="expanded && !sidePanel" class="mt-2 space-y-1.5">
+          <a
+            v-for="(source, index) in message.sources"
+            :key="`${source.url}-${index}`"
+            :href="source.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="block rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-2 hover:border-primary-200 hover:bg-primary-50 transition-colors"
+          >
+            <p class="text-xs font-medium text-slate-700 truncate">[{{ index + 1 }}] {{ source.title }}</p>
+            <p class="text-[11px] text-primary-500 truncate">{{ hostOf(source.url) }}</p>
+          </a>
+        </div>
+      </div>
 
       <!-- 配图条（工作流 imageCollect 产出 / 历史快照）：不进正文，正文下方横向排布 -->
       <div v-if="message.images?.length" class="mt-2 flex flex-wrap gap-2">

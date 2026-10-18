@@ -25,6 +25,7 @@ const {
   sending,
   input,
   currentSessionId,
+  webSearchEnabled,
   sendMessage,
   loadingOlder,
   hasOlderMessages,
@@ -33,6 +34,25 @@ const {
   loadSessions,
   openSession,
 } = chat
+
+// 右侧来源面板：展示所选消息的联网搜索来源
+const panelSources = ref<import('@/composables/useAiChat').WebSourceItem[] | null>(null)
+
+function openSourcesPanel(sources: import('@/composables/useAiChat').WebSourceItem[] | undefined) {
+  panelSources.value = sources && sources.length ? sources : null
+}
+
+function closeSourcesPanel() {
+  panelSources.value = null
+}
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
 
 const messageViewport = ref<HTMLElement | null>(null)
 let autoScrollEnabled = true
@@ -168,6 +188,8 @@ function handleCreate() {
             v-show="messages.length > 1 || currentSessionId"
             :key="message.id"
             :message="message"
+            side-panel
+            @view-sources="openSourcesPanel"
           />
 
           <p v-if="historyLoading" class="text-center text-xs text-slate-400">加载中...</p>
@@ -176,6 +198,20 @@ function handleCreate() {
 
       <div class="border-t border-slate-200 bg-white px-4 py-4">
         <div class="mx-auto flex max-w-3xl items-end gap-3">
+          <!-- 智能搜索开关（联网检索，回答附来源） -->
+          <button
+            class="flex h-11 shrink-0 items-center gap-1.5 rounded-2xl border px-3 text-xs transition"
+            :class="webSearchEnabled
+              ? 'border-primary-500 bg-primary-50 text-primary-600'
+              : 'border-slate-300 bg-white text-slate-500 hover:border-primary-300 hover:text-primary-600'"
+            :title="webSearchEnabled ? '联网搜索已开启：回答将引用网页来源' : '开启后回答会联网检索并附来源'"
+            @click="webSearchEnabled = !webSearchEnabled"
+          >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c2.505 0 4.585-4.03 4.585-9S14.505 3 12 3m0 18c-2.505 0-4.585-4.03-4.585-9S9.495 3 12 3m0 0a9 9 0 019 9"/>
+            </svg>
+            智能搜索
+          </button>
           <textarea
             v-model="input"
             rows="2"
@@ -196,5 +232,35 @@ function handleCreate() {
         </div>
       </div>
     </section>
+
+    <!-- 右侧来源面板：展示所选回答的联网搜索来源 -->
+    <aside v-if="panelSources" class="hidden w-80 shrink-0 flex-col border-l border-slate-200 bg-slate-50 lg:flex">
+      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <h3 class="text-sm font-semibold text-slate-700">搜索结果</h3>
+        <button
+          class="rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-slate-600"
+          title="关闭"
+          @click="closeSourcesPanel"
+        >
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="flex-1 space-y-2.5 overflow-y-auto px-3 py-3">
+        <a
+          v-for="(source, index) in panelSources"
+          :key="`${source.url}-${index}`"
+          :href="source.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="block rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition hover:border-primary-300 hover:shadow-sm"
+        >
+          <p class="text-[11px] text-slate-400">{{ hostOf(source.url) }}</p>
+          <p class="mt-0.5 text-sm font-medium leading-5 text-slate-800 line-clamp-2">[{{ index + 1 }}] {{ source.title }}</p>
+          <p class="mt-1 text-xs leading-5 text-slate-500 line-clamp-3">{{ source.snippet }}</p>
+        </a>
+      </div>
+    </aside>
   </div>
 </template>

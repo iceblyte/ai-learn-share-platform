@@ -19,6 +19,13 @@ export interface AnswerImage {
   alt: string
 }
 
+/** 联网搜索来源（SSE sources 事件 / 历史 sources_json 快照） */
+export interface WebSourceItem {
+  title: string
+  url: string
+  snippet: string
+}
+
 export interface ChatMessage {
   id: number
   role: ChatRole
@@ -28,6 +35,8 @@ export interface ChatMessage {
   toolSteps?: string[]
   /** 回答配图（气泡下方图片条，不进正文） */
   images?: AnswerImage[]
+  /** 联网搜索来源（回答下方来源条与来源面板） */
+  sources?: WebSourceItem[]
   /** 回答因违规被撤回：正文清空，气泡渲染违规占位样式 */
   moderated?: boolean
 }
@@ -38,6 +47,17 @@ function parseImages(json: string | null | undefined): AnswerImage[] | undefined
   try {
     const parsed = JSON.parse(json)
     return Array.isArray(parsed) && parsed.length ? (parsed as AnswerImage[]) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** 解析历史消息的 sources_json 快照；非法数据返回 undefined */
+function parseSources(json: string | null | undefined): WebSourceItem[] | undefined {
+  if (!json) return undefined
+  try {
+    const parsed = JSON.parse(json)
+    return Array.isArray(parsed) && parsed.length ? (parsed as WebSourceItem[]) : undefined
   } catch {
     return undefined
   }
@@ -67,6 +87,9 @@ export function useAiChat(options: UseAiChatOptions = {}) {
   const sending = ref(false)
   const input = ref('')
   const currentSessionId = ref<number | null>(null)
+
+  /** 智能搜索开关：开启后请求携带 webSearch=true，后端走 Tavily 联网检索并回传来源 */
+  const webSearchEnabled = ref(false)
 
   // ---- 消息游标翻页 ----
   const loadingOlder = ref(false)
@@ -114,6 +137,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
       role: item.role,
       content: item.content,
       images: parseImages(item.imagesJson),
+      sources: parseSources(item.sourcesJson),
       moderated: item.status === 'MODERATED' || undefined,
     }))
     messages.value = restored.length
@@ -139,6 +163,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
         role: item.role,
         content: item.content,
         images: parseImages(item.imagesJson),
+        sources: parseSources(item.sourcesJson),
         moderated: item.status === 'MODERATED' || undefined,
       }))
       messages.value = [...older, ...messages.value]
@@ -305,6 +330,9 @@ export function useAiChat(options: UseAiChatOptions = {}) {
       if (context?.selectedText) {
         payload.selectedText = context.selectedText
       }
+      if (webSearchEnabled.value) {
+        payload.webSearch = true
+      }
 
       // 登录用户写入持久会话；游客仍走匿名通道
       let url = '/api/v1/ai/chat/stream'
@@ -371,6 +399,13 @@ export function useAiChat(options: UseAiChatOptions = {}) {
           assistantMessage.content = ''
           assistantMessage.moderated = true
           messages.value = [...messages.value]
+        } else if (eventName === 'sources') {
+          // 联网搜索来源（智能搜索）：回答下方来源条与来源面板数据
+          const parsed = parseSources(data)
+          if (parsed) {
+            assistantMessage.sources = parsed
+            messages.value = [...messages.value]
+          }
         } else if (eventName === 'error') {
           streamError = data
         } else if (eventName === 'done') {
@@ -438,6 +473,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     sending,
     input,
     currentSessionId,
+    webSearchEnabled,
     sendMessage,
     // 消息游标翻页
     loadingOlder,
