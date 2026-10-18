@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/store/user'
+import { notificationApi } from '@/api/notification'
 import BrandMark from '@/components/BrandMark.vue'
 
 const router = useRouter()
@@ -9,6 +10,35 @@ const route = useRoute()
 const userStore = useUserStore()
 const searchQuery = ref('')
 const showUserMenu = ref(false)
+
+// 通知未读数：登录时每 30s 轮询一次，点击铃铛进入通知页
+const unreadCount = ref(0)
+let unreadTimer: ReturnType<typeof setInterval> | null = null
+
+async function refreshUnread() {
+  if (!userStore.isLoggedIn) {
+    unreadCount.value = 0
+    return
+  }
+  try {
+    const res = await notificationApi.unreadCount()
+    unreadCount.value = Number(res.data.data) || 0
+  } catch {}
+}
+
+onMounted(() => {
+  refreshUnread()
+  unreadTimer = setInterval(refreshUnread, 30000)
+})
+
+onUnmounted(() => {
+  if (unreadTimer) clearInterval(unreadTimer)
+})
+
+// 离开通知页时刷新未读数（已读操作后回来红点要消失）
+watch(() => route.path, (p) => {
+  if (p !== '/notifications') refreshUnread()
+})
 
 // 搜索页有自己的大搜索框，头部再放一个会重复
 const onSearchPage = computed(() => route.path === '/search')
@@ -79,6 +109,16 @@ function handleLogout() {
           </router-link>
 
           <template v-if="userStore.isLoggedIn">
+            <!-- 通知铃铛 -->
+            <router-link to="/notifications" class="relative p-1.5 text-slate-500 hover:text-primary-600 transition-colors" title="通知">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1h6z"/>
+              </svg>
+              <span
+                v-if="unreadCount > 0"
+                class="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-medium"
+              >{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+            </router-link>
             <div class="relative">
               <button
                 @click="showUserMenu = !showUserMenu"
