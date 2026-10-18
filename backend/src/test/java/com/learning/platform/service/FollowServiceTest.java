@@ -32,6 +32,7 @@ class FollowServiceTest {
 
     @Mock private FollowMapper followMapper;
     @Mock private UserMapper userMapper;
+    @Mock private NotificationService notificationService;
 
     @InjectMocks private FollowService service;
 
@@ -50,6 +51,9 @@ class FollowServiceTest {
         verify(followMapper).insert(captor.capture());
         assertThat(captor.getValue().getFollowerId()).isEqualTo(1L);
         assertThat(captor.getValue().getFollowingId()).isEqualTo(2L);
+        // 关注成功 → 被关注者收到 FOLLOW 通知
+        verify(notificationService).notify(2L, com.learning.platform.entity.Notification.TYPE_FOLLOW,
+                1L, null, null, null);
     }
 
     @Test
@@ -68,6 +72,8 @@ class FollowServiceTest {
         assertThat(result.get("following")).isEqualTo(false);
         verify(followMapper).deleteById(9L);
         verify(followMapper, never()).insert(any(Follow.class));
+        // 取关不发通知
+        verify(notificationService, never()).notify(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -118,5 +124,101 @@ class FollowServiceTest {
         when(followMapper.selectList(any())).thenReturn(List.of());
         assertThat(service.getFollowingUsers(1L)).isEmpty();
         verify(userMapper, never()).selectBatchIds(any());
+    }
+
+    // ---------- 粉丝/关注分页列表（用户主页用） ----------
+
+    @Test
+    @DisplayName("粉丝分页：返回公开字段 + viewer 是否已回关")
+    void pageFollowers_returnsPublicFieldsWithViewerFlag() {
+        Follow record = new Follow();
+        record.setFollowerId(2L);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Follow> p =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10);
+        p.setRecords(List.of(record));
+        p.setTotal(1);
+        when(followMapper.selectPage(any(), any())).thenReturn(p);
+
+        User follower = new User();
+        follower.setId(2L);
+        follower.setNickname("粉丝甲");
+        follower.setAvatarUrl("/a.png");
+        follower.setBio("简介");
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of(follower));
+        // viewer(1L) 已关注 2L
+        Follow viewerFollow = new Follow();
+        viewerFollow.setFollowingId(2L);
+        when(followMapper.selectList(any())).thenReturn(List.of(viewerFollow));
+
+        var result = service.pageFollowers(1L, 9L, 1, 10);
+
+        assertThat(result.getTotal()).isEqualTo(1);
+        assertThat(result.getRecords()).hasSize(1);
+        Map<String, Object> entry = result.getRecords().get(0);
+        assertThat(entry.get("id")).isEqualTo(2L);
+        assertThat(entry.get("nickname")).isEqualTo("粉丝甲");
+        assertThat(entry.get("avatarUrl")).isEqualTo("/a.png");
+        assertThat(entry.get("bio")).isEqualTo("简介");
+        assertThat(entry.get("isFollowing")).isEqualTo(true);
+        assertThat(entry).doesNotContainKeys("passwordHash", "email");
+    }
+
+    @Test
+    @DisplayName("粉丝分页：匿名 viewer 时 isFollowing 一律 false")
+    void pageFollowers_anonymousViewer() {
+        Follow record = new Follow();
+        record.setFollowerId(2L);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Follow> p =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10);
+        p.setRecords(List.of(record));
+        when(followMapper.selectPage(any(), any())).thenReturn(p);
+        User follower = new User();
+        follower.setId(2L);
+        follower.setNickname("粉丝甲");
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of(follower));
+
+        var result = service.pageFollowers(null, 9L, 1, 10);
+
+        assertThat(result.getRecords().get(0).get("isFollowing")).isEqualTo(false);
+        verify(followMapper, never()).selectList(any());
+    }
+
+    @Test
+    @DisplayName("粉丝分页：已注销用户（批量查询缺失）被跳过")
+    void pageFollowers_skipsDeletedUsers() {
+        Follow record = new Follow();
+        record.setFollowerId(2L);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Follow> p =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10);
+        p.setRecords(List.of(record));
+        when(followMapper.selectPage(any(), any())).thenReturn(p);
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of()); // 逻辑删除后查不到
+
+        var result = service.pageFollowers(1L, 9L, 1, 10);
+
+        assertThat(result.getRecords()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("关注分页：以 following_id 视角返回公开字段")
+    void pageFollowing_returnsPublicFields() {
+        Follow record = new Follow();
+        record.setFollowingId(3L);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Follow> p =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(1, 10);
+        p.setRecords(List.of(record));
+        when(followMapper.selectPage(any(), any())).thenReturn(p);
+        User followed = new User();
+        followed.setId(3L);
+        followed.setNickname("被关注者");
+        when(userMapper.selectBatchIds(any())).thenReturn(List.of(followed));
+        when(followMapper.selectList(any())).thenReturn(List.of()); // viewer 未关注 3L
+
+        var result = service.pageFollowing(1L, 9L, 1, 10);
+
+        assertThat(result.getRecords()).hasSize(1);
+        assertThat(result.getRecords().get(0).get("id")).isEqualTo(3L);
+        assertThat(result.getRecords().get(0).get("nickname")).isEqualTo("被关注者");
+        assertThat(result.getRecords().get(0).get("isFollowing")).isEqualTo(false);
     }
 }

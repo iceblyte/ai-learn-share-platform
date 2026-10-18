@@ -22,6 +22,7 @@ public class InteractionService {
     private final RatingMapper ratingMapper;
     private final ResourceMapper resourceMapper;
     private final CommentMapper commentMapper;
+    private final NotificationService notificationService;
 
     @Transactional
     public Map<String, Object> toggleLike(Long userId, Long targetId, String targetType) {
@@ -54,6 +55,12 @@ public class InteractionService {
                 likeCount = Math.max(0, current + delta);
                 resource.setLikeCount(likeCount);
                 resourceMapper.updateById(resource);
+                // 新增赞 → 通知资源发布者
+                if (liked) {
+                    notificationService.notify(resource.getPublisherId(),
+                            com.learning.platform.entity.Notification.TYPE_LIKE_RESOURCE,
+                            userId, targetId, null, "有人赞了你的资源");
+                }
             }
         } else if ("COMMENT".equals(targetType)) {
             Comment comment = commentMapper.selectById(targetId);
@@ -62,6 +69,12 @@ public class InteractionService {
                 likeCount = Math.max(0, current + delta);
                 comment.setLikeCount(likeCount);
                 commentMapper.updateById(comment);
+                // 新增赞 → 通知评论作者
+                if (liked) {
+                    notificationService.notify(comment.getUserId(),
+                            com.learning.platform.entity.Notification.TYPE_LIKE_COMMENT,
+                            userId, comment.getResourceId(), targetId, "有人赞了你的评论");
+                }
             }
         }
 
@@ -96,6 +109,12 @@ public class InteractionService {
         if (resource != null) {
             resource.setFavoriteCount(favCount);
             resourceMapper.updateById(resource);
+            // 新增收藏 → 通知资源发布者
+            if (favorited) {
+                notificationService.notify(resource.getPublisherId(),
+                        com.learning.platform.entity.Notification.TYPE_FAVORITE,
+                        userId, resourceId, null, "有人收藏了你的资源");
+            }
         }
 
         Map<String, Object> result = new HashMap<>();

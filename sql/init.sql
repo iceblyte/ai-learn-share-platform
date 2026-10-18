@@ -314,6 +314,24 @@ CREATE TABLE IF NOT EXISTS `follow` (
     KEY `idx_follow_following` (`following_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户关注关系表';
 
+-- ============================================
+-- 20. 站内通知表
+-- ============================================
+CREATE TABLE IF NOT EXISTS `notification` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知ID',
+    `user_id` BIGINT NOT NULL COMMENT '接收人',
+    `type` VARCHAR(32) NOT NULL COMMENT '类型：FOLLOW/LIKE_RESOURCE/LIKE_COMMENT/FAVORITE/COMMENT/REPLY/MENTION/AI_SUMMARY',
+    `actor_id` BIGINT NULL COMMENT '触发者（AI 助手触发的通知可为空）',
+    `resource_id` BIGINT NULL COMMENT '关联资源',
+    `comment_id` BIGINT NULL COMMENT '关联评论',
+    `content` VARCHAR(500) NULL COMMENT '通知摘要文本',
+    `is_read` TINYINT NOT NULL DEFAULT 0 COMMENT '是否已读：0未读 1已读',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '通知时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_notification_user_read` (`user_id`, `is_read`),
+    KEY `idx_notification_user_created` (`user_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='站内通知表';
+
 -- 建表脚本到此结束。
 -- 所有默认数据、测试数据、资源封面、文件记录与统计修正
 -- 请统一执行 sql/seed.sql。
