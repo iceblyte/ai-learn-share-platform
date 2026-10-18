@@ -53,12 +53,12 @@ public class WebSearchTool extends ChatTool {
         if (query.isEmpty()) {
             return paramError("query 不能为空");
         }
-        // 未配置 key 时明确告知模型（而不是误报"无结果"），方便使用者发现配置缺失
-        if (!tavilySearchService.isConfigured()) {
-            return "联网搜索服务未配置（缺少 TAVILY_API_KEY），请基于已有知识回答，"
-                    + "并提示使用者：在 application-local.yml 填入 tavily.api-key 后重启后端即可开启联网搜索。";
+        TavilySearchService.SearchOutcome outcome = tavilySearchService.searchDetailed(query);
+        // 调用失败（非"真无结果"）：把真实原因透传给模型转述给用户，方便定位网络/配置问题
+        if (outcome.error() != null) {
+            return "联网搜索调用失败：" + outcome.error() + "。请把这个失败原因告诉用户，并基于已有知识回答。";
         }
-        List<WebSource> sources = tavilySearchService.search(query);
+        List<WebSource> sources = outcome.sources();
         if (sources.isEmpty()) {
             return "联网搜索没有返回结果（可尝试换更具体的关键词再调用一次），请基于已有知识回答，并说明未找到联网来源。";
         }

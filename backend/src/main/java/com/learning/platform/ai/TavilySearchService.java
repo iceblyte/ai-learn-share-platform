@@ -52,10 +52,31 @@ public class TavilySearchService {
         return apiKey != null && !apiKey.isBlank();
     }
 
-    /** 联网搜索：无 key / 失败 / 空结果一律返回空列表（调用方按"无来源"降级） */
+    /** 搜索结果 + 失败原因：sources 为空且 error 非空时，error 是可直接展示给用户的诊断信息 */
+    public record SearchOutcome(List<WebSource> sources, String error) {
+        public static SearchOutcome ok(List<WebSource> sources) {
+            return new SearchOutcome(sources, null);
+        }
+        public static SearchOutcome fail(String error) {
+            return new SearchOutcome(List.of(), error);
+        }
+    }
+
+    /** 兼容旧签名：只取来源列表 */
     public List<WebSource> search(String query) {
-        if (!isConfigured() || query == null || query.isBlank()) {
-            return List.of();
+        return searchDetailed(query).sources();
+    }
+
+    /**
+     * 联网搜索（带失败诊断）：无 key / 网络失败 / 响应异常都会在 error 里给出
+     * 可读原因（含异常类名），由调用方透传给模型转述给用户——绝不静默吞掉。
+     */
+    public SearchOutcome searchDetailed(String query) {
+        if (!isConfigured()) {
+            return SearchOutcome.fail("未配置 TAVILY_API_KEY（在 application-local.yml 填入 tavily.api-key 后重启后端）");
+        }
+        if (query == null || query.isBlank()) {
+            return SearchOutcome.ok(List.of());
         }
         try {
             String body = objectMapper.writeValueAsString(java.util.Map.of(
@@ -65,10 +86,17 @@ public class TavilySearchService {
             String response = poster.post(ENDPOINT, body);
             List<WebSource> sources = parse(response);
             log.info("Tavily search ok: query='{}', results={}", query, sources.size());
-            return sources;
+            return SearchOutcome.ok(sources);
         } catch (Exception e) {
-            log.warn("Tavily search failed: query='{}', {}", query, e.getMessage());
-            return List.of();
+            String detail = (e.getMessage() != null && !e.getMessage().isBlank())
+                    ? e.getMessage() : e.getClass().getSimpleName();
+            Throwable cause = e.getCause();
+            String full = cause != null
+                    ? e.getClass().getSimpleName() + ": " + detail
+                      + "（根因 " + cause.getClass().getSimpleName() + ": " + cause.getMessage() + "）"
+                    : e.getClass().getSimpleName() + ": " + detail;
+            log.warn("Tavily search failed: query='{}', {}", query, full);
+            return SearchOutcome.fail(full);
         }
     }
 

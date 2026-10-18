@@ -1,7 +1,6 @@
 package com.learning.platform.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,8 +14,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 /**
- * 联网搜索工具：把 Tavily 来源转成带编号清单供模型引用，
- * 并留存到上下文（SSE sources 事件）；空 query 报参数错误；共享 NONE 不写来源。
+ * 联网搜索工具：把 Tavily 来源转成带编号清单供模型引用，并留存到上下文
+ * （SSE sources 事件）；空 query 报参数错误；调用失败把原因透传给模型；
+ * 共享 NONE 不写来源。
  */
 @ExtendWith(MockitoExtension.class)
 class WebSearchToolTest {
@@ -31,10 +31,9 @@ class WebSearchToolTest {
     @Test
     @DisplayName("执行：返回编号来源清单并写入上下文")
     void execute_returnsNumberedSourcesAndSavesContext() {
-        when(tavilySearchService.isConfigured()).thenReturn(true);
-        when(tavilySearchService.search("spring 虚拟线程")).thenReturn(List.of(
+        when(tavilySearchService.searchDetailed("spring 虚拟线程")).thenReturn(TavilySearchService.SearchOutcome.ok(List.of(
                 new WebSource("官方文档", "https://a", "虚拟线程介绍"),
-                new WebSource("博客", "https://b", "实践案例")));
+                new WebSource("博客", "https://b", "实践案例"))));
 
         ChatToolContext context = new ChatToolContext(null, null, null, null);
         String result = tool().execute("{\"query\":\"spring 虚拟线程\"}", context);
@@ -47,12 +46,11 @@ class WebSearchToolTest {
     @Test
     @DisplayName("多次调用：来源按 URL 去重累积，不互相覆盖")
     void execute_accumulatesSourcesAcrossCalls() {
-        when(tavilySearchService.isConfigured()).thenReturn(true);
-        when(tavilySearchService.search("q1")).thenReturn(List.of(
-                new WebSource("一", "https://a", "s1")));
-        when(tavilySearchService.search("q2")).thenReturn(List.of(
+        when(tavilySearchService.searchDetailed("q1")).thenReturn(TavilySearchService.SearchOutcome.ok(List.of(
+                new WebSource("一", "https://a", "s1"))));
+        when(tavilySearchService.searchDetailed("q2")).thenReturn(TavilySearchService.SearchOutcome.ok(List.of(
                 new WebSource("二", "https://b", "s2"),
-                new WebSource("重复", "https://a", "s1-dup")));
+                new WebSource("重复", "https://a", "s1-dup"))));
 
         ChatToolContext context = new ChatToolContext(null, null, null, null);
         tool().execute("{\"query\":\"q1\"}", context);
@@ -65,18 +63,20 @@ class WebSearchToolTest {
     }
 
     @Test
-    @DisplayName("未配置 key：返回明确的配置提示而非误导性的无结果")
-    void execute_notConfigured() {
-        when(tavilySearchService.isConfigured()).thenReturn(false);
+    @DisplayName("调用失败：错误原因透传给模型（转述给用户定位网络/配置问题）")
+    void execute_failureReasonPassedThrough() {
+        when(tavilySearchService.searchDetailed(anyString())).thenReturn(
+                TavilySearchService.SearchOutcome.fail("ConnectException: Connection timed out"));
+
         String result = tool().execute("{\"query\":\"q\"}", new ChatToolContext(null, null, null, null));
-        assertThat(result).contains("未配置").contains("TAVILY_API_KEY");
+
+        assertThat(result).contains("调用失败").contains("ConnectException");
     }
 
     @Test
     @DisplayName("无结果：提示模型按无来源降级回答")
     void execute_noResults() {
-        when(tavilySearchService.isConfigured()).thenReturn(true);
-        when(tavilySearchService.search(anyString())).thenReturn(List.of());
+        when(tavilySearchService.searchDetailed(anyString())).thenReturn(TavilySearchService.SearchOutcome.ok(List.of()));
         String result = tool().execute("{\"query\":\"q\"}", new ChatToolContext(null, null, null, null));
         assertThat(result).contains("没有返回结果");
     }
@@ -91,9 +91,8 @@ class WebSearchToolTest {
     @Test
     @DisplayName("共享 NONE 上下文不写入来源（防跨请求串扰）")
     void execute_doesNotPolluteNone() {
-        when(tavilySearchService.isConfigured()).thenReturn(true);
-        when(tavilySearchService.search(anyString())).thenReturn(List.of(
-                new WebSource("t", "https://a", "s")));
+        when(tavilySearchService.searchDetailed(anyString())).thenReturn(TavilySearchService.SearchOutcome.ok(List.of(
+                new WebSource("t", "https://a", "s"))));
         tool().execute("{\"query\":\"q\"}", ChatToolContext.NONE);
         assertThat(ChatToolContext.NONE.getWebSources()).isNull();
     }

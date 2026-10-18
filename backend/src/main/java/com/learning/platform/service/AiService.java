@@ -473,7 +473,8 @@ public class AiService {
 
                 @Override
                 public void onError(Throwable error) {
-                    log.error("Streaming chat failed: {}", error.getMessage());
+                    // 带类名与完整堆栈：getMessage() 可能为 null（如 NPE），只有堆栈能定位
+                    log.error("Streaming chat failed: {}", error.toString(), error);
                     outcomeRef.set(new RoundOutcome(null, null, describeStreamError(error)));
                     done.countDown();
                 }
