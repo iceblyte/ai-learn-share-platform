@@ -175,7 +175,6 @@ function handleCreate() {
                 v-for="prompt in quickPrompts"
                 :key="prompt"
                 class="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 shadow-sm transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
-                :disabled="sending"
                 @click="sendMessage(prompt)"
               >
                 {{ prompt }}
@@ -224,7 +223,7 @@ function handleCreate() {
                 智能搜索
               </button>
               <button
-                :disabled="sending || !input.trim()"
+                :disabled="!input.trim()"
                 class="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-600 text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 @click="sendMessage()"
               >

@@ -87,6 +87,10 @@ export function useAiChat(options: UseAiChatOptions = {}) {
   const sending = ref(false)
   const input = ref('')
   const currentSessionId = ref<number | null>(null)
+  /** 进行中的创建会话 Promise（并发首聊时复用，避免重复建会话） */
+  let ensureSessionPromise: Promise<number | null> | null = null
+  /** 进行中的流式回答数量：sending 只表示"至少有一条流在生成"，不再阻塞新提问 */
+  let activeStreams = 0
 
   /** 智能搜索开关：开启后请求携带 webSearch=true，后端走 Tavily 联网检索并回传来源 */
   const webSearchEnabled = ref(false)
@@ -242,17 +246,28 @@ export function useAiChat(options: UseAiChatOptions = {}) {
 
   async function ensureSession(): Promise<number | null> {
     if (currentSessionId.value) return currentSessionId.value
-    const context = options.getPayloadContext?.()
-    const res = await chatApi.createSession(context?.pageContextType, context?.pageContextId)
-    currentSessionId.value = res.data.data.id
-    // 新会话即时进左侧列表（此时标题为空，首轮回答结束后再刷新一次）
-    void loadSessions()
-    return currentSessionId.value
+    // 并发安全：两个请求同时首聊时复用同一个创建过程，避免建出两个空会话
+    if (!ensureSessionPromise) {
+      ensureSessionPromise = (async () => {
+        const context = options.getPayloadContext?.()
+        const res = await chatApi.createSession(context?.pageContextType, context?.pageContextId)
+        currentSessionId.value = res.data.data.id
+        // 新会话即时进左侧列表（此时标题为空，首轮回答结束后再刷新一次）
+        await loadSessions()
+        return currentSessionId.value
+      })()
+      try {
+        return await ensureSessionPromise
+      } finally {
+        ensureSessionPromise = null
+      }
+    }
+    return ensureSessionPromise
   }
 
   async function sendMessage(questionOverride?: string) {
     const question = (questionOverride ?? input.value).trim()
-    if (!question || sending.value) return
+    if (!question) return
 
     messages.value.push({ id: messageId++, role: 'user', content: question })
     // 必须用 reactive 包裹：push 进数组后模板迭代拿到的是 proxy，
@@ -268,6 +283,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
     })
     messages.value.push(assistantMessage)
     input.value = ''
+    activeStreams++
     sending.value = true
 
     // ---- 打字机缓冲队列 ----
@@ -340,6 +356,9 @@ export function useAiChat(options: UseAiChatOptions = {}) {
         const sessionId = await ensureSession()
         if (!sessionId) return
         url = `/api/v1/chat/sessions/${sessionId}/messages`
+        // 会话标题在后端保存用户消息时即已生成，此刻立刻刷新左侧列表，
+        // 不必等整条回答流结束（首次提问时标题"空白到出现"的间隔最明显）
+        void loadSessions()
       }
 
       const response = await fetch(url, {
@@ -458,7 +477,8 @@ export function useAiChat(options: UseAiChatOptions = {}) {
         assistantMessage.content = '当前没有拿到有效回复，请换个问法再试。'
       }
       messages.value = [...messages.value]
-      sending.value = false
+      activeStreams = Math.max(0, activeStreams - 1)
+      sending.value = activeStreams > 0
       setSelectedText('')
       // 会话列表同步：首轮问答后标题/时间/排序已变化，免手动刷新页面
       if (userStore.isLoggedIn && currentSessionId.value) {

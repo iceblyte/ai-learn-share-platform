@@ -117,7 +117,7 @@ function useSuggestion(text: string) {
 
 /** 扩展一：划词提问——把当前选中文本作为 selectedText 一并上传 */
 function askSelectedText() {
-  if (!pageContextStore.selectedText || sending.value) return
+  if (!pageContextStore.selectedText) return
   sendMessage('请解释我选中的这段内容')
 }
 
@@ -323,7 +323,6 @@ async function loadOlderAnchored() {
             >
               <button
                 class="min-w-0 flex-1 truncate text-left text-xs text-primary-700 transition hover:text-primary-800"
-                :disabled="sending"
                 title="解释这一段"
                 @click="askSelectedText"
               >
@@ -377,7 +376,7 @@ async function loadOlderAnchored() {
                   智能搜索
                 </button>
                 <button
-                  :disabled="sending || !input.trim()"
+                  :disabled="!input.trim()"
                   class="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-600 text-white transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                   @click="sendFromInput"
                 >
