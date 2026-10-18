@@ -24,7 +24,7 @@ export interface ChatMessageItem {
   sourcesJson?: string | null
   tokensUsed: number
   latencyMs: number
-  status: 'OK' | 'FAILED' | 'MODERATED'
+  status: 'OK' | 'FAILED' | 'MODERATED' | 'STREAMING'
   createdAt: string
 }
 

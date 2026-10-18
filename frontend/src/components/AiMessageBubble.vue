@@ -106,6 +106,14 @@ const userInitial = computed(
         </svg>
         <span>{{ message.content || moderatedNotice }}</span>
       </div>
+      <!-- 服务中断占位：历史消息里后端占位未回填（回答完成前服务中断） -->
+      <div v-else-if="message.interrupted" class="flex items-center gap-2 py-1 text-slate-400">
+        <svg class="h-4 w-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+        <span>该回答因服务中断未完成，请重新提问</span>
+      </div>
       <!-- 用户消息纯文本；助手消息 markdown 渲染（撤回时不渲染正文） -->
       <p v-else-if="message.role === 'user'" class="whitespace-pre-wrap break-words">{{ message.content }}</p>
       <!-- eslint-disable-next-line vue/no-v-html —— 内容已经 DOMPurify 净化 -->

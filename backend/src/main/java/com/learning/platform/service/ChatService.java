@@ -238,6 +238,18 @@ public class ChatService {
         boolean onResourcePage = ChatContext.TYPE_RESOURCE.equals(request.getPageContextType());
         Long pageResourceId = onResourcePage ? request.getPageContextId() : null;
 
+        // 占位先行落库（status=STREAMING）：无论后面正常完成、失败还是连接中断，
+        // 会话历史都能感知这条回答——JVM 中断时留下可辨识的"未完成"痕迹，
+        // 而不是整条回复无声消失。生成结束后统一 updateById 回填。
+        ChatMessage assistantMessage = new ChatMessage();
+        assistantMessage.setSessionId(sessionId);
+        assistantMessage.setRole("assistant");
+        assistantMessage.setContent("");
+        assistantMessage.setStatus("STREAMING");
+        assistantMessage.setTokensUsed(0);
+        assistantMessage.setLatencyMs(0);
+        messageMapper.insert(assistantMessage);
+
         long start = System.currentTimeMillis();
         String content;
         Integer tokensUsed;
@@ -293,16 +305,14 @@ public class ChatService {
         }
         long latency = System.currentTimeMillis() - start;
 
-        ChatMessage assistantMessage = new ChatMessage();
-        assistantMessage.setSessionId(sessionId);
-        assistantMessage.setRole("assistant");
+        // 回填占位消息（不再新插一行）：内容/状态/配图/来源/耗时
         assistantMessage.setContent(content);
         assistantMessage.setImagesJson(imagesJson);
         assistantMessage.setSourcesJson(sourcesJson);
         assistantMessage.setStatus(status);
         assistantMessage.setTokensUsed(failed ? 0 : (tokensUsed == null ? 0 : tokensUsed));
         assistantMessage.setLatencyMs((int) Math.min(latency, Integer.MAX_VALUE));
-        messageMapper.insert(assistantMessage);
+        messageMapper.updateById(assistantMessage);
 
         session.setMessageCount((session.getMessageCount() == null ? 0 : session.getMessageCount()) + 2);
         session.setLastMessageAt(LocalDateTime.now());

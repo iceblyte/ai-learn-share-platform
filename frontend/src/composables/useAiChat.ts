@@ -39,6 +39,8 @@ export interface ChatMessage {
   sources?: WebSourceItem[]
   /** 回答因违规被撤回：正文清空，气泡渲染违规占位样式 */
   moderated?: boolean
+  /** 历史消息中后端占位未回填（服务在回答完成前中断） */
+  interrupted?: boolean
 }
 
 /** 解析历史消息的 images_json 快照；非法数据返回 undefined（渲染不受影响） */
@@ -145,6 +147,8 @@ export function useAiChat(options: UseAiChatOptions = {}) {
       images: parseImages(item.imagesJson),
       sources: parseSources(item.sourcesJson),
       moderated: item.status === 'MODERATED' || undefined,
+      // STREAMING = 后端占位未回填：服务在回答完成前中断，前端展示中断占位
+      interrupted: item.status === 'STREAMING' || undefined,
     }))
     messages.value = restored.length
       ? restored
@@ -171,6 +175,7 @@ export function useAiChat(options: UseAiChatOptions = {}) {
         images: parseImages(item.imagesJson),
         sources: parseSources(item.sourcesJson),
         moderated: item.status === 'MODERATED' || undefined,
+        interrupted: item.status === 'STREAMING' || undefined,
       }))
       messages.value = [...older, ...messages.value]
       oldestCursor.value = nextCursor
@@ -185,6 +190,12 @@ export function useAiChat(options: UseAiChatOptions = {}) {
 
   async function openSession(sessionId: number) {
     await loadSessionMessages(sessionId)
+    // 有活流归档时，历史里同会话的 STREAMING 占位行（后端尚未回填）要跳过，
+    // 由接回的流式气泡代替，避免同一条回答显示两份
+    const hasLive = !!liveStreamMessages.get(sessionId)?.some((m) => m.streaming)
+    if (hasLive) {
+      messages.value = messages.value.filter((m) => !m.interrupted)
+    }
     currentSessionId.value = sessionId
     // 切回仍有流式输出进行中的会话：把未完成的流式气泡接回视图，
     // 内容随流继续更新（此前切走再切回会丢失剩余流式输出的显示）
