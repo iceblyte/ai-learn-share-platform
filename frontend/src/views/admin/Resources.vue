@@ -8,6 +8,12 @@ import { renderMarkdown } from '@/utils/markdown'
 const resources = ref<Resource[]>([])
 const loading = ref(true)
 
+// 分页
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+
 /** 状态筛选：PENDING/PUBLISHED/REJECTED/DRAFT/''（全部），默认待审核 */
 const statusFilter = ref<string>('PENDING')
 const STATUS_TABS: { value: string; label: string }[] = [
@@ -47,9 +53,10 @@ async function loadResources() {
   try {
     // /admin/resources 支持可选 status：空 = 全部资源（含通过/拒绝/草稿）
     const res = await request.get('/admin/resources', {
-      params: { page: 1, size: 50, status: statusFilter.value || undefined },
+      params: { page: page.value, size: pageSize.value, status: statusFilter.value || undefined },
     })
     resources.value = res.data.data?.records || []
+    total.value = res.data.data?.total || 0
   } catch {} finally {
     loading.value = false
   }
@@ -58,6 +65,13 @@ async function loadResources() {
 function switchStatus(value: string) {
   if (statusFilter.value === value) return
   statusFilter.value = value
+  page.value = 1
+  loadResources()
+}
+
+function goToPage(p: number) {
+  if (p < 1 || p > totalPages.value || p === page.value) return
+  page.value = p
   loadResources()
 }
 
@@ -71,6 +85,8 @@ async function executeAudit() {
   if (!auditTarget.value) return
   try {
     await request.put(`/admin/resources/${auditTarget.value.id}/audit`, { action: auditAction.value })
+    // 审核后当前页可能只剩空页，回退一页
+    if (resources.value.length === 1 && page.value > 1) page.value--
     await loadResources()
   } catch {}
   showAuditModal.value = false
@@ -164,6 +180,27 @@ function formatTimeAgo(dateStr: string): string {
               </button>
             </template>
           </div>
+        </div>
+      </div>
+
+      <!-- 分页 -->
+      <div v-if="total > 0" class="flex items-center justify-between pt-4">
+        <p class="text-sm text-slate-500">共 {{ total }} 条，第 {{ page }} / {{ totalPages }} 页</p>
+        <div class="flex items-center gap-2">
+          <button
+            @click="goToPage(page - 1)"
+            :disabled="page <= 1"
+            class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            上一页
+          </button>
+          <button
+            @click="goToPage(page + 1)"
+            :disabled="page >= totalPages"
+            class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            下一页
+          </button>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.learning.platform.common.BusinessException;
 import com.learning.platform.common.PageResult;
 import com.learning.platform.common.Result;
+import com.learning.platform.dto.AdminCreateUserRequest;
 import com.learning.platform.dto.AuditRequest;
 import com.learning.platform.entity.PublisherApplication;
 import com.learning.platform.entity.Resource;
@@ -14,9 +15,11 @@ import com.learning.platform.mapper.PublisherApplicationMapper;
 import com.learning.platform.mapper.ResourceMapper;
 import com.learning.platform.mapper.UserMapper;
 import com.learning.platform.service.SystemConfigService;
+import com.learning.platform.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -36,12 +39,17 @@ public class AdminController {
     private final ResourceMapper resourceMapper;
     private final PublisherApplicationMapper publisherApplicationMapper;
     private final SystemConfigService systemConfigService;
+    private final UserService userService;
 
     @GetMapping("/users")
     public Result<PageResult<User>> userList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String sort) {
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String keyword) {
+        if (keyword != null && !keyword.isBlank()) {
+            return Result.success(userService.listUsers(page, size, keyword));
+        }
         QueryWrapper<User> wrapper = new QueryWrapper<User>().orderByDesc("created_at");
         if ("latest".equals(sort)) {
             wrapper.orderByDesc("created_at");
@@ -49,6 +57,22 @@ public class AdminController {
         IPage<User> result = userMapper.selectPage(new Page<>(page, size), wrapper);
         result.getRecords().forEach(u -> u.setPasswordHash(null));
         return Result.success(PageResult.from(result));
+    }
+
+    /** 管理员创建用户：使用系统默认密码，用户登录后自行修改 */
+    @PostMapping("/users")
+    public Result<User> createUser(@Valid @RequestBody AdminCreateUserRequest request) {
+        User created = userService.createUser(request);
+        created.setPasswordHash(null);
+        return Result.success(created);
+    }
+
+    /** 管理员删除用户：逻辑删除，保留其历史内容；不能删除自己与其他管理员 */
+    @DeleteMapping("/users/{id}")
+    public Result<Void> deleteUser(@PathVariable Long id, Authentication authentication) {
+        Long operatorId = (Long) authentication.getPrincipal();
+        userService.deleteUser(operatorId, id);
+        return Result.success(null);
     }
 
     @PutMapping("/users/{id}/role")

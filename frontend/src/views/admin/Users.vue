@@ -1,14 +1,28 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import request from '@/api/request'
 import type { User } from '@/types'
 import AppModal from '@/components/AppModal.vue'
+import AppToast from '@/components/AppToast.vue'
 
 const users = ref<User[]>([])
 const page = ref(1)
 const total = ref(0)
-const pageSize = 20
+const pageSize = ref(20)
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
+const keyword = ref('')
 const loading = ref(true)
+
+// 新增用户
+const showCreateModal = ref(false)
+const createForm = ref({ username: '', email: '', nickname: '', role: 'USER' })
+const createSubmitting = ref(false)
+const toast = ref<InstanceType<typeof AppToast> | null>(null)
+
+// 删除用户
+const showDeleteModal = ref(false)
+const deleteTarget = ref<User | null>(null)
+const deleteSubmitting = ref(false)
 
 const applications = ref<any[]>([])
 const appsLoading = ref(false)
@@ -25,12 +39,69 @@ onMounted(() => {
 async function loadUsers() {
   loading.value = true
   try {
-    const res = await request.get('/admin/users', { params: { page: page.value, size: pageSize } })
+    const res = await request.get('/admin/users', { params: { page: page.value, size: pageSize.value, keyword: keyword.value || undefined } })
     users.value = res.data.data.records
     total.value = res.data.data.total
   } catch {} finally {
     loading.value = false
   }
+}
+
+function searchUsers() {
+  page.value = 1
+  loadUsers()
+}
+
+async function createUser() {
+  if (!createForm.value.username.trim() || !createForm.value.email.trim()) {
+    toast.value?.show('用户名和邮箱不能为空', 'error')
+    return
+  }
+  createSubmitting.value = true
+  try {
+    await request.post('/admin/users', {
+      username: createForm.value.username.trim(),
+      email: createForm.value.email.trim(),
+      nickname: createForm.value.nickname.trim() || undefined,
+      role: createForm.value.role,
+    })
+    toast.value?.show('创建成功，初始密码为 123456，请通知用户及时修改', 'success')
+    showCreateModal.value = false
+    createForm.value = { username: '', email: '', nickname: '', role: 'USER' }
+    page.value = 1
+    keyword.value = ''
+    loadUsers()
+  } catch (e: any) {
+    toast.value?.show(e?.response?.data?.message || '创建失败', 'error')
+  } finally {
+    createSubmitting.value = false
+  }
+}
+
+function confirmDelete(user: User) {
+  deleteTarget.value = user
+  showDeleteModal.value = true
+}
+
+async function executeDelete() {
+  if (!deleteTarget.value) return
+  deleteSubmitting.value = true
+  try {
+    await request.delete(`/admin/users/${deleteTarget.value.id}`)
+    toast.value?.show('已删除（逻辑删除，历史内容保留）', 'success')
+    showDeleteModal.value = false
+    if (users.value.length === 1 && page.value > 1) page.value--
+    loadUsers()
+  } catch (e: any) {
+    toast.value?.show(e?.response?.data?.message || '删除失败', 'error')
+  } finally {
+    deleteSubmitting.value = false
+    deleteTarget.value = null
+  }
+}
+
+function canDelete(user: User) {
+  return user.role !== 'ADMIN'
 }
 
 async function updateRole(id: number, role: string) {
@@ -40,23 +111,27 @@ async function updateRole(id: number, role: string) {
   } catch {}
 }
 
-function nextPage() {
-  if (page.value * pageSize < total.value) {
-    page.value++
-    loadUsers()
-  }
+function goToPage(p: number) {
+  if (p < 1 || p > totalPages.value || p === page.value) return
+  page.value = p
+  loadUsers()
 }
 
-function prevPage() {
-  if (page.value > 1) {
-    page.value--
-    loadUsers()
+/** 生成页码列表（最多 7 个，带省略号） */
+function pageNumbers() {
+  const tp = totalPages.value
+  const cur = page.value
+  if (tp <= 7) return Array.from({ length: tp }, (_, i) => i + 1)
+  const pages = new Set<number>([1, tp, cur, cur - 1, cur + 1])
+  const list = [...pages].filter(p => p >= 1 && p <= tp).sort((a, b) => a - b)
+  const result: (number | string)[] = []
+  let prev = 0
+  for (const p of list) {
+    if (p - prev > 1) result.push('...')
+    result.push(p)
+    prev = p
   }
-}
-
-function getRoleLabel(role: string) {
-  const map: Record<string, string> = { USER: '普通用户', PUBLISHER: '发布者', ADMIN: '管理员' }
-  return map[role] || role
+  return result
 }
 
 function getRoleClass(role: string) {
@@ -142,6 +217,28 @@ function formatTime(dateStr: string) {
     </div>
 
     <div v-else>
+      <!-- Toolbar -->
+      <div class="flex items-center justify-between mb-4 gap-3">
+        <div class="relative flex-1 max-w-xs">
+          <input
+            v-model="keyword"
+            @keyup.enter="searchUsers"
+            placeholder="搜索用户名 / 昵称 / 邮箱"
+            class="input-field pl-9 text-sm"
+          />
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <button @click="searchUsers" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">搜索</button>
+        <button @click="showCreateModal = true" class="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 flex items-center gap-1">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          新增用户
+        </button>
+      </div>
+
       <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <table class="w-full">
           <thead class="bg-slate-50">
@@ -186,11 +283,19 @@ function formatTime(dateStr: string) {
               </td>
               <td class="px-4 py-3 text-sm text-slate-600">{{ user.points || 0 }}</td>
               <td class="px-4 py-3 text-xs text-slate-400">{{ user.createdAt?.split('T')[0] }}</td>
-              <td class="px-4 py-3 text-sm text-slate-500">
-                <span :class="['text-xs px-2 py-0.5 rounded-full', getRoleClass(user.role)]">
-                  {{ getRoleLabel(user.role) }}
-                </span>
+              <td class="px-4 py-3 text-sm">
+                <button
+                  v-if="canDelete(user)"
+                  @click="confirmDelete(user)"
+                  class="text-xs px-2.5 py-1 text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
+                >
+                  删除
+                </button>
+                <span v-else class="text-xs text-slate-300">—</span>
               </td>
+            </tr>
+            <tr v-if="users.length === 0">
+              <td colspan="7" class="px-4 py-10 text-center text-sm text-slate-400">没有匹配的用户</td>
             </tr>
           </tbody>
         </table>
@@ -198,18 +303,28 @@ function formatTime(dateStr: string) {
 
       <!-- Pagination -->
       <div class="flex items-center justify-between mt-4">
-        <p class="text-sm text-slate-500">共 {{ total }} 位用户，第 {{ page }} 页</p>
-        <div class="flex items-center gap-2">
+        <p class="text-sm text-slate-500">共 {{ total }} 位用户，第 {{ page }} / {{ totalPages }} 页</p>
+        <div class="flex items-center gap-1">
           <button
-            @click="prevPage"
+            @click="goToPage(page - 1)"
             :disabled="page <= 1"
             class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             上一页
           </button>
+          <template v-for="(p, i) in pageNumbers()" :key="i">
+            <span v-if="p === '...'" class="px-2 text-slate-400 text-sm">…</span>
+            <button
+              v-else
+              @click="goToPage(p as number)"
+              :class="['min-w-[2.25rem] px-2 py-1.5 text-sm rounded-lg border', p === page ? 'bg-primary-600 text-white border-primary-600' : 'border-slate-300 hover:bg-slate-50']"
+            >
+              {{ p }}
+            </button>
+          </template>
           <button
-            @click="nextPage"
-            :disabled="page * pageSize >= total"
+            @click="goToPage(page + 1)"
+            :disabled="page >= totalPages"
             class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             下一页
@@ -239,5 +354,60 @@ function formatTime(dateStr: string) {
         </button>
       </template>
     </AppModal>
+
+    <!-- Create User Modal -->
+    <AppModal :visible="showCreateModal" title="新增用户" @close="showCreateModal = false" @confirm="createUser">
+      <template #body>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">用户名 <span class="text-red-500">*</span></label>
+            <input v-model="createForm.username" placeholder="3-20位字母/数字/下划线/短横线" class="input-field text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">邮箱 <span class="text-red-500">*</span></label>
+            <input v-model="createForm.email" type="email" placeholder="user@example.com" class="input-field text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">昵称（可选，默认同用户名）</label>
+            <input v-model="createForm.nickname" class="input-field text-sm" />
+          </div>
+          <div>
+            <label class="block text-sm text-slate-600 mb-1">角色</label>
+            <select v-model="createForm.role" class="input-field text-sm">
+              <option value="USER">普通用户</option>
+              <option value="PUBLISHER">发布者</option>
+              <option value="ADMIN">管理员</option>
+            </select>
+          </div>
+          <p class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            初始密码为 <strong>123456</strong>，请通知用户登录后自行修改。
+          </p>
+        </div>
+      </template>
+      <template #footer>
+        <button @click="showCreateModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+        <button @click="createUser" :disabled="createSubmitting" class="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50">
+          {{ createSubmitting ? '创建中…' : '创建' }}
+        </button>
+      </template>
+    </AppModal>
+
+    <!-- Delete User Modal -->
+    <AppModal :visible="showDeleteModal" title="确认删除" @close="showDeleteModal = false" @confirm="executeDelete">
+      <template #body>
+        <p class="text-sm text-slate-600">
+          确定删除用户 <strong>{{ deleteTarget?.nickname || deleteTarget?.username }}</strong>（@{{ deleteTarget?.username }}）吗？
+        </p>
+        <p class="text-xs text-slate-400 mt-2">将进行逻辑删除：该用户无法再登录，其发布的资源与评论会保留并显示为「已注销用户」。</p>
+      </template>
+      <template #footer>
+        <button @click="showDeleteModal = false" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">取消</button>
+        <button @click="executeDelete" :disabled="deleteSubmitting" class="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-50">
+          {{ deleteSubmitting ? '删除中…' : '确认删除' }}
+        </button>
+      </template>
+    </AppModal>
+
+    <AppToast ref="toast" />
   </div>
 </template>
