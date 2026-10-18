@@ -1,169 +1,217 @@
-# AI 个性化学习资源分享平台
+<div align="center">
 
-一个面向大学生的学习资源共享社区，利用 AI 技术实现智能推荐、自然语言搜索和自动摘要。
+# LearnShare AI · AI 个性化学习资源分享平台
 
-## 技术栈
+**一个面向大学生的学习资源共享社区 —— 用 AI 把「找资料、读资料、问资料、评资料」的成本降下来**
 
-- **前端**: Vue 3 + TypeScript + Tailwind CSS + marked (Markdown 渲染)
-- **后端**: Spring Boot 3 (Java 17) + MyBatis-Plus
-- **数据库**: MySQL 8.0 + Redis
-- **AI**: DeepSeek（OpenAI 兼容 HTTP 接口，LangChain4j 真流式）
-- **文件存储**: 阿里云 OSS (生产) / 本地文件系统 (开发回退)
-- **构建**: Vite (前端) / Maven (后端)
+![Java](https://img.shields.io/badge/Java-17-orange) ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-6DB33F) ![Vue](https://img.shields.io/badge/Vue-3.4-42B883) ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6) ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1) ![Redis](https://img.shields.io/badge/Redis-6%2B-DC382D) ![LangChain4j](https://img.shields.io/badge/LangChain4j-AI%20Agent-8B5CF6) ![License](https://img.shields.io/badge/License-MIT-blue)
 
-## 环境要求
+把散落在网盘、群聊和收藏夹里的学习资料，变成**可发现、可理解、可互动、可推荐**的学习资产：
+自然语言搜索 · AI 智能摘要 · 混合个性化推荐 · 带「工具调用 + 长期记忆」的 AI 学习助手 · 点赞 / 收藏 / 评分 / 评论 / 关注 / 通知的完整社区闭环。
 
-- JDK 17+
-- Maven 3.8+
-- Node.js 18+
-- MySQL 8.0+
-- Redis 6.0+
+![核心能力总览](docs/assets/feature-overview.png)
 
-## 快速开始
+</div>
+
+---
+
+## 📸 页面预览（真实运行截图）
+
+| 首页 · 个性化推荐（带 AI 推荐理由） | AI 对话 · Agent 工具调用 |
+|---|---|
+| ![首页](docs/screenshots/home.png) | ![AI对话](docs/screenshots/ai-chat-tool.png) |
+
+| AI 自然语言搜索（意图解析 + 结果） | 资源详情（AI 摘要 + 互动 + 相关推荐） |
+|---|---|
+| ![搜索](docs/screenshots/ai-search.png) | ![详情](docs/screenshots/resource-detail.png) |
+
+| 管理后台仪表盘 | 个人中心 | 通知中心 |
+|---|---|---|
+| ![管理后台](docs/screenshots/admin.png) | ![个人中心](docs/screenshots/profile.png) | ![通知中心](docs/screenshots/notifications.png) |
+
+<details>
+<summary>更多页面：AI 回答渲染 / 评论区 / 发布资源 / 登录</summary>
+
+| AI 对话 · Markdown 渲染回答 | 评论区（多级回复 + @提及） |
+|---|---|
+| ![AI回答](docs/screenshots/ai-chat-answer.png) | ![评论区](docs/screenshots/comments.png) |
+
+| 发布资源（Markdown 编辑器 + 标签） | 登录 |
+|---|---|
+| ![发布](docs/screenshots/publish.png) | ![登录](docs/screenshots/login.png) |
+
+</details>
+
+---
+
+## ✨ 核心功能
+
+**AI 能力（全部嵌入真实动线，全部带降级路径）**
+
+- **AI 学习助手（独立对话页）**：基于 LangChain4j 的 Agent 工作流 —— 计划 → 工具调用 → 流式作答。内置三个工具：`search_resources`（站内资源检索）、`get_resource_detail`(资源详情）、`web_search`（Tavily 联网，「智能搜索」开关）；工具调用过程在界面上以气泡实时可见
+- **对话持久化 + 长期记忆**：会话与消息落 MySQL（`chat_session` / `chat_message`），刷新不丢；Redis 存储会话记忆，跨轮次理解上下文
+- **自然语言搜索**：「适合期末复习的 Java 并发资料」→ AI 解析为结构化意图（关键词 / 分类 / 标签 / 排序 / 数量），本地规则优先、AI 增强、空结果逐级放宽并显式告知
+- **AI 智能摘要**：发布即生成本地摘要保证秒回，AI 摘要异步刷新，内容哈希缓存 24h
+- **个性化推荐**：混合算法（标签权重 0.6 + 协同过滤 0.4），每条推荐带可解释理由，曝光落日志可审计
+- **AI 封面配图**：通义万相文生图 / Pexels 图库 / unDraw 插画三源采集，全部不配则本地插图兜底
+
+**社区与内容**
+
+- 资源发布：文件上传（≤500MB）/ 外部链接、Markdown 描述、草稿箱、四态流转（草稿 → 待审核 → 发布 / 驳回）
+- 社区互动：点赞 / 收藏 / 星级评分 / 两级评论（评论可点赞）、**@提及**、**关注与粉丝**、**站内通知**（关注 / 点赞 / 收藏 / 评论 / 回复 / 提及 / AI 摘要 7 类，铃铛未读角标）
+- 用户主页：公开主页（`/user/:id`）展示发布 / 收藏 / 粉丝 / 关注
+- 内容治理：敏感词过滤 + AI 复审、修订留痕（ContentRevision）、发布者申请审批流
+- 管理后台：仪表盘统计、用户管理、资源审核、分类 / 标签 CRUD、系统配置
+
+**工程与安全**
+
+- **全链路降级**：DeepSeek / Tavily / 万相 / Pexels / Redis / OSS 全部「可缺席」—— 无 AI Key 能完整演示发布、搜索、互动；断 Redis 核心链路照常工作
+- **三层权限防护**：URL 白名单 → 方法级注解 → 业务层所有权校验；角色热更新（`X-New-Token` 无感续签）
+- **幂等交互模型**：点赞 / 收藏 / 评分由数据库唯一约束兜底；JWT_SECRET 启动强校验（缺失 / 过短 / 示例值直接拒绝启动）
+
+---
+
+## 🏗️ 系统架构
+
+![系统架构图](docs/assets/arch-2026-10.png)
+
+| 层 | 技术与职责 |
+|---|---|
+| 前端 | Vue 3 + TypeScript + Tailwind CSS + Pinia + Vue Router + Vite，marked + DOMPurify 安全渲染 Markdown |
+| 接入层 | Spring Boot 3.2（Java 17），13 个 Controller，JWT 过滤器，统一响应体与全局异常处理 |
+| 业务层 | 资源 / 搜索 / 推荐 / 互动 / 关注 / 通知 / 治理等服务，`@Async` 摘要刷新 + `@Scheduled` 热度分 |
+| AI 编排层 | LangChain4j 工作流 + 工具注册表 + Redis 记忆 + 会话持久化 + 多源配图 + 内容安全 |
+| 数据层 | MySQL 8.0（19 张业务表）+ Redis（缓存 / 记忆 / 历史 / 黑名单，读写全部优雅降级） |
+| 外部服务 | DeepSeek（OpenAI 兼容）、Tavily、DashScope 万相、Pexels、阿里云 OSS / 本地磁盘双轨 |
+
+---
+
+## 🗄️ 数据模型
+
+![数据模型全景](docs/assets/datamodel-2026-10.png)
+
+- `sql/init.sql` 为唯一权威源（19 张表）；已有库可直接执行增量脚本 `sql/upgrade-20261018-extensions.sql`（可重复执行，不改动现有数据）
+- 不设物理外键（逻辑外键 + 业务层校验）；点赞 / 收藏 / 评分靠唯一约束保证幂等；互动计数反规范化到 `resource` 行，定时任务每小时刷新热度分
+- `docs/数据库实体关系图.html` 提供可交互 ER 图（核心 14 表版本，新增表见上图）
+
+---
+
+## 🚀 快速开始
+
+### 环境要求
+
+JDK 17+ · Maven 3.8+ · Node.js 18+ · pnpm · MySQL 8.0+ · Redis 6.0+
 
 ### 1. 数据库初始化
 
-```powershell
-# 建库建表
+```bash
+# 首次部署：建库建表 + 种子数据
 mysql -u root -p --default-character-set=utf8mb4 < sql/init.sql
-
-# 导入统一测试数据
 mysql -u root -p --default-character-set=utf8mb4 < sql/seed.sql
+
+# 已有旧库：增量升级（通知 / 智能搜索等，可重复执行）
+mysql -u root -p --default-character-set=utf8mb4 < sql/upgrade-20261018-extensions.sql
 ```
 
 ### 2. 后端启动
 
-```powershell
+```bash
 cd backend
 
-# 首次启动：复制本地配置模板后填入自己的值
-# （application-local.yml 已被 .gitignore 忽略，绝不要提交它）
-Copy-Item src\main\resources\application-local.yml.example src\main\resources\application-local.yml
+# 复制本地配置模板并填入真实值（application-local.yml 已被 .gitignore 忽略）
+cp src/main/resources/application-local.yml.example src/main/resources/application-local.yml
 
-# 配置环境变量（可选，也可直接修改 application.yml）
-# 注意：JWT_SECRET 为必填项 —— 未配置或少于 32 字节时后端启动会直接失败
-$env:DB_PASSWORD = "your_mysql_password"
-$env:REDIS_HOST = "localhost"
-$env:JWT_SECRET = "your_jwt_secret_key_at_least_32_chars"
-$env:AI_API_KEY = "your_deepseek_api_key"   # 在 platform.deepseek.com/api_keys 申请
-$env:AI_CONNECT_TIMEOUT_MS = "5000"
-$env:AI_READ_TIMEOUT_MS = "20000"
-$env:AI_CHAT_TIMEOUT_MS = "120000"
-$env:TAVILY_API_KEY = "your_tavily_api_key"   # 智能搜索（联网检索），tavily.com 免费申请，未配置时智能搜索自动降级
-
-# 阿里云 OSS 配置 (文件存储，密钥填写在 application-local.yml)
-$env:STORAGE_TYPE = "oss"   # 或 "local" 使用本地存储
-
-# 编译并运行
+# 编译并运行（默认端口 8080，可用 SERVER_PORT 覆盖）
 mvn clean install
 mvn spring-boot:run
 ```
 
-后端默认运行在 `http://localhost:8080`
+也可以不用配置文件，全部走环境变量：
+
+| 环境变量 | 说明 |
+|---|---|
+| `DB_PASSWORD` | MySQL 密码 |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis 连接（可缺省，断连自动降级） |
+| `JWT_SECRET` | **必填**，至少 32 字节，缺失 / 过短 / 示例值时后端拒绝启动 |
+| `AI_API_KEY` | DeepSeek API Key（[申请](https://platform.deepseek.com/api_keys)），未配置时 AI 能力走本地降级 |
+| `TAVILY_API_KEY` | Tavily 联网搜索（[免费申请](https://tavily.com)），未配置时「智能搜索」自动降级 |
+| `IMAGE_PEXELS_API_KEY` / `IMAGE_WANX_API_KEY`（或 `DASHSCOPE_API_KEY`） | AI 封面配图（可选，三源任缺其一自动跳过） |
+| `STORAGE_TYPE` | `local`（默认）/ `oss`（需配 `OSS_ACCESS_KEY_*`） |
+
+后端运行在 `http://localhost:8080`，Swagger 文档：<http://localhost:8080/swagger-ui.html>
 
 ### 3. 前端启动
 
-```powershell
+```bash
 cd frontend
-
-# 安装依赖（本项目使用 pnpm 管理前端依赖）
 pnpm install
-
-# 启动开发服务器
 pnpm run dev
 ```
 
-前端默认运行在 `http://localhost:5173`
+前端运行在 `http://localhost:5173`（Vite 已配置 `/api`、`/files` 代理到后端）。
 
-### 4. 访问平台
+### 4. 登录体验
 
-- 前端页面: http://localhost:5173
-- API 文档: http://localhost:8080/swagger-ui.html
-- 管理员账号: admin / admin123
-- 测试发布者: zhangsan / 123456 (需先执行 seed.sql)
-- 测试普通用户: zhaoliu / 123456 (需先执行 seed.sql)
+| 账号 | 密码 | 角色 |
+|---|---|---|
+| `admin` | `admin123` | 管理员（可进管理后台） |
+| `zhangsan` | `123456` | 发布者 |
+| `zhaoliu` | `123456` | 普通用户（seed 数据内更多测试账号同密码） |
 
-## 项目结构
+> 种子账号密码由 `seed.sql` / 升级脚本统一重置，与后端新用户默认密码策略一致。
+
+---
+
+## 📁 项目结构
 
 ```
-AI个性化学习资源分享平台/
-├── backend/                    # Spring Boot 后端
-│   ├── src/main/java/com/learning/platform/
-│   │   ├── config/            # 配置类 (Security, Redis, MyBatis, CORS)
-│   │   ├── common/            # 通用类 (Result, PageResult, BusinessException)
-│   │   ├── controller/        # 控制器层
-│   │   ├── service/           # 服务层
-│   │   ├── mapper/            # 数据访问层
-│   │   ├── entity/            # 实体类
-│   │   ├── dto/               # 数据传输对象
-│   │   ├── vo/                # 视图对象
-│   │   ├── security/          # 安全模块 (JWT Filter)
-│   │   ├── interceptor/       # 拦截器
-│   │   └── util/              # 工具类 (JWT, File)
-│   └── src/main/resources/
-│       └── application.yml    # 应用配置
-│
-├── frontend/                   # Vue 3 前端
-│   ├── src/
-│   │   ├── api/               # API 调用层
-│   │   ├── components/        # 公共组件
-│   │   ├── views/             # 页面组件
-│   │   ├── router/            # 路由配置
-│   │   ├── store/             # Pinia 状态管理
-│   │   ├── types/             # TypeScript 类型定义
-│   │   ├── utils/             # 工具函数
-│   │   └── assets/            # 静态资源
-│   └── package.json
-│
-├── sql/                        # 数据库脚本
-│   ├── init.sql               # 建库建表脚本（唯一权威源）
-│   └── seed.sql               # 统一测试数据脚本
-│
-├── docs/                       # 最终交付文档
-│   ├── PRD.md                 # 产品需求文档
-│   ├── 需求分析文档.md        # 需求分析
-│   ├── 项目架构与核心功能.md  # 架构与核心功能说明
-│   └── 数据库实体关系图.html  # 可交互 ER 图
-│
-└── README.md
+├── backend/                        # Spring Boot 后端
+│   └── src/main/java/com/learning/platform/
+│       ├── ai/                     # LangChain4j 编排：ChatToolRegistry / 工具 / 配图 / 内容安全
+│       ├── config/                 # Security / Redis / MyBatis / CORS / LangChain4j 配置
+│       ├── controller/             # 13 个 REST 控制器
+│       ├── service/                # 业务服务（含对话工作流 / 记忆 / 通知）
+│       ├── security/               # JWT 过滤器
+│       └── entity / dto / vo / mapper / common / util
+├── frontend/                       # Vue 3 前端
+│   └── src/
+│       ├── views/                  # 首页 / 搜索 / 详情 / AiChat / 发布 / 个人中心 / 通知 / 管理后台
+│       ├── components/             # AiChatWidget（全局悬浮窗）/ 会话列表 / @提及 / 评论树 等
+│       └── api / store / router / types / utils
+├── sql/                            # init.sql（权威源）+ seed.sql + upgrade-*.sql（增量演进）
+├── docs/                           # 交付文档 + 架构图 + 运行截图
+├── openspec/                       # 规格化设计（proposal / design / tasks）
+└── prototypes/                     # 需求原型 HTML（6 页）
 ```
 
-## 核心功能
+## 🔌 API 概览
 
-1. **用户与权限管理**: JWT + RefreshToken 认证, Spring Security RBAC (USER/PUBLISHER/ADMIN), 头像上传 (阿里云 OSS)
-2. **资源管理**: 发布、浏览、搜索学习资源 (文件上传/外部链接), 分类树, 标签系统, Markdown 渲染 (marked)
-3. **AI 智能摘要**: 基于 DeepSeek 自动生成约100字摘要，支持 Redis 缓存 24h、HTTP 超时和未配置密钥快速降级
-4. **自然语言搜索**: 支持自然语言查询，AI 解析优先，本地规则兜底并在空结果时自动放宽过严筛选
-5. **个性化推荐**: 混合推荐算法 (标签权重 0.6 + 协同过滤 0.4)，推荐接口返回分页结构，AI 推荐理由失败时使用本地可解释理由兜底
-6. **AI 悬浮聊天窗**: 全局可拖动聊天按钮与悬浮窗，支持流式输出、页面上下文透传和失败重试
-7. **社区互动**: 点赞/收藏状态高亮、星级评分悬停预览、分享链接复制、多级评论点赞，评论提交与回复具备明确错误提示
-8. **管理后台**: 用户管理 (分页+角色修改)、资源审核 (确认弹窗+查看详情)、分类/标签 CRUD、平台统计仪表盘
-9. **文件存储**: 阿里云 OSS (生产环境) / 本地文件系统 (开发回退), 通过 `storage.type` 配置切换
-10. **Redis 缓存策略**: AI 响应缓存 + 推荐缓存 + 搜索历史 + Token 黑名单, 所有 Redis 操作均优雅降级
+启动后端后访问 [Swagger 文档](http://localhost:8080/swagger-ui.html) 查看全部接口。常用入口：
 
-## API 接口
+| 分类 | 接口 |
+|---|---|
+| 认证 | `POST /api/v1/auth/login` · `register` · `refresh` |
+| 资源 | `GET /api/v1/resources` · `GET /api/v1/resources/{id}` · `POST /api/v1/resources` |
+| 搜索 | `GET /api/v1/search`（关键词）· `POST /api/v1/search/nl`（自然语言，返回解析意图） |
+| AI | `POST /api/v1/ai/summary` · `GET /api/v1/ai/recommendations` · `POST /api/v1/ai/recommendations/reasons` |
+| 对话 | `POST /api/v1/ai/chat/stream`（流式）· `GET /api/v1/chat/sessions`（会话持久化） |
+| 社区 | 点赞 / 收藏 / 评分 / 评论 · `POST /api/v1/users/{id}/follow` · `GET /api/v1/notifications` |
 
-启动后端后可访问 Swagger 文档: http://localhost:8080/swagger-ui.html
+## 🧪 测试
 
-AI 相关接口：
+- 后端单元 / 集成测试 190 项（`backend/src/test/`，`mvn test`）
+- 覆盖：认证权限 / 资源链路 / 搜索推荐 / 互动 / 对话工作流 / 降级与安全 / 管理后台
 
-- `POST /api/v1/ai/summary`: 生成或刷新资源摘要。
-- `POST /api/v1/search/nl`: 自然语言搜索，返回解析意图、结果列表和总数。
-- `GET /api/v1/ai/recommendations?page=1&size=10`: 获取分页个性化推荐。
-- `POST /api/v1/ai/recommendations/reasons`: 批量生成推荐理由，AI 不可用时返回本地理由。
-- `POST /api/v1/ai/chat/stream`: AI 聊天流式输出接口，前端悬浮聊天窗使用。
+## 📚 交付文档
 
-## 运行时说明
-
-- 如果 DeepSeek 账号对当前 `AI_MODEL` 没有额度或权限，聊天接口会返回明确失败提示，不再伪装为 AI 已回答。
-- 推荐、摘要、搜索都带本地降级路径；聊天功能会优先等待真实 AI 回复，并按配置进行重试。
-
-## 交付文档
-
-- 产品需求文档：`docs/PRD.md`
-- 架构与核心功能：`docs/项目架构与核心功能.md`
-- 需求原型：`prototypes/README.md`
-- Spec 文档：`openspec/proposal.md`、`openspec/design.md`、`openspec/tasks.md`
+| 文档 | 说明 |
+|---|---|
+| [`docs/PRD.md`](docs/PRD.md) | 产品需求文档 |
+| [`docs/需求分析文档.md`](docs/需求分析文档.md) | 需求分析 |
+| [`docs/项目架构与核心功能.md`](docs/项目架构与核心功能.md) | 架构设计与核心功能详解 |
+| [`docs/扩展设计与亮点思路.md`](docs/扩展设计与亮点思路.md) | 扩展主线（页面上下文问答 / 对话持久化 / LangChain4j 记忆）与路线图 |
+| [`docs/数据库实体关系图.html`](docs/数据库实体关系图.html) | 可交互 ER 图（浏览器直接打开） |
+| [`prototypes/`](prototypes/README.md) | 6 个核心页面需求原型 |
 
 ## 许可证
 
