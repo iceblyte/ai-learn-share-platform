@@ -447,7 +447,10 @@ function getAvatarUrl(user: any): string | null {
               </div>
               <div>
                 <p class="text-sm font-medium">{{ resource.publisher?.nickname }}</p>
-                <p class="text-xs text-slate-400">发布于 {{ new Date(resource.createdAt).toLocaleDateString() }}</p>
+                <p class="text-xs text-slate-400">
+                  发布于 {{ new Date(resource.createdAt).toLocaleDateString() }}
+                  <span v-if="followStats && followStats.followers > 0">· {{ followStats.followers }} 位关注者</span>
+                </p>
               </div>
               <button
                 v-if="canFollow && followStats"
@@ -461,7 +464,6 @@ function getAvatarUrl(user: any): string | null {
                 ]"
               >
                 {{ followStats.isFollowing ? '已关注' : '+ 关注' }}
-                <span v-if="followStats.followers > 0" class="opacity-70">{{ followStats.followers }}</span>
               </button>
               <div class="flex items-center gap-4 ml-auto text-sm text-slate-500">
                 <span class="flex items-center gap-1">
