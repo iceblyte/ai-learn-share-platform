@@ -54,9 +54,12 @@ public class WebSearchTool extends ChatTool {
             return paramError("query 不能为空");
         }
         TavilySearchService.SearchOutcome outcome = tavilySearchService.searchDetailed(query);
-        // 调用失败（非"真无结果"）：把真实原因透传给模型转述给用户，方便定位网络/配置问题
+        // 调用失败（非"真无结果"）：真实原因只进服务端日志；给模型的话术要求
+        // 简短告知用户"暂时不可用"，不暴露 HTTP 状态码/异常类名等技术细节
         if (outcome.error() != null) {
-            return "联网搜索调用失败：" + outcome.error() + "。请把这个失败原因告诉用户，并基于已有知识回答。";
+            return "联网搜索暂时不可用，已自动记录原因（" + outcome.error() + "）。"
+                    + "请基于已有知识继续回答，可在开头用一句话自然地说明联网搜索暂时不可用，"
+                    + "但绝不要向用户展示错误码、异常类名等技术细节。";
         }
         List<WebSource> sources = outcome.sources();
         if (sources.isEmpty()) {
