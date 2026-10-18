@@ -22,17 +22,22 @@ const page = ref(1)
 const size = 20
 const total = ref(0)
 const loading = ref(true)
+const loadError = ref(false)
 
 onMounted(load)
 
 async function load() {
   loading.value = true
+  loadError.value = false
   try {
     const api = props.mode === 'followers' ? userApi.getFollowers : userApi.getFollowingPage
     const res = await api(props.userId, page.value, size)
     items.value = res.data.data.records
     total.value = res.data.data.total
-  } catch {} finally {
+  } catch {
+    // 失败要可见：不能把接口错误伪装成"空列表"让用户误以为没关注上
+    loadError.value = true
+  } finally {
     loading.value = false
   }
 }
@@ -64,6 +69,14 @@ function goUserHome(id: number) {
   <div>
     <div v-if="loading" class="flex justify-center py-10">
       <div class="animate-spin rounded-full h-7 w-7 border-b-2 border-primary-600"></div>
+    </div>
+
+    <div v-else-if="loadError" class="text-center py-10">
+      <p class="text-sm text-slate-500 mb-3">列表加载失败，请检查网络或登录状态</p>
+      <button
+        @click="load"
+        class="px-4 py-1.5 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50"
+      >重试</button>
     </div>
 
     <div v-else-if="items.length === 0" class="text-center py-10 text-sm text-slate-400">
