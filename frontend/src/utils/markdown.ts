@@ -32,6 +32,10 @@ function normalizeMarkdown(text: string): string {
       continue
     }
     if (inCodeFence) continue
+    // 标题容错："##第一周"（井号后无空格）不是合法 ATX 标题，CommonMark 按普通
+    // 文本渲染，页面会原样出现 "##"。在井号串与内容之间补一个半角空格；
+    // "##已带空格" 与 "###"（纯井号行）不受影响
+    lines[i] = lines[i].replace(/^ {0,3}(#{1,6})(?=[^\s#])/, '$1 ')
     // 无序列表容错（按"最可能变体"优先级依次尝试）：
     // 1) "**-内容**"（减号裹进行首加粗）→ "- **内容**"：把减号移出加粗并补空格
     lines[i] = lines[i].replace(/^ {0,3}\*\*([-*])(?=[^\s*])/, '$1 **')

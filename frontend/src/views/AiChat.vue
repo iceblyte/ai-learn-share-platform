@@ -217,8 +217,9 @@ function handleCreate() {
                 :title="webSearchEnabled ? '联网搜索已开启：回答将引用网页来源' : '开启后回答会联网检索并附来源'"
                 @click="webSearchEnabled = !webSearchEnabled"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c2.505 0 4.585-4.03 4.585-9S14.505 3 12 3m0 18c-2.505 0-4.585-4.03-4.585-9S9.495 3 12 3m0 0a9 9 0 019 9"/>
+                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="8.25" />
+                  <path d="M3.75 12h16.5M12 3.75c2.4 2.2 3.75 5.06 3.75 8.25S14.4 18.05 12 20.25c-2.4-2.2-3.75-5.06-3.75-8.25S9.6 5.95 12 3.75z" />
                 </svg>
                 智能搜索
               </button>

@@ -11,16 +11,21 @@ const page = ref(1)
 const size = ref(15)
 const total = ref(0)
 const loading = ref(true)
+const loadError = ref(false)
 
 onMounted(load)
 
 async function load() {
   loading.value = true
+  loadError.value = false
   try {
     const res = await notificationApi.list(page.value, size.value)
     items.value = res.data.data.records
     total.value = res.data.data.total
-  } catch {} finally {
+  } catch {
+    // 失败要可见：静默吞掉会表现为"页面什么都没有"，用户无法分辨是没通知还是出错
+    loadError.value = true
+  } finally {
     loading.value = false
   }
 }
@@ -110,6 +115,15 @@ function formatTime(s: string) {
 
     <div v-if="loading" class="flex justify-center py-16">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+    </div>
+
+    <div v-else-if="loadError" class="text-center py-16">
+      <p class="text-lg text-slate-600 mb-1">通知加载失败</p>
+      <p class="text-sm text-slate-400 mb-4">请检查网络或登录状态后重试</p>
+      <button
+        @click="load"
+        class="px-4 py-1.5 text-sm text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50"
+      >重试</button>
     </div>
 
     <div v-else-if="items.length === 0" class="text-center py-16 text-slate-400">
