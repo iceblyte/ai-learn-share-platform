@@ -193,4 +193,21 @@ public class AdminController {
         systemConfigService.setAiSummaryAutoEnabled(enabled);
         return Result.success(Map.of("enabled", enabled));
     }
+
+    /** 读取 AI 推荐理由开关 */
+    @GetMapping("/config/ai-recommend-reason")
+    public Result<Map<String, Object>> getAiRecommendReasonConfig() {
+        return Result.success(Map.of("enabled", systemConfigService.isAiRecommendReasonEnabled()));
+    }
+
+    /** 切换 AI 推荐理由开关：关闭后推荐理由改用本地模板，不再调 LLM */
+    @PutMapping("/config/ai-recommend-reason")
+    public Result<Map<String, Object>> updateAiRecommendReasonConfig(@RequestBody Map<String, Boolean> body) {
+        Boolean enabled = body.get("enabled");
+        if (enabled == null) {
+            return Result.error("缺少 enabled 参数");
+        }
+        systemConfigService.setAiRecommendReasonEnabled(enabled);
+        return Result.success(Map.of("enabled", enabled));
+    }
 }

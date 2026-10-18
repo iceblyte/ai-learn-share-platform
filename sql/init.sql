@@ -296,6 +296,11 @@ CREATE TABLE IF NOT EXISTS `system_config` (
     PRIMARY KEY (`config_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
 
+-- 系统配置默认值
+INSERT IGNORE INTO `system_config` (`config_key`, `config_value`, `remark`) VALUES
+('ai_summary_auto_enabled', 'true', '资源发布/保存后是否自动生成 AI 智能摘要（关闭可节省 token）'),
+('ai_recommend_reason_enabled', 'true', '首页推荐是否调用 LLM 生成推荐理由（关闭改用本地模板，节省 token）');
+
 -- ============================================
 -- 19. 用户关注关系表
 -- ============================================

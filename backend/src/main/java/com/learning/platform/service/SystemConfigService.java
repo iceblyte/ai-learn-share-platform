@@ -20,6 +20,9 @@ public class SystemConfigService {
     /** 资源发布/保存后是否自动生成 AI 智能摘要（关闭节省 token） */
     public static final String KEY_AI_SUMMARY_AUTO = "ai_summary_auto_enabled";
 
+    /** 首页个性化推荐是否调用 LLM 生成推荐理由（关闭改用本地模板理由） */
+    public static final String KEY_AI_RECOMMEND_REASON = "ai_recommend_reason_enabled";
+
     private final SystemConfigMapper systemConfigMapper;
 
     /** AI 智能摘要自动生成开关；配置行缺失时默认开启（保持历史行为） */
@@ -29,6 +32,15 @@ public class SystemConfigService {
 
     public void setAiSummaryAutoEnabled(boolean enabled) {
         writeBoolean(KEY_AI_SUMMARY_AUTO, enabled);
+    }
+
+    /** AI 推荐理由开关；配置行缺失时默认开启（保持历史行为） */
+    public boolean isAiRecommendReasonEnabled() {
+        return readBoolean(KEY_AI_RECOMMEND_REASON, true);
+    }
+
+    public void setAiRecommendReasonEnabled(boolean enabled) {
+        writeBoolean(KEY_AI_RECOMMEND_REASON, enabled);
     }
 
     private boolean readBoolean(String key, boolean defaultValue) {

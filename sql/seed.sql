@@ -1754,4 +1754,5 @@ INSERT IGNORE INTO `resource_file` (`resource_id`, `file_name`, `file_url`, `fil
 -- N. 系统配置默认值
 -- ============================================
 INSERT IGNORE INTO `system_config` (`config_key`, `config_value`, `remark`) VALUES
-('ai_summary_auto_enabled', 'true', '资源发布/保存后是否自动生成 AI 智能摘要（关闭可节省 token）');
+('ai_summary_auto_enabled', 'true', '资源发布/保存后是否自动生成 AI 智能摘要（关闭可节省 token）'),
+('ai_recommend_reason_enabled', 'true', '首页推荐是否调用 LLM 生成推荐理由（关闭改用本地模板，节省 token）');

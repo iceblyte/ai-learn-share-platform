@@ -28,4 +28,10 @@ public class ConfigController {
     public Result<Map<String, Object>> getAiSummaryEnabled() {
         return Result.success(Map.of("enabled", systemConfigService.isAiSummaryAutoEnabled()));
     }
+
+    /** AI 推荐理由开关（预留展示类用途） */
+    @GetMapping("/ai-recommend-reason")
+    public Result<Map<String, Object>> getAiRecommendReasonEnabled() {
+        return Result.success(Map.of("enabled", systemConfigService.isAiRecommendReasonEnabled()));
+    }
 }

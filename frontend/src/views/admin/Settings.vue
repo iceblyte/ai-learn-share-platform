@@ -3,8 +3,10 @@ import { ref, onMounted } from 'vue'
 import request from '@/api/request'
 
 const autoSummaryEnabled = ref(true)
+const recommendReasonEnabled = ref(true)
 const loading = ref(true)
 const saving = ref(false)
+const savingReason = ref(false)
 const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
@@ -14,8 +16,12 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
 
 onMounted(async () => {
   try {
-    const res = await request.get('/admin/config/ai-summary')
-    autoSummaryEnabled.value = res.data.data?.enabled ?? true
+    const [summaryRes, reasonRes] = await Promise.all([
+      request.get('/admin/config/ai-summary'),
+      request.get('/admin/config/ai-recommend-reason'),
+    ])
+    autoSummaryEnabled.value = summaryRes.data.data?.enabled ?? true
+    recommendReasonEnabled.value = reasonRes.data.data?.enabled ?? true
   } catch {} finally {
     loading.value = false
   }
@@ -32,6 +38,20 @@ async function toggleAutoSummary() {
     showToast('保存失败，请重试', 'error')
   } finally {
     saving.value = false
+  }
+}
+
+async function toggleRecommendReason() {
+  const next = !recommendReasonEnabled.value
+  savingReason.value = true
+  try {
+    await request.put('/admin/config/ai-recommend-reason', { enabled: next })
+    recommendReasonEnabled.value = next
+    showToast(next ? '已开启 AI 推荐理由' : '已关闭 AI 推荐理由（改用本地模板）')
+  } catch {
+    showToast('保存失败，请重试', 'error')
+  } finally {
+    savingReason.value = false
   }
 }
 </script>
@@ -74,6 +94,42 @@ async function toggleAutoSummary() {
               :class="[
                 'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
                 autoSummaryEnabled ? 'translate-x-6' : 'translate-x-1'
+              ]"
+            ></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- AI 推荐理由开关 -->
+      <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-start justify-between gap-6">
+          <div class="min-w-0">
+            <h2 class="font-semibold text-slate-800">AI 推荐理由</h2>
+            <p class="text-sm text-slate-500 mt-2 leading-relaxed">
+              开启后，首页「为你推荐」的推荐语由大模型根据用户兴趣生成（消耗 token，
+              结果缓存 24 小时）。关闭后改用本地模板理由（如「匹配你关注的 Java」），
+              不消耗 token，且已生成的 AI 理由仍会展示。
+            </p>
+            <p
+              :class="['text-xs mt-2 font-medium', recommendReasonEnabled ? 'text-emerald-600' : 'text-slate-400']"
+            >
+              当前状态：{{ recommendReasonEnabled ? '开启（LLM 生成，缓存 24h）' : '关闭（本地模板，不消耗 token）' }}
+            </p>
+          </div>
+          <button
+            @click="toggleRecommendReason"
+            :disabled="savingReason"
+            role="switch"
+            :aria-checked="recommendReasonEnabled"
+            :class="[
+              'relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50',
+              recommendReasonEnabled ? 'bg-primary-600' : 'bg-slate-300'
+            ]"
+          >
+            <span
+              :class="[
+                'inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform',
+                recommendReasonEnabled ? 'translate-x-6' : 'translate-x-1'
               ]"
             ></span>
           </button>
