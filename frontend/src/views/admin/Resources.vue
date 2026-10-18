@@ -185,7 +185,23 @@ function formatTimeAgo(dateStr: string): string {
 
       <!-- 分页 -->
       <div v-if="total > 0" class="flex items-center justify-between pt-4">
-        <p class="text-sm text-slate-500">共 {{ total }} 条，第 {{ page }} / {{ totalPages }} 页</p>
+        <div class="flex items-center gap-3">
+          <p class="text-sm text-slate-500">共 {{ total }} 条，第 {{ page }} / {{ totalPages }} 页</p>
+          <label class="flex items-center gap-1 text-sm text-slate-500">
+            每页
+            <select
+              v-model.number="pageSize"
+              @change="page = 1; loadResources()"
+              class="border border-slate-300 rounded px-1.5 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-400"
+            >
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+            条
+          </label>
+        </div>
         <div class="flex items-center gap-2">
           <button
             @click="goToPage(page - 1)"

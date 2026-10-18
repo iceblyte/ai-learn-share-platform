@@ -8,7 +8,7 @@ const router = useRouter()
 
 const items = ref<NotificationItem[]>([])
 const page = ref(1)
-const size = 15
+const size = ref(15)
 const total = ref(0)
 const loading = ref(true)
 
@@ -17,7 +17,7 @@ onMounted(load)
 async function load() {
   loading.value = true
   try {
-    const res = await notificationApi.list(page.value, size)
+    const res = await notificationApi.list(page.value, size.value)
     items.value = res.data.data.records
     total.value = res.data.data.total
   } catch {} finally {
@@ -26,7 +26,7 @@ async function load() {
 }
 
 function goTo(p: number) {
-  const tp = Math.max(1, Math.ceil(total.value / size))
+  const tp = Math.max(1, Math.ceil(total.value / size.value))
   if (p < 1 || p > tp || p === page.value) return
   page.value = p
   load()
@@ -146,7 +146,7 @@ function formatTime(s: string) {
       </button>
     </div>
 
-    <div v-if="total > size" class="flex items-center justify-center gap-3 mt-5">
+    <div v-if="total > 0" class="flex items-center justify-center gap-3 mt-5">
       <button
         @click="goTo(page - 1)"
         :disabled="page <= 1"
@@ -158,6 +158,20 @@ function formatTime(s: string) {
         :disabled="page >= Math.ceil(total / size)"
         class="px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
       >下一页</button>
+      <label class="flex items-center gap-1 text-sm text-slate-500">
+        每页
+        <select
+          v-model.number="size"
+          @change="page = 1; load()"
+          class="border border-slate-300 rounded px-1.5 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-400"
+        >
+          <option :value="10">10</option>
+          <option :value="15">15</option>
+          <option :value="30">30</option>
+          <option :value="50">50</option>
+        </select>
+        条
+      </label>
     </div>
   </div>
 </template>

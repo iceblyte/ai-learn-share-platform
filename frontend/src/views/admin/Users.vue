@@ -217,20 +217,22 @@ function formatTime(dateStr: string) {
     </div>
 
     <div v-else>
-      <!-- Toolbar -->
-      <div class="flex items-center justify-between mb-4 gap-3">
-        <div class="relative flex-1 max-w-xs">
-          <input
-            v-model="keyword"
-            @keyup.enter="searchUsers"
-            placeholder="搜索用户名 / 昵称 / 邮箱"
-            class="input-field pl-9 text-sm"
-          />
-          <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      <!-- Toolbar：搜索框+按钮成组靠左，新增靠右 -->
+      <div class="mb-4 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <div class="relative w-72">
+            <input
+              v-model="keyword"
+              @keyup.enter="searchUsers"
+              placeholder="搜索用户名 / 昵称 / 邮箱"
+              class="input-field pl-9 text-sm"
+            />
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <button @click="searchUsers" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">搜索</button>
         </div>
-        <button @click="searchUsers" class="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50">搜索</button>
         <button @click="showCreateModal = true" class="px-4 py-2 text-sm text-white bg-primary-600 rounded-lg hover:bg-primary-700 flex items-center gap-1">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -303,7 +305,23 @@ function formatTime(dateStr: string) {
 
       <!-- Pagination -->
       <div class="flex items-center justify-between mt-4">
-        <p class="text-sm text-slate-500">共 {{ total }} 位用户，第 {{ page }} / {{ totalPages }} 页</p>
+        <div class="flex items-center gap-3">
+          <p class="text-sm text-slate-500">共 {{ total }} 位用户，第 {{ page }} / {{ totalPages }} 页</p>
+          <label class="flex items-center gap-1 text-sm text-slate-500">
+            每页
+            <select
+              v-model.number="pageSize"
+              @change="page = 1; loadUsers()"
+              class="border border-slate-300 rounded px-1.5 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-400"
+            >
+              <option :value="10">10</option>
+              <option :value="20">20</option>
+              <option :value="50">50</option>
+              <option :value="100">100</option>
+            </select>
+            条
+          </label>
+        </div>
         <div class="flex items-center gap-1">
           <button
             @click="goToPage(page - 1)"
