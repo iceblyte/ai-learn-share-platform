@@ -4,11 +4,12 @@
  * 每个节点渲染自己 + 递归渲染 replies，回复框由根组件统一托管状态，
  * 节点通过 emit 通知根组件"我要回复哪条"。
  */
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { commentApi } from '@/api/comment'
 import { useUserStore } from '@/store/user'
 import MentionPicker from '@/components/MentionPicker.vue'
 import { splitMentions, appendMention } from '@/utils/mention'
+import { aiAssistant, ensureAiAssistant } from '@/utils/aiAssistant'
 import type { Comment, Resource, FollowedUser } from '@/types'
 
 const props = defineProps<{
@@ -30,6 +31,12 @@ const emit = defineEmits<{
 const userStore = useUserStore()
 const liking = ref(false)
 const replyText = ref('')
+
+ensureAiAssistant()
+
+/** 是否为 AI 助手发出的评论（渲染专属头像） */
+const isAiComment = computed(() =>
+  !!props.comment.user && aiAssistant.value?.id === props.comment.user.id)
 
 /** 评论内容分段：@提及 高亮渲染 */
 const contentSegments = () => splitMentions(props.comment.content || '')
@@ -71,10 +78,19 @@ async function handleLike() {
 
 <template>
   <div class="flex gap-3">
-    <!-- 头像（可点击进入用户主页） -->
+    <!-- 头像（AI 助手用专属头像；普通用户可点击进入主页） -->
+    <span
+      v-if="isAiComment"
+      class="w-8 h-8 rounded-full bg-primary-500 flex items-center justify-center flex-shrink-0 text-white"
+      title="AI 助手"
+    >
+      <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/>
+      </svg>
+    </span>
     <component
       :is="comment.user ? 'router-link' : 'div'"
-      v-if="avatar(comment.user)"
+      v-else-if="avatar(comment.user)"
       :to="comment.user ? `/user/${comment.user.id}` : undefined"
       class="rounded-full object-cover flex-shrink-0 cursor-pointer"
       :class="depth === 0 ? 'w-8 h-8' : 'w-6 h-6'"

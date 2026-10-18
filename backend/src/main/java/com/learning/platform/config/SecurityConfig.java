@@ -67,6 +67,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/resources/**", "/api/v1/categories/**", "/api/v1/tags/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/search/**").permitAll()
                 .requestMatchers("/api/v1/users/{id}").permitAll()
+                // AI 助手公开账号信息（评论 @ 助手与头像渲染）
+                .requestMatchers(HttpMethod.GET, "/api/v1/config/ai-assistant").permitAll()
                 // 用户主页的公开只读子资源：粉丝列表/关注列表/已发布资源
                 .requestMatchers(HttpMethod.GET, "/api/v1/users/{id}/followers",
                         "/api/v1/users/{id}/following", "/api/v1/users/{id}/resources").permitAll()

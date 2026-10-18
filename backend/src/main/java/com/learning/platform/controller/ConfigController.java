@@ -1,6 +1,7 @@
 package com.learning.platform.controller;
 
 import com.learning.platform.common.Result;
+import com.learning.platform.service.AiAssistantService;
 import com.learning.platform.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +23,15 @@ import java.util.Map;
 public class ConfigController {
 
     private final SystemConfigService systemConfigService;
+    private final AiAssistantService aiAssistantService;
+
+    /** AI 助手账号信息（匿名可读，评论 @ 助手与头像渲染用） */
+    @GetMapping("/ai-assistant")
+    public Result<Map<String, Object>> getAiAssistant() {
+        return Result.success(Map.of(
+                "id", aiAssistantService.getAssistantUserId(),
+                "nickname", AiAssistantService.NICKNAME));
+    }
 
     /** AI 智能摘要自动生成开关（前端用于显示/隐藏发布页说明文案） */
     @GetMapping("/ai-summary")
