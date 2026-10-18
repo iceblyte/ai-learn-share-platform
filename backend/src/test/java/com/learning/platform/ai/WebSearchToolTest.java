@@ -70,7 +70,7 @@ class WebSearchToolTest {
 
         String result = tool().execute("{\"query\":\"q\"}", new ChatToolContext(null, null, null, null));
 
-        assertThat(result).contains("调用失败").contains("ConnectException");
+        assertThat(result).contains("暂时不可用").contains("ConnectException");
     }
 
     @Test

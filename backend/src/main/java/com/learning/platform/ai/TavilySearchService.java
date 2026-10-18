@@ -24,9 +24,9 @@ import java.util.List;
 @Component
 public class TavilySearchService {
 
-    /** HTTP 发送接缝：生产用 JDK HttpClient，测试注入桩 */
+    /** HTTP 发送接缝：生产用 JDK HttpClient（带 Bearer 鉴权），测试注入桩 */
     public interface HttpPoster {
-        String post(String url, String jsonBody) throws Exception;
+        String post(String url, String jsonBody, String apiKey) throws Exception;
     }
 
     private static final String ENDPOINT = "https://api.tavily.com/search";
@@ -83,7 +83,7 @@ public class TavilySearchService {
                     "query", query,
                     "max_results", maxResults,
                     "search_depth", "basic"));
-            String response = poster.post(ENDPOINT, body);
+            String response = poster.post(ENDPOINT, body, apiKey);
             List<WebSource> sources = parse(response);
             log.info("Tavily search ok: query='{}', results={}", query, sources.size());
             return SearchOutcome.ok(sources);
@@ -134,11 +134,13 @@ public class TavilySearchService {
                 .build();
 
         @Override
-        public String post(String url, String jsonBody) throws Exception {
+        public String post(String url, String jsonBody, String apiKey) throws Exception {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(TIMEOUT)
                     .header("Content-Type", "application/json")
+                    // 鉴权：key 只在 header 中传递，绝不写日志
+                    .header("Authorization", "Bearer " + apiKey)
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());

@@ -45,7 +45,7 @@ class TavilySearchServiceTest {
                   {"title":"JUC 详解","url":"https://b.com/2","content":"线程池","score":0.8}
                 ]}
                 """;
-        when(poster.post(contains("tavily.com"), anyString())).thenReturn(resp);
+        when(poster.post(contains("tavily.com"), anyString(), anyString())).thenReturn(resp);
 
         List<WebSource> result = service("tvly-key").search("java 并发");
 
@@ -58,14 +58,14 @@ class TavilySearchServiceTest {
     @Test
     @DisplayName("HTTP 失败：吞异常返回空列表")
     void search_swallowsFailure() throws Exception {
-        when(poster.post(anyString(), anyString())).thenThrow(new RuntimeException("timeout"));
+        when(poster.post(anyString(), anyString(), anyString())).thenThrow(new RuntimeException("timeout"));
         assertThat(service("tvly-key").search("q")).isEmpty();
     }
 
     @Test
     @DisplayName("非法响应体：返回空列表")
     void search_handlesMalformed() throws Exception {
-        when(poster.post(anyString(), anyString())).thenReturn("not-json");
+        when(poster.post(anyString(), anyString(), anyString())).thenReturn("not-json");
         assertThat(service("tvly-key").search("q")).isEmpty();
     }
 }
