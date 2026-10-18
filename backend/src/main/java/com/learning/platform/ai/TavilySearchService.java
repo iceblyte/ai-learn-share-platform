@@ -47,9 +47,14 @@ public class TavilySearchService {
         this.maxResults = Math.max(1, Math.min(maxResults, 10));
     }
 
+    /** key 是否已配置：未配置时 WebSearchTool 会在回答里明确提示，而不是误导性的"无结果" */
+    public boolean isConfigured() {
+        return apiKey != null && !apiKey.isBlank();
+    }
+
     /** 联网搜索：无 key / 失败 / 空结果一律返回空列表（调用方按"无来源"降级） */
     public List<WebSource> search(String query) {
-        if (apiKey == null || apiKey.isBlank() || query == null || query.isBlank()) {
+        if (!isConfigured() || query == null || query.isBlank()) {
             return List.of();
         }
         try {
@@ -58,9 +63,11 @@ public class TavilySearchService {
                     "max_results", maxResults,
                     "search_depth", "basic"));
             String response = poster.post(ENDPOINT, body);
-            return parse(response);
+            List<WebSource> sources = parse(response);
+            log.info("Tavily search ok: query='{}', results={}", query, sources.size());
+            return sources;
         } catch (Exception e) {
-            log.warn("Tavily search failed: {}", e.getMessage());
+            log.warn("Tavily search failed: query='{}', {}", query, e.getMessage());
             return List.of();
         }
     }
