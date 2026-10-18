@@ -99,14 +99,12 @@ public class ChatWorkflowService {
         return enabled;
     }
 
-    /** 工作流模式暴露给模型的工具：search_resources 由图确定式调用，不重复暴露；
-     *  智能搜索未开启时同样排除 web_search */
+    /** 工作流模式暴露给模型的工具：search_resources 也暴露（图内检索只是预取，
+     *  模型可按对话需要再用不同关键词补充检索）；智能搜索未开启时排除 web_search */
     List<ToolSpecification> generateToolSpecs(boolean webSearch) {
         return chatToolRegistry.specificationsExcluding(webSearch
                 ? new String[0]
-                : new String[]{WebSearchTool.TOOL_NAME}).stream()
-                .filter(spec -> !ResourceSearchTool.TOOL_NAME.equals(spec.name()))
-                .toList();
+                : new String[]{WebSearchTool.TOOL_NAME});
     }
 
     /**
