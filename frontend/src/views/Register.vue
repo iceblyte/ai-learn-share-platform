@@ -14,6 +14,10 @@ const showConfirm = ref(false)
 
 async function handleRegister() {
   error.value = ''
+  if (form.value.nickname && /\s/.test(form.value.nickname)) {
+    error.value = '昵称不能包含空格（昵称用于评论区的 @提及）'
+    return
+  }
   if (form.value.password !== form.value.confirmPassword) {
     error.value = '两次输入的密码不一致'
     return
@@ -57,7 +61,7 @@ async function handleRegister() {
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">昵称 <span class="text-slate-400">(可选)</span></label>
-            <input v-model="form.nickname" type="text" class="input-field" placeholder="显示名称" />
+            <input v-model="form.nickname" type="text" class="input-field" placeholder="显示名称（不能包含空格）" />
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">密码</label>

@@ -715,8 +715,9 @@ function getGradient(index: number) {
                   v-model="profileForm.nickname"
                   type="text"
                   class="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="请输入昵称"
+                  placeholder="请输入昵称（不能包含空格）"
                 />
+                <p class="text-xs text-slate-400 mt-1">昵称用于评论区的 @提及，不能包含空格</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">个人简介</label>

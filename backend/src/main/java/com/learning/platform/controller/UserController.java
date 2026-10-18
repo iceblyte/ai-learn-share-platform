@@ -80,6 +80,8 @@ public class UserController {
             return Result.error(404, "用户不存在");
         }
         if (body.containsKey("nickname")) {
+            // 昵称不得含空白字符：@提及按非空白连续段匹配，带空格的昵称无法被 @ 命中
+            com.learning.platform.common.NicknameRule.validate(body.get("nickname"));
             user.setNickname(body.get("nickname"));
         }
         if (body.containsKey("bio")) {

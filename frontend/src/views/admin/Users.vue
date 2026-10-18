@@ -386,7 +386,7 @@ function formatTime(dateStr: string) {
             <input v-model="createForm.email" type="email" placeholder="user@example.com" class="input-field text-sm" />
           </div>
           <div>
-            <label class="block text-sm text-slate-600 mb-1">昵称（可选，默认同用户名）</label>
+            <label class="block text-sm text-slate-600 mb-1">昵称（可选，默认同用户名，不能包含空格）</label>
             <input v-model="createForm.nickname" class="input-field text-sm" />
           </div>
           <div>

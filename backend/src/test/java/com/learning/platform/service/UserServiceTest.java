@@ -46,6 +46,23 @@ class UserServiceTest {
     // ---------- 创建用户 ----------
 
     @Test
+    @DisplayName("创建用户：昵称含空格被拒绝（@提及按非空白段匹配，带空格永远无法被@）")
+    void createUser_rejectsNicknameWithWhitespace() {
+        when(userMapper.selectOne(any())).thenReturn(null);
+
+        AdminCreateUserRequest req = new AdminCreateUserRequest();
+        req.setUsername("newuser");
+        req.setEmail("new@x.com");
+        req.setRole("USER");
+        req.setNickname("李 四");
+
+        assertThatThrownBy(() -> service.createUser(req))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("昵称");
+        verify(userMapper, never()).insert(org.mockito.Mockito.any(User.class));
+    }
+
+    @Test
     @DisplayName("创建用户：默认密码加密落库，昵称缺省取用户名，角色合法")
     void createUser_success() {
         when(userMapper.selectOne(any())).thenReturn(null);

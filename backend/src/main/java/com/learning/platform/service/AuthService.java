@@ -39,6 +39,8 @@ public class AuthService {
                         .eq("email", request.getEmail())) != null) {
             throw new BusinessException("邮箱已被注册");
         }
+        // 昵称不得含空白字符：@提及按非空白连续段匹配，带空格的昵称无法被 @ 命中
+        com.learning.platform.common.NicknameRule.validate(request.getNickname());
 
         User user = new User();
         user.setUsername(request.getUsername());
