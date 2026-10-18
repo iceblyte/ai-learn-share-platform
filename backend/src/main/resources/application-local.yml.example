@@ -39,6 +39,14 @@ ai:
     wanx:
       api-key: "<your-dashscope-api-key>"    # 阿里云百炼 DashScope，通义万相文生图
 
+# ============================================================
+# 扩展六：Tavily 联网搜索（AI 问答「智能搜索」按钮，可选）
+#   https://tavily.com 免费申请（免费档每月 1000 次）
+#   留空时智能搜索自动降级为无来源回答；对应环境变量 TAVILY_API_KEY
+# ============================================================
+tavily:
+  api-key: "<your-tavily-api-key>"
+
 # File Storage
 # type: local → 存到 ./uploads；type: oss → 需要下面的 access-key-*
 storage:
